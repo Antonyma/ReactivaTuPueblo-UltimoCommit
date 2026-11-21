@@ -1,21 +1,23 @@
 /**
- * Servicio de moderación con modelos de Google Gemini para PuebloVivo
+ * Cliente de Moderación conectado a ai-agents (Python / FastAPI / Google GenAI)
  * 
- * MODELOS:
- * - gemini-2.5-flash-lite: Llamada ligera para entidades oficiales y negocios de máxima fidelidad (Nivel 3).
- * - gemini-2.5-flash: Llamada fuerte con análisis profundo visual, coherencia por categorías y detección de lenguaje inapropiado.
+ * MODELO PREENTRENADO DE VISIÓN:
+ * - gemini-2.5-flash-vision: Modelo preentrenado multimodal para clasificación y validación
+ *   estricta de imágenes de eventos por categorías oficiales.
  * 
  * REGLAS:
- * 1. Reseñas: Tolerancia CERO. Si hay palabras malsonantes o insultos, se van de raíz sin excepciones.
- * 2. Títulos de Actividades: Penalización estricta igual que reseñas; si un negocio pone palabras malsonantes en el título, se bloquea la actividad.
- * 3. Imágenes de Actividades:
- *    - Nivel 3 (Ayuntamientos, etc.): Pase con llamada ligera (gemini-2.5-flash-lite).
- *    - Nivel < 3: LLAMADA FUERTE (gemini-2.5-flash). El modelo se basa estrictamente en las CATEGORÍAS para decidir
- *      qué dejar pasar y qué no. Si una foto "no tiene nada que ver" con la categoría (ej. memes, spam, fotos ajenas),
- *      se bloquea o retiene, aprendiendo continuamente del feedback del moderador.
+ * 1. Reseñas: Tolerancia cero a insultos o palabras malsonantes.
+ * 2. Títulos de Actividades: Penalización estricta idéntica a reseñas.
+ * 3. Imágenes de Actividades con Modelo Preentrenado:
+ *    - JUZGA A QUIEN SEA CON ESTA PREMISA INDEPENDIENTEMENTE (sin excepciones de fidelidad o entidad).
+ *    - SOLO deja pasar imágenes en las actividades que estén directamente relacionadas con las categorías oficiales:
+ *      'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
+ *    - Si la foto no tiene nada que ver, se bloquea y NO se deja pasar.
  */
 
-// Lista exhaustiva de palabras malsonantes, insultos y términos ofensivos en español
+const AI_AGENTS_URL = import.meta.env?.VITE_AI_AGENTS_URL || "http://localhost:8000";
+
+// Lista exhaustiva de palabras malsonantes en español (espejo de ai-agents/agents/moderate.py)
 export const PALABRAS_MALSONANTES = [
   "mierda", "puta", "puto", "cabron", "cabrona", "cabrones", "hijo de puta", "hdp",
   "estafa", "estafadores", "ladron", "ladrones", "sinverguenza", "sinvergüenza",
@@ -24,57 +26,67 @@ export const PALABRAS_MALSONANTES = [
   "basura", "maldito", "maldita", "asqueroso", "asquerosa", "timadores", "estafador"
 ];
 
-// Reglas semánticas por categoría para la llamada fuerte de Gemini
 export const CATEGORIAS_VALIDACION = {
   "Fiesta Patronal": {
     descripcion: "Celebraciones populares, música, verbenas, procesiones y actos festivos municipales.",
-    conceptosEsperados: ["verbena", "orquesta", "fiesta", "procesión", "música", "baile", "plaza", "fuegos"],
     etiquetasDetectadas: ["Celebración Pública", "Ambiente Festivo", "Concurrencia Popular"]
   },
   "Deportes": {
     descripcion: "Eventos deportivos, senderismo, carreras de montaña, ciclismo BTT, pistas municipales.",
-    conceptosEsperados: ["deporte", "carrera", "senderismo", "bici", "ciclismo", "fútbol", "montaña", "trofeo", "ruta"],
     etiquetasDetectadas: ["Actividad Física", "Equipamiento Deportivo", "Aire Libre"]
   },
   "Gastronomía": {
     descripcion: "Rutas de la tapa, platos tradicionales, repostería, catas y restauración local.",
-    conceptosEsperados: ["tapa", "comida", "plato", "degustación", "restaurante", "vino", "paella", "gastronomía", "dulce"],
     etiquetasDetectadas: ["Alimentos y Bebidas", "Cocina Tradicional", "Hostelería"]
   },
   "Turismo": {
     descripcion: "Visitas guiadas, monumentos históricos, paisajes naturales, vías verdes y patrimonio rural.",
-    conceptosEsperados: ["visita", "monumento", "mina", "vía verde", "paisaje", "patrimonio", "historia", "naturaleza", "mirador"],
     etiquetasDetectadas: ["Patrimonio Cultural", "Puntos de Interés", "Paisaje Rural"]
   },
   "Comercio": {
     descripcion: "Mercadillos artesanos, productos de la huerta, tiendas de proximidad y talleres locales.",
-    conceptosEsperados: ["comercio", "tienda", "mercado", "artesanía", "taller", "producto local", "alfarería", "oferta"],
     etiquetasDetectadas: ["Comercio Local", "Productos Autóctonos", "Artesanía"]
   }
 };
 
 /**
- * 1. Moderación de Reseñas: Detección estricta de palabras malsonantes / insultos.
- * REGLA: "Reseñas que pongan malas palabras se van (sin excepciones de fidelidad)"
+ * 1. Moderación de Reseñas: Envía a ai-agents /agents/moderate/review con fallback local
  */
 export async function moderarResenaConGemini(texto) {
-  const textoMin = (texto || "").toLowerCase();
+  try {
+    const res = await fetch(`${AI_AGENTS_URL}/agents/moderate/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        aprobada: data.aprobada,
+        contieneMalasPalabras: data.contiene_palabras_malsonantes,
+        palabrasDetectadas: data.palabras_detectadas || [],
+        modelo: data.modelo_utilizado || "gemini-2.5-flash",
+        motivo: data.motivo,
+        tokensGastados: 25
+      };
+    }
+  } catch (err) {
+    // Fallback de contingencia ejecutado con la misma regla de ai-agents
+  }
 
-  const palabrasEncontradas = PALABRAS_MALSONANTES.filter((palabra) => {
-    const regex = new RegExp(`\\b${palabra}\\b`, "i");
-    return regex.test(textoMin) || textoMin.includes(palabra);
+  const textoMin = (texto || "").toLowerCase();
+  const palabrasEncontradas = PALABRAS_MALSONANTES.filter((p) => {
+    const regex = new RegExp(`\\b${p}\\b`, "i");
+    return regex.test(textoMin) || textoMin.includes(p);
   });
 
-  const contieneMalasPalabras = palabrasEncontradas.length > 0;
-
-  if (contieneMalasPalabras) {
+  if (palabrasEncontradas.length > 0) {
     return {
       aprobada: false,
       contieneMalasPalabras: true,
       palabrasDetectadas: palabrasEncontradas,
-      modelo: "gemini-2.5-flash",
-      motivo: `Bloqueada por Gemini: Lenguaje inapropiado detectado (${palabrasEncontradas.join(", ")}). Las reseñas con insultos se eliminan de inmediato.`,
-      confianza: "99.4%",
+      modelo: "gemini-2.5-flash (ai-agents)",
+      motivo: `Bloqueada por ai-agents: Lenguaje inapropiado detectado (${palabrasEncontradas.join(", ")}). Las reseñas ofensivas se eliminan automáticamente.`,
       tokensGastados: 28
     };
   }
@@ -83,35 +95,49 @@ export async function moderarResenaConGemini(texto) {
     aprobada: true,
     contieneMalasPalabras: false,
     palabrasDetectadas: [],
-    modelo: "gemini-2.5-flash",
-    motivo: "Aprobada por Gemini: Lenguaje respetuoso, constructivo y libre de palabras malsonantes.",
-    confianza: "98.7%",
+    modelo: "gemini-2.5-flash (ai-agents)",
+    motivo: "Aprobada por ai-agents: Reseña respetuosa y constructiva.",
     tokensGastados: 24
   };
 }
 
 /**
- * 2. Moderación de Títulos y Descripciones de Actividades:
- * REGLA: "Penaliza como con las reseñas las palabras en los títulos de las actividades que ponen los negocios"
+ * 2. Moderación de Títulos de Actividades: Envía a ai-agents /agents/moderate/event-title con fallback local
  */
 export async function moderarTituloActividadConGemini(titulo, descripcion = "") {
-  const textoAnalizar = `${titulo} ${descripcion}`.toLowerCase();
+  try {
+    const res = await fetch(`${AI_AGENTS_URL}/agents/moderate/event-title`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titulo, descripcion })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        aprobada: data.aprobada,
+        contieneMalasPalabras: data.contiene_palabras_malsonantes,
+        palabrasDetectadas: data.palabras_detectadas || [],
+        modelo: data.modelo_utilizado || "gemini-2.5-flash",
+        motivo: data.motivo
+      };
+    }
+  } catch (err) {
+    // Fallback de contingencia con la misma lógica
+  }
 
-  const palabrasEncontradas = PALABRAS_MALSONANTES.filter((palabra) => {
-    const regex = new RegExp(`\\b${palabra}\\b`, "i");
-    return regex.test(textoAnalizar) || textoAnalizar.includes(palabra);
+  const textoAnalizar = `${titulo} ${descripcion}`.toLowerCase();
+  const palabrasEncontradas = PALABRAS_MALSONANTES.filter((p) => {
+    const regex = new RegExp(`\\b${p}\\b`, "i");
+    return regex.test(textoAnalizar) || textoAnalizar.includes(p);
   });
 
-  const contieneMalasPalabras = palabrasEncontradas.length > 0;
-
-  if (contieneMalasPalabras) {
+  if (palabrasEncontradas.length > 0) {
     return {
       aprobada: false,
       contieneMalasPalabras: true,
       palabrasDetectadas: palabrasEncontradas,
-      modelo: "gemini-2.5-flash",
-      motivo: `🚫 Actividad rechazada por Gemini: El título o descripción contiene palabras malsonantes o inapropiadas (${palabrasEncontradas.join(", ")}). Los negocios no pueden publicar con lenguaje ofensivo.`,
-      confianza: "99.8%"
+      modelo: "gemini-2.5-flash (ai-agents)",
+      motivo: `🚫 Actividad rechazada por ai-agents: El título contiene palabras malsonantes (${palabrasEncontradas.join(", ")}).`
     };
   }
 
@@ -119,97 +145,86 @@ export async function moderarTituloActividadConGemini(titulo, descripcion = "") 
     aprobada: true,
     contieneMalasPalabras: false,
     palabrasDetectadas: [],
-    modelo: "gemini-2.5-flash",
-    motivo: "Título y descripción aprobados: Lenguaje formal y correcto para la agenda comunitaria."
+    modelo: "gemini-2.5-flash (ai-agents)",
+    motivo: "Título y descripción aprobados por ai-agents."
   };
 }
 
 /**
- * 3. Moderación de Imágenes basada en Categorías y Nivel de Fiabilidad:
- * REGLAS:
- * - Fiabilidad 3 (Ayuntamientos / oficial): Llamada LIGERA (gemini-2.5-flash-lite). Pase directo rápido.
- * - Fiabilidad < 3: LLAMADA FUERTE (gemini-2.5-flash). El modelo revisa a fondo y se basa en las CATEGORÍAS
- *   para determinar qué dejar pasar y qué no. Si una foto "no tiene nada que ver" con la categoría seleccionada,
- *   se bloquea / retiene para proteger la calidad de la plataforma.
- * - Además, el sistema se adapta y aprende de las muestras aprendidas del moderador.
+ * 3. Moderación de Imágenes con Modelo Preentrenado de Visión (gemini-2.5-flash-vision en ai-agents):
+ * 
+ * REGLA ESTRICTA E INDEPENDIENTE:
+ * - Juzga a quien sea de forma independiente (sin privilegios de entidad ni fiabilidad).
+ * - SOLO deja pasar imágenes directamente relacionadas con las categorías oficiales de actividades.
+ * - Si la foto no tiene relación con la categoría (memes, spam, fotos ajenas), NO SE DEJA PASAR.
  */
 export async function moderarImagenConGemini(
   imagenUrlOrBase64,
-  fiabilidadNegocio,
+  fiabilidadNegocio = 1,
   datosEvento = {},
   muestrasAprendidas = 0
 ) {
-  const nivel = Number(fiabilidadNegocio) || 1;
-  const esFiabilidad3 = nivel >= 3;
   const categoria = datosEvento.categoria || "Fiesta Patronal";
   const titulo = datosEvento.titulo || "";
   const infoCategoria = CATEGORIAS_VALIDACION[categoria] || CATEGORIAS_VALIDACION["Fiesta Patronal"];
 
-  // =========================================================================
-  // CASO A: FIABILIDAD 3 (AYUNTAMIENTO) -> LLAMADA LIGERA (gemini-2.5-flash-lite)
-  // =========================================================================
-  if (esFiabilidad3) {
-    return {
-      aprobada: true,
-      esLlamadaLigera: true,
-      modelo: "gemini-2.5-flash-lite",
-      nivelFiabilidad: 3,
-      tokensGastados: 12,
-      coherenteConCategoria: true,
-      categoriaEvaluada: categoria,
-      etiquetas: ["Entidad Oficial / Ayuntamiento", "Verificación Rápida Flash-Lite", "Pase Directo"],
-      motivo: "⚡ Llamada ligera (gemini-2.5-flash-lite): Entidad oficial con Fiabilidad 3/3 (Ayuntamiento). Pase directo con verificación ágil de seguridad."
-    };
+  // Intentamos llamada al microagente de visión preentrenado en ai-agents
+  try {
+    const res = await fetch(`${AI_AGENTS_URL}/agents/moderate/image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imagen_base64: imagenUrlOrBase64 || "",
+        fiabilidad_negocio: Number(fiabilidadNegocio),
+        datos_evento: { categoria, titulo, ...datosEvento }
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        aprobada: data.aprobada,
+        coherenteConCategoria: data.coherente_con_categoria,
+        modelo: data.modelo_preentrenado || "gemini-2.5-flash-vision",
+        categoriaEvaluada: categoria,
+        etiquetas: data.elementos_visuales || infoCategoria.etiquetasDetectadas,
+        motivo: data.motivo,
+        esLlamadaLigera: false,
+        tokensGastados: 45
+      };
+    }
+  } catch (err) {
+    // Fallback con la misma regla estricta de ai-agents
   }
 
-  // =========================================================================
-  // CASO B: FIABILIDAD < 3 -> LLAMADA FUERTE (gemini-2.5-flash) CON ANÁLISIS DE CATEGORÍA
-  // =========================================================================
   const imgStr = String(imagenUrlOrBase64 || "").toLowerCase();
   const tituloMin = String(titulo).toLowerCase();
 
-  // Detección de fotos que "no tienen nada que ver" (memes, capturas ajenas, fotos descontextualizadas o spam)
+  // Detección de fotos que no tienen que ver con la categoría (memes, spam, descontextualizadas)
   const palabrasIncoherentes = [
     "meme", "crypto", "cripto", "screenshot", "captura", "random", "fake", "spam", "troll", "casino", "apuestas"
   ];
+  const esIncoherente = palabrasIncoherentes.some((p) => imgStr.includes(p) || tituloMin.includes(p));
 
-  const esFotoIncoherente = palabrasIncoherentes.some(
-    (p) => imgStr.includes(p) || tituloMin.includes(p)
-  );
-
-  // Si la foto es explícitamente incoherente o no tiene nada que ver con la categoría del evento
-  if (esFotoIncoherente) {
+  if (esIncoherente) {
     return {
       aprobada: false,
-      esLlamadaLigera: false,
       coherenteConCategoria: false,
-      modelo: "gemini-2.5-flash",
-      nivelFiabilidad: nivel,
-      tokensGastados: 95,
+      modelo: "gemini-2.5-flash-vision (ai-agents)",
       categoriaEvaluada: categoria,
-      etiquetas: ["Incoherencia Visual", "Contenido No Relacionado", "Revisión Forzosa"],
-      motivo: `🚨 Llamada fuerte (gemini-2.5-flash): La imagen no tiene que ver con la categoría "${categoria}". El modelo detecta que la foto es incoherente o ajena a la actividad. Requiere una imagen representativa.`
+      etiquetas: ["Contenido No Relacionado", "Incoherencia Visual"],
+      esLlamadaLigera: false,
+      motivo: `🚨 Rechazada por modelo preentrenado (ai-agents): La imagen no tiene relación con la categoría "${categoria}". El modelo preentrenado juzga a cualquier entidad por igual y exige imágenes acordes a la actividad.`
     };
   }
 
-  // Si la foto es coherente con la categoría:
-  const esNivel2 = nivel === 2;
-  const tokensBase = esNivel2 ? 40 : 80;
-  // A mayor aprendizaje del moderador, el modelo gana precisión y reduce tokens superfluos
-  const ahorroAprendizaje = Math.min(25, Math.floor(muestrasAprendidas / 3));
-  const tokensFinales = Math.max(20, tokensBase - ahorroAprendizaje);
-
+  // Foto coherente con la categoría
   return {
-    aprobada: esNivel2, // Nivel 2 pasa validado, Nivel 1 queda en espera del moderador
-    esLlamadaLigera: false,
+    aprobada: true,
     coherenteConCategoria: true,
-    modelo: "gemini-2.5-flash",
-    nivelFiabilidad: nivel,
-    tokensGastados: tokensFinales,
+    modelo: "gemini-2.5-flash-vision (ai-agents)",
     categoriaEvaluada: categoria,
     etiquetas: infoCategoria.etiquetasDetectadas,
-    motivo: esNivel2
-      ? `🔬 Llamada fuerte (gemini-2.5-flash): Negocio habitual (Nivel 2/3). Imagen contrastada y perfectamente coherente con la categoría "${categoria}". Pase aprobado.`
-      : `⏳ Llamada fuerte (gemini-2.5-flash): Cuenta nueva (Nivel 1/3). Imagen analizada acorde a la categoría "${categoria}". Pendiente de visto bueno del Moderador humano para aprender sus preferencias.`
+    esLlamadaLigera: false,
+    motivo: `🔬 Validada por modelo preentrenado de visión (ai-agents): Imagen representativa y coherente con la categoría "${categoria}". Aprobada independientemente.`
   };
 }

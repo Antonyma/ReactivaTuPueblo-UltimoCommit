@@ -44,11 +44,10 @@ export default function ModeratorPanel() {
               🛡️ Panel de Moderación Total con Modelos Gemini
             </h1>
             <p className="text-sm text-blue-100 mt-1 max-w-3xl">
-              Moderas todo el contenido comarcal: <strong>Imágenes de eventos</strong> (llamada ligera{" "}
-              <code>gemini-2.5-flash-lite</code> para entidades de fidelidad 3 como el ayuntamiento; y para el resto,{" "}
-              <strong>llamada fuerte <code>gemini-2.5-flash</code> basada estrictamente en categorías</strong> para rechazar
-              fotos que no tienen nada que ver mientras el modelo aprende). Además, <strong>penalización estricta</strong>{" "}
-              por palabras malsonantes tanto en <strong>reseñas</strong> como en los <strong>títulos de actividades</strong>.
+              Moderas todo el contenido comarcal con los micro-agentes de <code>ai-agents</code>: <strong>Imágenes de eventos</strong> evaluadas por el{" "}
+              <strong>modelo preentrenado de visión (<code>gemini-2.5-flash-vision</code>)</strong>, el cual juzga a cualquier publicador de forma independiente{" "}
+              y <strong>solo deja pasar fotos relacionadas con las categorías oficiales</strong> ('Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio').{" "}
+              Además, <strong>penalización estricta</strong> por palabras malsonantes en <strong>reseñas</strong> y <strong>títulos de actividades</strong>.
             </p>
           </div>
           <button
@@ -70,11 +69,11 @@ export default function ModeratorPanel() {
             </p>
           </div>
           <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
-            <p className="text-xs text-blue-200 uppercase font-bold">Llamadas Ligeras (Fiabilidad 3)</p>
+            <p className="text-xs text-blue-200 uppercase font-bold">Filtro Visión Preentrenado</p>
             <p className="text-3xl font-black text-emerald-300 mt-1">
-              {eventosAhorradosTokens} <span className="text-sm font-bold text-white">flash-lite</span>
+              5 <span className="text-sm font-bold text-white">categorías</span>
             </p>
-            <p className="text-xs text-blue-100 mt-1">Ayuntamientos y cuentas top</p>
+            <p className="text-xs text-blue-100 mt-1">ai-agents · Juicio imparcial</p>
           </div>
           <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
             <p className="text-xs text-blue-200 uppercase font-bold">Reseñas Bloqueadas (Malas Palabras)</p>

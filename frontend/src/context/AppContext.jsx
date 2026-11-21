@@ -221,12 +221,12 @@ export function AppProvider({ children }) {
     }
 
     const evalRef = evaluarFiabilidadNegocio(nuevoData.negocio, cuentasNegocio);
-    const esFiabilidad3 = evalRef.nivel >= 3;
     const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
 
-    // 2. MODERACIÓN DE IMAGEN CON GEMINI BASADA EN CATEGORÍAS
-    // - Fiabilidad 3 (Ayuntamiento): llamada ligera (gemini-2.5-flash-lite) con pase directo.
-    // - Fiabilidad < 3: llamada fuerte (gemini-2.5-flash) que evalúa si la foto encaja con la categoría.
+    // 2. MODERACIÓN DE IMAGEN CON MODELO PREENTRENADO DE VISIÓN (gemini-2.5-flash-vision)
+    // PREMISA ESTRICTA E INDEPENDIENTE:
+    // Juzga a QUIEN SEA con esta premisa independientemente (sin excepciones).
+    // SOLO deja pasar imágenes en las actividades que estén relacionadas con las categorías oficiales.
     const moderacionImg = await moderarImagenConGemini(
       nuevoData.imagen,
       evalRef.nivel,
@@ -234,17 +234,17 @@ export function AppProvider({ children }) {
       muestrasAprendidasModelo
     );
 
-    // Si fiabilidad < 3 y la foto no tiene nada que ver con la categoría:
-    const fotoIncoherente = !esFiabilidad3 && moderacionImg.coherenteConCategoria === false;
+    // Si la imagen no tiene relación con la categoría oficial, NO SE DEJA PASAR independientemente de quién sea
+    const fotoIncoherente = moderacionImg.coherenteConCategoria === false;
 
-    // Pase directo solo si tiene Fiabilidad 3 (Ayuntamientos)
-    const pasaSinRevision = esFiabilidad3;
+    // Si la foto es coherente, las entidades de confianza (Nivel 2 o 3) pasan validadas directamente por el modelo
+    const pasaSinRevision = !fotoIncoherente && evalRef.esDeConfianza;
 
     let estadoModeracion = "pendiente";
-    if (pasaSinRevision) {
-      estadoModeracion = "aprobada";
-    } else if (fotoIncoherente) {
+    if (fotoIncoherente) {
       estadoModeracion = "denegada";
+    } else if (pasaSinRevision) {
+      estadoModeracion = "aprobada";
     }
 
     const nuevoEvento = {
@@ -264,16 +264,26 @@ export function AppProvider({ children }) {
       fecha: formatearFechaBonita(nuevoData.fechaInicio),
       estadoModeracion,
       ahorroTokens: pasaSinRevision,
-      motivoIA: pasaSinRevision
-        ? `Pase directo por Fiabilidad Nivel 3/3 (Llamada ligera Gemini Flash-Lite)`
-        : fotoIncoherente
-        ? `❌ Denegada por Gemini Flash: La foto no tiene que ver con la categoría "${nuevoData.categoria}".`
-        : `Cuenta Nivel ${evalRef.nivel}/3 · Revisión fuerte Gemini Flash (Categoría: ${nuevoData.categoria})`,
+      motivoIA: fotoIncoherente
+        ? `🚨 Denegada por Modelo Preentrenado de Visión: La foto no guarda relación con la categoría "${nuevoData.categoria}".`
+        : pasaSinRevision
+        ? `✓ Validada por Modelo Preentrenado de Visión: Imagen coherente con la categoría "${nuevoData.categoria}". Pase de confianza.`
+        : `Cuenta Nivel 1/3 · Imagen analizada por Modelo Preentrenado (Categoría: ${nuevoData.categoria}). Pendiente de validación final.`,
       moderacionImagen: moderacionImg,
       imagen: nuevoData.imagen || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
     };
 
     setActividades((prev) => [nuevoEvento, ...prev]);
+
+    if (fotoIncoherente) {
+      setMuestrasAprendidasModelo((prev) => prev + 1);
+      notificarDecisionPublicadorWhatsApp(nuevoEvento, "DENEGADA");
+      mostrarToast(`🚨 Actividad denegada: La imagen no corresponde a la categoría "${nuevoData.categoria}".`);
+      return {
+        exito: false,
+        motivo: `🚨 La foto no tiene relación con la categoría "${nuevoData.categoria}". El modelo preentrenado de visión juzga a todos por igual y solo admite imágenes relacionadas con la temática.`
+      };
+    }
 
     if (pasaSinRevision) {
       setEventosAhorradosTokens((prev) => prev + 1);
@@ -288,22 +298,12 @@ export function AppProvider({ children }) {
       }
       notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
       mostrarToast(
-        `⚡ ¡Publicada! "${nuevoData.negocio}" es Nivel 3 (Ayuntamiento): Verificación ligera Gemini Flash-Lite completada.`
+        `⚡ ¡Publicada! "${nuevoData.negocio}": Imagen verificada y coherente con la categoría "${nuevoData.categoria}" por el modelo preentrenado.`
       );
       return { exito: true };
     }
 
-    if (fotoIncoherente) {
-      setMuestrasAprendidasModelo((prev) => prev + 1);
-      notificarDecisionPublicadorWhatsApp(nuevoEvento, "DENEGADA");
-      mostrarToast(`🚨 Actividad denegada por Gemini: La imagen no corresponde a la categoría "${nuevoData.categoria}".`);
-      return {
-        exito: false,
-        motivo: `🚨 La imagen no tiene relación con la categoría "${nuevoData.categoria}". El modelo Gemini Flash ha bloqueado la publicación hasta que uses una foto acorde a la actividad.`
-      };
-    }
-
-    mostrarToast(`⏳ Enviada a moderación: "${nuevoData.negocio}". Gemini Flash analizó la foto según la categoría "${nuevoData.categoria}".`);
+    mostrarToast(`⏳ Enviada a moderación: "${nuevoData.negocio}". Imagen analizada para la categoría "${nuevoData.categoria}" por el modelo preentrenado.`);
     return { exito: true };
   };
 

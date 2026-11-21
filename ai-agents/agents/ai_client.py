@@ -25,3 +25,35 @@ def generar_json(prompt: str, contenidos: list, esquema: type[BaseModel], modelo
         except Exception as e:
             if modelo == modelos[-1]:
                 raise e
+
+def generar_json_con_imagen(
+    prompt: str,
+    imagen_bytes: bytes,
+    mime_type: str,
+    esquema: type[BaseModel],
+    modelo_preferido: str = "gemini-2.5-flash"
+) -> dict:
+    """
+    Usa el modelo preentrenado de visión multimodal de Gemini para analizar imágenes
+    directamente desde bytes con el schema Pydantic especificado.
+    """
+    modelos = [modelo_preferido, "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    partes = [prompt]
+    if imagen_bytes:
+        partes.append(types.Part.from_bytes(data=imagen_bytes, mime_type=mime_type or "image/jpeg"))
+
+    for modelo in modelos:
+        try:
+            resp = client.models.generate_content(
+                model=modelo,
+                contents=partes,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=esquema,
+                    temperature=0.0,
+                ),
+            )
+            return esquema.model_validate_json(resp.text).model_dump()
+        except Exception as e:
+            if modelo == modelos[-1]:
+                raise e
