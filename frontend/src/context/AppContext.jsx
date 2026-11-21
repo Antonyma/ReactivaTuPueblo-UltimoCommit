@@ -459,8 +459,6 @@ export function AppProvider({ children }) {
         restaurarResena
       }}
     >
-      }}
-    >
       {children}
     </AppContext.Provider>
   );
