@@ -109,10 +109,23 @@ export default function MapView() {
             const cardEl = document.getElementById(`actividad-card-${act.id}`);
             if (!cardEl) return;
             cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-            cardEl.classList.add("ring-4", "ring-amber-400");
+            // Resaltado notable y por encima de otras tarjetas
+            cardEl.style.outline = "6px solid #facc15";
+            cardEl.style.outlineOffset = "4px";
+            cardEl.style.boxShadow = "0 0 0 6px #facc15, 0 25px 50px rgba(0,0,0,0.35)";
+            cardEl.style.transform = "scale(1.03)";
+            cardEl.style.zIndex = "9999";
+            cardEl.style.position = "relative";
+            cardEl.style.backgroundColor = "#fefce8";
             window.setTimeout(() => {
-              cardEl.classList.remove("ring-4", "ring-amber-400");
-            }, 2200);
+              cardEl.style.outline = "";
+              cardEl.style.outlineOffset = "";
+              cardEl.style.boxShadow = "";
+              cardEl.style.transform = "";
+              cardEl.style.zIndex = "";
+              cardEl.style.position = "";
+              cardEl.style.backgroundColor = "";
+            }, 4000);
           });
       });
   }, [actividades, puebloActivo]);
