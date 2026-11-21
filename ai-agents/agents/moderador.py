@@ -107,6 +107,22 @@ class DecisionModeracionTitulo(BaseModel):
     motivo: str
     modelo_utilizado: str = "openrouter-router"
 
+
+class DecisionModeracionBatchItem(BaseModel):
+    indice: int
+    aprobada: bool
+    coherente_con_categoria: bool
+    contiene_palabras_malsonantes: bool = False
+    contiene_amenazas_o_violencia: bool = False
+    palabras_detectadas: list[str] = Field(default_factory=list)
+    motivo: str
+    modelo_utilizado: str = "openrouter-router"
+
+
+class DecisionModeracionBatch(BaseModel):
+    resultados: list[DecisionModeracionBatchItem] = Field(default_factory=list)
+    modelo_utilizado: str = "openrouter-router"
+
 class DecisionModeracionImagen(BaseModel):
     aprobada: bool
     coherente_con_categoria: bool
@@ -319,51 +335,51 @@ def moderar_resena(texto: str, negocio: dict = None) -> dict:
 # MODERACIÓN DE TÍTULOS Y COHERENCIA DE ACTIVIDADES
 # =============================================================================
 
-def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "Fiesta Patronal") -> dict:
+def _filtro_lexico_evento(titulo: str, descripcion: str = "", categoria: str = "Fiesta Patronal"):
+    """
+    Filtro léxico local: rechaza contenido obvio (amenazas, insultos, spam, títulos inválidos)
+    sin llamar a la IA. Devuelve (True, None) si pasa el filtro, o (False, resultado) si se rechaza.
+    """
     texto_completo = f"{titulo} {descripcion}".strip()
-    texto_analizar = texto_completo.lower()
 
-    # 1. Tolerancia cero ante amenazas e incitación a la violencia
-    amenazas_encontradas = _buscar_terminos_prohibidos(texto_completo, PALABRAS_AMENAZAS_VIOLENCIA)
-    if amenazas_encontradas:
-        return {
+    amenazas = _buscar_terminos_prohibidos(texto_completo, PALABRAS_AMENAZAS_VIOLENCIA)
+    if amenazas:
+        return False, {
             "aprobada": False,
             "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": True,
             "contiene_amenazas_o_violencia": True,
-            "palabras_detectadas": amenazas_encontradas,
+            "palabras_detectadas": amenazas,
             "modelo_utilizado": "filtro-seguridad-critico",
-            "motivo": f"🚨 Actividad bloqueada por seguridad: Contiene amenazas o incitación a la violencia ({', '.join(amenazas_encontradas)})."
+            "motivo": f"🚨 Actividad bloqueada por seguridad: Contiene amenazas o incitación a la violencia ({', '.join(amenazas)})."
         }
 
-    # 2. Palabras malsonantes
-    palabras_encontradas = _buscar_terminos_prohibidos(texto_completo, PALABRAS_MALSONANTES)
-    if palabras_encontradas:
-        return {
+    malsonantes = _buscar_terminos_prohibidos(texto_completo, PALABRAS_MALSONANTES)
+    if malsonantes:
+        return False, {
             "aprobada": False,
             "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": True,
             "contiene_amenazas_o_violencia": False,
-            "palabras_detectadas": palabras_encontradas,
+            "palabras_detectadas": malsonantes,
             "modelo_utilizado": "filtro-lexico",
-            "motivo": f"🚫 Actividad bloqueada: El texto contiene palabras malsonantes ({', '.join(palabras_encontradas)})."
+            "motivo": f"🚫 Actividad bloqueada: El texto contiene palabras malsonantes ({', '.join(malsonantes)})."
         }
 
-    # 3. Detección de spam o texto incoherente sin sentido
-    spam_encontrado = _buscar_terminos_prohibidos(texto_completo, PALABRAS_SPAM_INCOHERENTES)
-    if spam_encontrado:
-        return {
+    spam = _buscar_terminos_prohibidos(texto_completo, PALABRAS_SPAM_INCOHERENTES)
+    if spam:
+        return False, {
             "aprobada": False,
             "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": False,
             "contiene_amenazas_o_violencia": False,
-            "palabras_detectadas": spam_encontrado,
+            "palabras_detectadas": spam,
             "modelo_utilizado": "filtro-spam",
             "motivo": "🚨 Rechazada por Moderador IA: Contiene spam comercial ajeno o términos sin coherencia con la actividad municipal."
         }
 
     if len(titulo.strip()) < 5 or bool(re.match(r"^[a-zA-Z]{1,3}$", titulo.strip())):
-        return {
+        return False, {
             "aprobada": False,
             "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": False,
@@ -372,6 +388,18 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
             "modelo_utilizado": "filtro-longitud",
             "motivo": "🚨 Rechazada por Moderador IA: Título demasiado corto o carente de significado para un evento."
         }
+
+    return True, None
+
+
+def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "Fiesta Patronal") -> dict:
+    texto_completo = f"{titulo} {descripcion}".strip()
+    texto_analizar = texto_completo.lower()
+
+    # 1-3. Filtro léxico local (sin IA)
+    paso, resultado_lexico = _filtro_lexico_evento(titulo, descripcion, categoria)
+    if not paso:
+        return resultado_lexico
 
     # 4. Verificación semántica de seguridad y coherencia con la categoría (con OpenRouter Failover)
     info_cat = CATEGORIAS_VALIDACION.get(categoria, CATEGORIAS_VALIDACION["Fiesta Patronal"])
@@ -520,6 +548,124 @@ def moderar_actividad_autonoma(datos_evento: dict, fiabilidad_negocio: int = 1) 
         "motivo": res_imagen.get("motivo"),
         "modelo_utilizado": f"{res_titulo.get('modelo_utilizado', 'texto')} + {res_imagen.get('modelo', 'vision')}"
     }
+
+
+def moderar_eventos_batch(eventos: list[dict], fiabilidad: int = 1) -> list[dict]:
+    """
+    Modera varios eventos en una sola llamada a la IA (batch de hasta 5).
+    Aplica primero el filtro léxico local a cada evento para rechazar contenido obvio
+    sin consumir tokens; solo los que pasan el filtro se envían a la IA en lotes de 5.
+    Devuelve una lista de resultados en el mismo orden de entrada.
+    """
+    if not eventos:
+        return []
+
+    n = len(eventos)
+    resultados = [None] * n
+    pendientes = []
+
+    # 1. Filtro léxico local (sin IA)
+    for i, ev in enumerate(eventos):
+        titulo = ev.get("titulo") or ev.get("nombre") or ""
+        descripcion = ev.get("descripcion") or ""
+        categoria = ev.get("categoria") or "Fiesta Patronal"
+        paso, lex = _filtro_lexico_evento(titulo, descripcion, categoria)
+        if not paso:
+            resultados[i] = lex
+        else:
+            pendientes.append(i)
+
+    # 2. Enviar a la IA en lotes de 5
+    tam_lote = 5
+    for inicio in range(0, len(pendientes), tam_lote):
+        lote_indices = pendientes[inicio:inicio + tam_lote]
+        bloques = []
+        for idx in lote_indices:
+            ev = eventos[idx]
+            titulo = ev.get("titulo") or ev.get("nombre") or ""
+            descripcion = ev.get("descripcion") or ""
+            categoria = ev.get("categoria") or "Fiesta Patronal"
+            bloques.append(
+                f"[indice={idx}] Título: {titulo}\nDescripción: {descripcion}\nCategoría: {categoria}"
+            )
+        user_content = "\n\n---\n\n".join(bloques)
+
+        prompt = (
+            "Eres el moderador de agenda comunitaria y seguridad de PuebloVivo.\n"
+            "Evalúa CADA evento de la lista y devuelve un resultado por cada uno.\n"
+            "REGLAS OBLIGATORIAS:\n"
+            "1. Amenazas, violencia, acoso o incitación al odio => aprobada=false, contiene_amenazas_o_violencia=true.\n"
+            "2. Título/descripción sin relación con la categoría, spam o sin sentido => aprobada=false, coherente_con_categoria=false.\n"
+            "3. Solo aprueba eventos pacíficos y coherentes.\n"
+            "Devuelve un JSON con clave 'resultados': lista de objetos con campos: "
+            "indice (entero original), aprobada, coherente_con_categoria, contiene_palabras_malsonantes, "
+            "contiene_amenazas_o_violencia, palabras_detectadas (lista), motivo (string)."
+        )
+
+        try:
+            resp = _llamar_texto_con_openrouter_failover(
+                system_prompt=prompt,
+                user_content=user_content,
+                esquema_cls=DecisionModeracionBatch,
+            )
+            lista = resp.get("resultados", []) if isinstance(resp, dict) else []
+            # Mapear por indice si viene; si no, asignar en orden
+            asignados = set()
+            for r in lista:
+                idx = r.get("indice")
+                if idx is None or not (0 <= idx < n) or resultados[idx] is not None:
+                    continue
+                resultados[idx] = {
+                    "aprobada": bool(r.get("aprobada", False)),
+                    "coherente_con_categoria": bool(r.get("coherente_con_categoria", False)),
+                    "contiene_palabras_malsonantes": bool(r.get("contiene_palabras_malsonantes", False)),
+                    "contiene_amenazas_o_violencia": bool(r.get("contiene_amenazas_o_violencia", False)),
+                    "palabras_detectadas": r.get("palabras_detectadas", []) or [],
+                    "motivo": r.get("motivo", ""),
+                    "modelo_utilizado": r.get("modelo_utilizado", resp.get("modelo_utilizado", "openrouter-router")),
+                }
+                asignados.add(idx)
+
+            # Fallback posicional si faltan indices
+            faltantes = [idx for idx in lote_indices if resultados[idx] is None]
+            sin_indice = [r for r in lista if r.get("indice") is None or not (0 <= r.get("indice", -1) < n)]
+            # emparejar por orden los que no se asignaron
+            pi = 0
+            for idx in faltantes:
+                if pi < len(sin_indice):
+                    r = sin_indice[pi]
+                    pi += 1
+                    resultados[idx] = {
+                        "aprobada": bool(r.get("aprobada", False)),
+                        "coherente_con_categoria": bool(r.get("coherente_con_categoria", False)),
+                        "contiene_palabras_malsonantes": bool(r.get("contiene_palabras_malsonantes", False)),
+                        "contiene_amenazas_o_violencia": bool(r.get("contiene_amenazas_o_violencia", False)),
+                        "palabras_detectadas": r.get("palabras_detectadas", []) or [],
+                        "motivo": r.get("motivo", ""),
+                        "modelo_utilizado": r.get("modelo_utilizado", resp.get("modelo_utilizado", "openrouter-router")),
+                    }
+        except Exception:
+            # Fallback individual
+            for idx in lote_indices:
+                if resultados[idx] is None:
+                    ev = eventos[idx]
+                    resultados[idx] = moderar_titulo_evento(
+                        ev.get("titulo") or ev.get("nombre") or "",
+                        ev.get("descripcion") or "",
+                        ev.get("categoria") or "Fiesta Patronal",
+                    )
+
+    # 3. Rellenar cualquier hueco restante
+    for i in range(n):
+        if resultados[i] is None:
+            ev = eventos[i]
+            resultados[i] = moderar_titulo_evento(
+                ev.get("titulo") or ev.get("nombre") or "",
+                ev.get("descripcion") or "",
+                ev.get("categoria") or "Fiesta Patronal",
+            )
+
+    return resultados
 
 
 def evaluar_evento(evento: dict, negocio: dict, historial_aprobados: list[dict]) -> dict:

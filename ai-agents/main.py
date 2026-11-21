@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 # Importamos los agentes desde la misma carpeta agents/
 from agents.scrapper import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
-from agents.moderador import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma
+from agents.moderador import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma, moderar_eventos_batch
 from agents.imagenes_actividades import nemotron_classifier
 from agents.recommend import recomendar_a_vecinos, recommend_actividades
 try:
@@ -49,6 +49,10 @@ class ReqModerateEventTitle(BaseModel):
 
 class ReqModerateAutonomous(BaseModel):
     evento: dict
+
+class ReqModerateBatch(BaseModel):
+    eventos: list[dict]
+    fiabilidad: Optional[int] = 1
 class ReqExtract(BaseModel):
     texto: str = ""
     url_post: Optional[str] = None
@@ -128,6 +132,10 @@ def endpoint_moderate_event_title(req: ReqModerateEventTitle):
 @app.post("/agents/moderate/autonomous")
 def endpoint_moderate_autonomous(req: ReqModerateAutonomous):
     return moderar_actividad_autonoma(req.evento)
+
+@app.post("/agents/moderate/batch")
+def endpoint_moderate_batch(req: ReqModerateBatch):
+    return moderar_eventos_batch(req.eventos, req.fiabilidad or 1)
 
 @app.get("/agents/moderate/train-nemotron")
 def endpoint_train_nemotron():
