@@ -10,6 +10,8 @@ services:
         sync: false
       - key: NVIDIA_API_KEY
         sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
@@ -21,6 +23,7 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     plan: free
+    healthCheckPath: /api/health
     envVars:
       - key: DATA_SOURCE
         value: supabase
