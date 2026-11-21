@@ -1,22 +1,30 @@
 import { AuthController } from '../controllers/AuthController.js'
 import { EventoController } from '../controllers/EventoController.js'
 import { IaController } from '../controllers/IaController.js'
+import { ImagenController } from '../controllers/ImagenController.js'
 import { NegocioController } from '../controllers/NegocioController.js'
 import { UsuarioController } from '../controllers/UsuarioController.js'
+import { ValoracionController } from '../controllers/ValoracionController.js'
 import { WhatsappController } from '../controllers/WhatsappController.js'
 import { createAuthMiddleware, createOptionalAuthMiddleware } from '../middlewares/authMiddleware.js'
 import { createInitialMockStore } from '../repositories/mock/mockData.js'
 import { MockEventoRepository } from '../repositories/mock/MockEventoRepository.js'
+import { MockImagenRepository } from '../repositories/mock/MockImagenRepository.js'
 import { MockNegocioRepository } from '../repositories/mock/MockNegocioRepository.js'
 import { MockUsuarioRepository } from '../repositories/mock/MockUsuarioRepository.js'
+import { MockValoracionRepository } from '../repositories/mock/MockValoracionRepository.js'
 import { SupabaseEventoRepository } from '../repositories/supabase/SupabaseEventoRepository.js'
+import { SupabaseImagenRepository } from '../repositories/supabase/SupabaseImagenRepository.js'
 import { SupabaseNegocioRepository } from '../repositories/supabase/SupabaseNegocioRepository.js'
 import { SupabaseUsuarioRepository } from '../repositories/supabase/SupabaseUsuarioRepository.js'
+import { SupabaseValoracionRepository } from '../repositories/supabase/SupabaseValoracionRepository.js'
 import { AuthService } from '../services/AuthService.js'
 import { EventoService } from '../services/EventoService.js'
 import { IaService } from '../services/IaService.js'
+import { ImagenService } from '../services/ImagenService.js'
 import { NegocioService } from '../services/NegocioService.js'
 import { UsuarioService } from '../services/UsuarioService.js'
+import { ValoracionService } from '../services/ValoracionService.js'
 import { WhatsappService } from '../services/WhatsappService.js'
 import { env } from './env.js'
 import { createSupabaseClient } from './supabaseClient.js'
@@ -28,6 +36,8 @@ function buildRepositories() {
       usuarioRepository: new SupabaseUsuarioRepository(supabaseClient),
       negocioRepository: new SupabaseNegocioRepository(supabaseClient),
       eventoRepository: new SupabaseEventoRepository(supabaseClient),
+      valoracionRepository: new SupabaseValoracionRepository(supabaseClient),
+      imagenRepository: new SupabaseImagenRepository(supabaseClient),
     }
   }
 
@@ -37,6 +47,8 @@ function buildRepositories() {
       usuarioRepository: new MockUsuarioRepository(mockStore),
       negocioRepository: new MockNegocioRepository(mockStore),
       eventoRepository: new MockEventoRepository(mockStore),
+      valoracionRepository: new MockValoracionRepository(mockStore),
+      imagenRepository: new MockImagenRepository(mockStore),
     }
   }
 
@@ -55,6 +67,8 @@ export function createContainer() {
   const usuarioService = new UsuarioService(repositories)
   const negocioService = new NegocioService(repositories)
   const eventoService = new EventoService(repositories)
+  const valoracionService = new ValoracionService(repositories)
+  const imagenService = new ImagenService(repositories)
   const iaService = new IaService(repositories)
   const whatsappService = new WhatsappService({ ...repositories, iaService })
 
@@ -63,6 +77,8 @@ export function createContainer() {
     usuarioController: new UsuarioController({ usuarioService }),
     negocioController: new NegocioController({ negocioService }),
     eventoController: new EventoController({ eventoService }),
+    valoracionController: new ValoracionController({ valoracionService }),
+    imagenController: new ImagenController({ imagenService }),
     iaController: new IaController({ iaService }),
     whatsappController: new WhatsappController({ whatsappService }),
   }
@@ -79,6 +95,8 @@ export function createContainer() {
       usuarioService,
       negocioService,
       eventoService,
+      valoracionService,
+      imagenService,
       iaService,
       whatsappService,
     },
@@ -86,4 +104,3 @@ export function createContainer() {
     middlewares,
   }
 }
-
