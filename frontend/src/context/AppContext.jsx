@@ -52,6 +52,7 @@ export function AppProvider({ children }) {
   );
   const [actividades, setActividades] = useState([]);
   const [cuentasNegocio, setCuentasNegocio] = useState({});
+  const [resenasPorEvento, setResenasPorEvento] = useState({});
   const [usuario, setUsuario] = useState(() => getStoredUser());
   const [cargando, setCargando] = useState(true);
   const [letraGrande, setLetraGrande] = useState(false);
@@ -883,6 +884,29 @@ export function AppProvider({ children }) {
     }
   };
 
+  const cargarResenasEvento = useCallback(async (eventoId) => {
+    if (!eventoId || !isOnlineRef.current || String(eventoId).startsWith("temp_")) {
+      return resenasPorEvento[eventoId] || [];
+    }
+    try {
+      const res = await eventosApi.listarValoraciones(eventoId);
+      const lista = (res?.data?.valoraciones || []).map((v) => ({
+        id: v.id,
+        eventoId: Number(eventoId),
+        usuario: v.usuario?.nombre || "Vecino",
+        estrellas: v.estrellas,
+        texto: v.texto,
+      }));
+      setResenasPorEvento((prev) => ({
+        ...prev,
+        [eventoId]: lista,
+      }));
+      return lista;
+    } catch {
+      return resenasPorEvento[eventoId] || [];
+    }
+  }, [resenasPorEvento]);
+
   const cargarResenasNegocio = useCallback(async (nombreNegocio) => {
     const info = cuentasNegocio[nombreNegocio];
     if (!info?.id) return [];
@@ -970,6 +994,7 @@ export function AppProvider({ children }) {
       const res = await eventosApi.crearValoracion(eventoObjetivo.id, { estrellas, texto });
       const nueva = {
         id: res?.data?.id,
+        eventoId: eventoObjetivo.id,
         usuario: usuario?.nombre || "Vecino",
         estrellas,
         texto,
@@ -977,6 +1002,10 @@ export function AppProvider({ children }) {
       setMisValoracionesEventoIds((prev) =>
         prev.includes(eventoObjetivo.id) ? prev : [...prev, eventoObjetivo.id]
       );
+      setResenasPorEvento((prev) => ({
+        ...prev,
+        [eventoObjetivo.id]: [nueva, ...(prev[eventoObjetivo.id] || [])],
+      }));
       setCuentasNegocio((prev) => {
         const existe = prev[nombreNegocio];
         if (!existe) return prev;
@@ -1059,6 +1088,8 @@ export function AppProvider({ children }) {
         denegarNegocio,
         aprobarActividad,
         denegarActividad,
+        resenasPorEvento,
+        cargarResenasEvento,
         cargarResenasNegocio,
         agregarResena,
       }}

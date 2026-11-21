@@ -17,11 +17,13 @@ export default function ReviewsModal() {
     modalResenas,
     setModalResenas,
     cuentasNegocio,
+    resenasPorEvento,
     actividades,
     misInscripcionesIds,
     misValoracionesEventoIds,
     usuario,
     agregarResena,
+    cargarResenasEvento,
     cargarResenasNegocio,
   } = useApp();
   const [estrellas, setEstrellas] = useState(5);
@@ -35,10 +37,13 @@ export default function ReviewsModal() {
   }, [setModalResenas]);
 
   useEffect(() => {
-    if (modalResenas.open && nombreNegocio) {
+    if (!modalResenas.open) return;
+    if (eventoIdObjetivo != null) {
+      cargarResenasEvento(eventoIdObjetivo);
+    } else if (nombreNegocio) {
       cargarResenasNegocio(nombreNegocio);
     }
-  }, [modalResenas.open, nombreNegocio]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [modalResenas.open, eventoIdObjetivo, nombreNegocio]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!modalResenas.open) return;
@@ -51,8 +56,15 @@ export default function ReviewsModal() {
 
   if (!modalResenas.open || !nombreNegocio) return null;
 
-  const info = cuentasNegocio[nombreNegocio] || { resenas: [] };
-  const resenas = info.resenas || [];
+  const eventoActual =
+    eventoIdObjetivo != null
+      ? actividades.find((a) => Number(a.id) === Number(eventoIdObjetivo)) || null
+      : null;
+
+  const resenas =
+    eventoIdObjetivo != null
+      ? resenasPorEvento[eventoIdObjetivo] || []
+      : cuentasNegocio[nombreNegocio]?.resenas || [];
 
   const ahoraMs = Date.now();
   const eventosAsistidos = actividades.filter(
@@ -64,16 +76,17 @@ export default function ReviewsModal() {
   );
 
   const eventoParaResenar = usuario
-    ? (eventoIdObjetivo != null
-        ? eventosPendientesValorar.find((a) => Number(a.id) === Number(eventoIdObjetivo))
-        : null) || eventosPendientesValorar[0] || null
+    ? eventoIdObjetivo != null
+      ? eventosPendientesValorar.find((a) => Number(a.id) === Number(eventoIdObjetivo)) || null
+      : eventosPendientesValorar[0] || null
     : null;
 
-  const yaValoroTodos =
+  const yaValoroEste =
     Boolean(usuario) &&
     !eventoParaResenar &&
-    eventosFinalizados.length > 0 &&
-    (eventoIdObjetivo == null || misValoracionesEventoIds.includes(Number(eventoIdObjetivo)));
+    (eventoIdObjetivo != null
+      ? misValoracionesEventoIds.includes(Number(eventoIdObjetivo))
+      : eventosFinalizados.length > 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -95,7 +108,12 @@ export default function ReviewsModal() {
       >
         <div className="shrink-0 flex justify-between items-center px-5 py-3.5 border-b border-blue-100 bg-white gap-2">
           <div className="min-w-0">
-            <h3 className="font-black text-lg truncate">Opiniones: {nombreNegocio}</h3>
+            <h3 className="font-black text-lg truncate">
+              {eventoActual ? eventoActual.nombre : `Opiniones: ${nombreNegocio}`}
+            </h3>
+            {eventoActual && (
+              <p className="text-xs font-semibold text-stone-500 truncate">{nombreNegocio}</p>
+            )}
           </div>
           <button
             type="button"
@@ -110,7 +128,7 @@ export default function ReviewsModal() {
         <div className="overflow-y-auto px-5 py-4 space-y-3">
           <div className="max-h-44 overflow-y-auto space-y-2 text-sm bg-blue-50 p-3 rounded-2xl border border-blue-200">
             {resenas.length === 0 ? (
-              <p className="text-stone-500 text-center py-2">Sin opiniones todavía.</p>
+              <p className="text-stone-500 text-center py-2">Sin opiniones todavía para esta actividad.</p>
             ) : (
               resenas.map((r, i) => (
                 <div key={r.id || i} className="p-2.5 bg-white rounded-xl border border-blue-200">
@@ -140,10 +158,6 @@ export default function ReviewsModal() {
 
           {eventoParaResenar ? (
             <form onSubmit={handleSubmit} className="space-y-2.5">
-              <p className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
-                Opinando sobre: <span className="font-black">{eventoParaResenar.nombre}</span>
-              </p>
-
               <select
                 value={estrellas}
                 onChange={(e) => setEstrellas(Number(e.target.value))}
@@ -174,11 +188,11 @@ export default function ReviewsModal() {
             </form>
           ) : (
             <p className="text-xs sm:text-sm text-blue-950 bg-blue-50 border border-blue-200 p-3 rounded-2xl text-center font-bold">
-              {yaValoroTodos
-                ? "Ya has enviado tu opinión para este evento. ¡Gracias!"
+              {yaValoroEste
+                ? "Ya has enviado tu opinión para esta actividad. ¡Gracias!"
                 : eventosAsistidos.length > 0
                   ? "Podrás dejar tu reseña cuando haya acabado el evento al que te apuntaste."
-                  : "Solo puedes reseñar si te has apuntado a un evento de este negocio y ya ha acabado."}
+                  : "Solo puedes reseñar si te has apuntado a esta actividad y ya ha acabado."}
             </p>
           )}
         </div>

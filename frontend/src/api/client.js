@@ -140,6 +140,7 @@ export const eventosApi = {
       method: 'POST',
       body: JSON.stringify({ pregunta }),
     }),
+  listarValoraciones: (id) => apiFetch(`/eventos/${id}/valoraciones`),
   crearValoracion: (id, { estrellas, texto }) =>
     apiFetch(`/eventos/${id}/valoraciones`, {
       method: 'POST',
