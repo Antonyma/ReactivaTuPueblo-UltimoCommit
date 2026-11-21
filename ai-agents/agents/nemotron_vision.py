@@ -149,6 +149,7 @@ class NemotronVisionClassifier:
     """
     def __init__(self):
         self.modelo_nombre = "nemotron-3.5-parse"
+        self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")
         self.dataset = DATASET_ENTRENAMIENTO_CATEGORIAS
         self.muestras_entrenadas = sum(len(v) for k, v in self.dataset.items() if not k.startswith("_"))
 
