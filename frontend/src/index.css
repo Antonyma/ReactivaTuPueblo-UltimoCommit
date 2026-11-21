@@ -1,11 +1,23 @@
 /* PALETA FIJA AZUL CLARO (Máxima nitidez para vista cansada) */
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   background-color: #EEF4FA;
   color: #0B2545;
-  font-size: 20px;
-  line-height: 1.65;
+  font-size: 18px;
+  line-height: 1.6;
   margin: 0;
   padding: 0;
+}
+
+@media (min-width: 640px) {
+  body {
+    font-size: 20px;
+    line-height: 1.65;
+  }
 }
 
 header,
@@ -19,6 +31,11 @@ header,
   background-color: #FFFFFF !important;
   border: 3px solid #1D4ED8 !important;
   box-shadow: none !important;
+}
+
+.panel-moderador-banner {
+  background-color: #0B2545 !important;
+  color: #FFFFFF !important;
 }
 
 button[data-action="apuntar"] {
@@ -38,21 +55,27 @@ button[data-action="apuntar"] {
 
 /* MODO LETRA GRANDE ACTIVADO */
 body.letra-grande {
-  font-size: 23px;
+  font-size: 21px;
   line-height: 1.75;
+}
+
+@media (min-width: 640px) {
+  body.letra-grande {
+    font-size: 23px;
+  }
 }
 
 body.letra-grande #grid-actividades {
   grid-template-columns: 1fr !important;
 }
 
-body.letra-grande button,
+body.letra-grande button:not(.btn-cerrar-modal),
 body.letra-grande input,
 body.letra-grande select,
 body.letra-grande textarea,
 body.letra-grande a {
-  min-height: 60px !important;
-  font-size: 21px !important;
+  min-height: 52px;
+  font-size: 19px !important;
 }
 
 button,
@@ -62,11 +85,17 @@ input {
 }
 
 #mapa-comarca {
-  height: 360px;
+  height: 260px;
   width: 100%;
   border-radius: 1.25rem;
   z-index: 1;
   background-color: #E7E5E4;
+}
+
+@media (min-width: 640px) {
+  #mapa-comarca {
+    height: 360px;
+  }
 }
 
 .pin-actividad-foto {

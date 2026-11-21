@@ -1,6 +1,15 @@
 import React from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
+import {
+  IconCheck,
+  IconClock,
+  IconMapPin,
+  IconMessage,
+  IconStar,
+  IconTrash,
+  IconUsers,
+} from "./Icons.jsx";
 
 export default function ActivityCard({ act }) {
   const {
@@ -13,7 +22,7 @@ export default function ActivityCard({ act }) {
     setModalCambiarHora,
     setModalDudas,
     setModalResenas,
-    setModalInscritos
+    setModalInscritos,
   } = useApp();
 
   const esPublicador = usuario && usuario.tipoUsuario === "PUBLICADOR";
@@ -27,11 +36,11 @@ export default function ActivityCard({ act }) {
   const badgeEstado =
     act.estadoModeracion === "pendiente" ? (
       <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">
-        ⏳ En revisión (Nivel 1)
+        En revisión (Nivel 1)
       </span>
     ) : (
       <span className="absolute top-3 right-3 bg-white/95 text-blue-950 text-xs font-black px-3 py-1 rounded-full">
-        {act.dePago ? "💶 De pago" : "🎟️ Gratis"}
+        {act.dePago ? "De pago" : "Gratis"}
       </span>
     );
 
@@ -39,16 +48,24 @@ export default function ActivityCard({ act }) {
     <article className="tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between">
       <div>
         <div className="relative">
-          <img src={act.imagen} alt={act.nombre} className="w-full h-48 object-cover" />
+          <img src={act.imagen} alt={act.nombre} className="w-full h-44 sm:h-48 object-cover" />
           <span className="absolute top-3 left-3 bg-blue-950/90 text-white text-xs font-bold px-3 py-1 rounded-full">
             {act.categoria}
           </span>
           {badgeEstado}
         </div>
 
-        <div className="p-5 space-y-2">
-          <p className="text-sm font-black text-orange-700">
-            📍 {act.pueblo} · 🕒 {act.fecha}
+        <div className="p-4 sm:p-5 space-y-2">
+          <p className="text-sm font-black text-orange-700 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1">
+              <IconMapPin className="w-4 h-4 shrink-0" />
+              <span>{act.pueblo}</span>
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <IconClock className="w-4 h-4 shrink-0" />
+              <span>{act.fecha}</span>
+            </span>
           </p>
           <h3 className="font-black text-xl leading-snug">{act.nombre}</h3>
           <p className="text-xs font-bold text-stone-500">
@@ -59,71 +76,81 @@ export default function ActivityCard({ act }) {
         </div>
       </div>
 
-      <div className="p-5 pt-0">
+      <div className="p-4 sm:p-5 pt-0">
         {esMia ? (
           <div className="space-y-2">
             <button
               type="button"
               onClick={() => setModalCambiarHora({ open: true, actividad: act })}
-              className="w-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3 px-3 rounded-2xl text-sm shadow-sm"
+              className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3 px-3 rounded-2xl text-sm shadow-sm"
             >
-              🕒 Cambiar Hora
+              <IconClock className="w-4 h-4" />
+              <span>Cambiar Hora</span>
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setModalInscritos({ open: true, actividad: act })}
-                className="bg-blue-950 hover:bg-blue-900 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
+                className="inline-flex items-center justify-center gap-1.5 bg-blue-950 hover:bg-blue-900 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
               >
-                👥 Apuntados ({act.asistentes})
+                <IconUsers className="w-4 h-4 shrink-0" />
+                <span>Apuntados ({act.asistentes})</span>
               </button>
               <button
                 type="button"
                 onClick={() => eliminarEvento(act.id)}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
+                className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
               >
-                🗑️ Borrar
+                <IconTrash className="w-4 h-4 shrink-0" />
+                <span>Borrar</span>
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-2">
             {sinPlazas ? (
-              <button disabled className="w-full bg-stone-400 text-white font-black py-3.5 px-4 rounded-2xl cursor-not-allowed">
-                🚫 Completo
+              <button
+                disabled
+                className="w-full bg-stone-400 text-white font-black py-3.5 px-4 rounded-2xl cursor-not-allowed"
+              >
+                Completo
               </button>
             ) : yaApuntado ? (
               <button
                 type="button"
                 onClick={() => desapuntarse(act.id)}
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3.5 px-4 rounded-2xl"
+                className="w-full inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3.5 px-4 rounded-2xl"
               >
-                ✅ Ya estás apuntado (Quitar)
+                <IconCheck className="w-5 h-5 shrink-0" />
+                <span>Apuntado (Quitar)</span>
               </button>
             ) : (
               <button
                 type="button"
+                data-action="apuntar"
                 onClick={() => apuntarse(act.id)}
                 className="w-full bg-blue-700 hover:bg-blue-800 text-white font-black py-3.5 px-4 rounded-2xl shadow"
               >
-                👉 Apuntarme (Quedan {libres})
+                Apuntarme (Quedan {libres})
               </button>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setModalDudas({ open: true, actividad: act })}
-                className="bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-bold py-2.5 px-3 rounded-xl text-sm"
+                className="inline-flex items-center justify-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-bold py-2.5 px-3 rounded-xl text-sm"
               >
-                💬 Dudas WhatsApp
+                <IconMessage className="w-4 h-4 shrink-0" />
+                <span>Dudas WhatsApp</span>
               </button>
               <button
                 type="button"
                 onClick={() => setModalResenas({ open: true, nombreNegocio: act.negocio })}
-                className="bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold py-2.5 px-3 rounded-xl text-sm"
+                className="inline-flex items-center justify-center gap-1.5 bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold py-2.5 px-3 rounded-xl text-sm"
               >
-                ⭐ Ref. {evalRef.nivel}/3
+                <IconStar className="w-4 h-4 shrink-0" filled />
+                <span>Ref. {evalRef.nivel}/3</span>
               </button>
             </div>
           </div>

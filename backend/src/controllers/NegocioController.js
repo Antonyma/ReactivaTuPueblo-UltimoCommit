@@ -70,4 +70,22 @@ export class NegocioController {
       data: result,
     })
   }
+
+  aprobar = async (req, res) => {
+    const negocio = await this.negocioService.aprobarNegocio(req.params.id)
+    res.status(200).json({
+      ok: true,
+      message: 'Comercio confirmado correctamente',
+      data: negocio,
+    })
+  }
+
+  denegar = async (req, res) => {
+    const result = await this.negocioService.denegarNegocio(req.params.id)
+    res.status(200).json({
+      ok: true,
+      message: 'Comercio denegado y eliminado',
+      data: result,
+    })
+  }
 }

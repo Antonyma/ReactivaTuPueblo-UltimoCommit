@@ -20,5 +20,12 @@ export class AuthController {
       data: result,
     })
   }
+
+  me = async (req, res) => {
+    res.status(200).json({
+      ok: true,
+      data: { usuario: req.user },
+    })
+  }
 }
 

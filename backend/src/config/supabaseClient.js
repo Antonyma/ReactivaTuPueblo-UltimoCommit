@@ -28,3 +28,16 @@ export function createSupabaseClient() {
     },
   })
 }
+
+/**
+ * Cliente efímero para operaciones de Supabase Auth (signInWithPassword / signUp)
+ * sin contaminar la sesión del cliente principal con service_role.
+ */
+export function createSupabaseAuthClient() {
+  return createClient(env.supabase.url, env.supabase.anonKey || env.supabase.key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}

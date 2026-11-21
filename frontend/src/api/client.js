@@ -74,6 +74,7 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ nombre, email, telefono, password, tipoUsuario }),
     }),
+  me: () => apiFetch('/auth/me'),
 }
 
 export const eventosApi = {
@@ -129,6 +130,23 @@ export const negociosApi = {
     apiFetch('/negocios', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+  actualizar: (id, data) =>
+    apiFetch(`/negocios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  eliminar: (id) =>
+    apiFetch(`/negocios/${id}`, {
+      method: 'DELETE',
+    }),
+  aprobar: (id) =>
+    apiFetch(`/negocios/${id}/aprobar`, {
+      method: 'PATCH',
+    }),
+  denegar: (id) =>
+    apiFetch(`/negocios/${id}/denegar`, {
+      method: 'PATCH',
     }),
   listarValoraciones: (id) => apiFetch(`/negocios/${id}/valoraciones`),
 }

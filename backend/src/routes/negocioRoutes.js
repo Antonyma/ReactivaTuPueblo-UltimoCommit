@@ -41,5 +41,21 @@ export function createNegocioRoutes(negocioController, { requireAuth }) {
     negocioController.actualizarRedes
   )
 
+  // Rutas de moderador (confirmar / denegar comercios)
+  router.patch(
+    '/:id/aprobar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    negocioController.aprobar
+  )
+  router.patch(
+    '/:id/denegar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    negocioController.denegar
+  )
+
   return router
 }

@@ -23,9 +23,22 @@ export class NegocioService {
   async crearNegocio(data, propietarioId) {
     return this.negocioRepository.create({
       ...data,
+      fiabilidad: 0,
       propietarioId: Number(propietarioId),
       propietario: { id: Number(propietarioId) },
     })
+  }
+
+  async aprobarNegocio(negocioId) {
+    const negocio = await this.obtenerNegocioPorId(negocioId)
+    const nuevaFiabilidad = Math.max(40, Number(negocio.fiabilidad || 0))
+    return this.negocioRepository.update(negocioId, { fiabilidad: nuevaFiabilidad })
+  }
+
+  async denegarNegocio(negocioId) {
+    await this.obtenerNegocioPorId(negocioId)
+    await this.negocioRepository.delete(negocioId)
+    return { deleted: true, negocioId: Number(negocioId) }
   }
 
   async actualizarNegocio(negocioId, data, propietarioId) {
