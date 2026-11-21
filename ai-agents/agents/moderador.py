@@ -8,7 +8,7 @@ import urllib.request
 from typing import Optional
 from pydantic import BaseModel, Field
 from agents.ai_client import generar_json, generar_json_con_imagen
-from agents.nemotron_vision import nemotron_classifier, DATASET_ENTRENAMIENTO_CATEGORIAS
+from agents.imagenes_actividades import nemotron_classifier, DATASET_ENTRENAMIENTO_CATEGORIAS
 
 logger = logging.getLogger(__name__)
 
@@ -208,12 +208,12 @@ def _llamar_texto_con_openrouter_failover(
             }
 
             req = urllib.request.Request(
-                "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)",
+                "https://openrouter.ai/api/v1/chat/completions",
                 data=json.dumps(payload).encode("utf-8"),
                 headers={
                     "Authorization": f"Bearer {openrouter_key}",
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "[https://pueblovivo.local](https://pueblovivo.local)",
+                    "HTTP-Referer": "https://pueblovivo.local",
                     "X-Title": "PuebloVivo-Moderador"
                 },
                 method="POST"
