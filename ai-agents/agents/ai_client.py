@@ -61,3 +61,23 @@ def generar_json_con_imagen(
         except Exception as e:
             if modelo == modelos[-1]:
                 raise e
+
+def extraer_bytes_imagen(imagen_str: str) -> tuple[object, str]:
+    import base64
+    if not imagen_str:
+        return None, "image/jpeg"
+    mime = "image/jpeg"
+    if "base64," in imagen_str:
+        partes = imagen_str.split("base64,")
+        header = partes[0]
+        if "data:" in header and ";" in header:
+            mime = header.replace("data:", "").replace(";", "").strip()
+        data_base64 = partes[1]
+    else:
+        data_base64 = imagen_str
+
+    try:
+        raw_bytes = base64.b64decode(data_base64)
+        return raw_bytes, mime
+    except Exception:
+        return None, mime

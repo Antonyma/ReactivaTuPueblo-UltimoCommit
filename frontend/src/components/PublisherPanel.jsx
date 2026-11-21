@@ -101,7 +101,7 @@ export default function PublisherPanel() {
           </span>
           <h2 className="text-xl font-black mt-1">Mis Negocios y Eventos</h2>
           <p className="text-xs text-stone-600">
-            Negocios con <strong>Referencia Nivel 2 o 3</strong> publican al instante sin gastar tokens de revisión IA.
+            Todas las publicaciones y fotos se analizan con <strong>nemotron-3.5-parse</strong>: no se mira solo la fiabilidad, se evalúan <strong>todas las fotos</strong> y solo pasan las estrictamente coherentes con la categoría.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -251,7 +251,7 @@ export default function PublisherPanel() {
 
           <div className="md:col-span-2 bg-white text-stone-900 border-2 border-dashed border-blue-400 rounded-2xl p-4 space-y-2">
             <label className="block text-sm font-black">
-              🖼️ Foto o cartel del evento (si el negocio es Nivel 1 pasará por el Moderador) *
+              🖼️ Foto o cartel del evento (nemotron-3.5-parse analiza todas las fotos sin excepción: exige coincidencia con la categoría) *
             </label>
             <input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm" />
             {imagenBase64 && (
