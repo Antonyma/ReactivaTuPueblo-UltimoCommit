@@ -8,6 +8,7 @@ const supabaseServiceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').tri
 export const env = {
   port: Number(process.env.PORT) || 3000,
   dataSource,
+  aiAgentsUrl: (process.env.AI_AGENTS_URL || 'http://localhost:8000').trim(),
   supabase: {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,

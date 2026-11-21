@@ -375,7 +375,13 @@ export function AppProvider({ children }) {
 
       if (nuevoEvento.estadoModeracion === "aprobada") {
         setEventosAhorradosTokens((prev) => prev + 1);
-        mostrarToast(`Publicada al instante. "${nuevoData.negocio}" tiene pase directo.`);
+        mostrarToast(
+          nuevoEvento.motivoIA || `Publicada al instante. "${nuevoData.negocio}" tiene pase directo.`
+        );
+      } else if (nuevoEvento.estadoModeracion === "denegada") {
+        mostrarToast(
+          `Actividad rechazada por Moderador IA: ${nuevoEvento.motivoIA || "No cumple las normas."}`
+        );
       } else {
         mostrarToast(`Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
       }

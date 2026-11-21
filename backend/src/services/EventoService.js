@@ -1,4 +1,37 @@
 import { AppError } from '../middlewares/errorHandler.js'
+import { env } from '../config/env.js'
+
+const TIPO_EVENTO_CATEGORIA = {
+  1: 'Turismo',
+  2: 'Fiesta Patronal',
+  3: 'Gastronomía',
+  4: 'Comercio',
+  5: 'Deporte',
+  6: 'Cultura',
+}
+
+async function moderarEventoConIa(data) {
+  try {
+    const res = await fetch(`${env.aiAgentsUrl}/agents/moderate/autonomous`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({
+        evento: {
+          titulo: data.nombre,
+          nombre: data.nombre,
+          descripcion: data.descripcion || '',
+          categoria: TIPO_EVENTO_CATEGORIA[Number(data.tipoEvento)] || 'Turismo',
+          imagen: data.imagen || '',
+        },
+      }),
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
 
 export class EventoService {
   constructor({ eventoRepository, negocioRepository }) {
@@ -54,12 +87,24 @@ export class EventoService {
     }
 
     const esDeConfianza = Number(negocio.fiabilidad ?? 0) >= 60
-    const estadoInicial = data.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
-    const motivoInicial =
+    let estadoInicial = data.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
+    let motivoInicial =
       data.motivo ||
       (esDeConfianza
         ? 'Pase directo por fiabilidad del negocio'
         : 'Pendiente de revisión por Moderador')
+
+    if (!data.estado) {
+      const resultadoIa = await moderarEventoConIa(data)
+      if (resultadoIa && typeof resultadoIa.aprobada === 'boolean') {
+        estadoInicial = resultadoIa.aprobada ? 'aprobada' : 'denegada'
+        motivoInicial =
+          resultadoIa.motivo ||
+          (resultadoIa.aprobada
+            ? 'Aprobada por Moderador IA'
+            : 'Rechazada por Moderador IA')
+      }
+    }
 
     return this.eventoRepository.create({
       ...data,

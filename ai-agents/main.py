@@ -1,21 +1,35 @@
 import os
 import base64
+from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / "agents" / ".env")
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Importamos los 4 agentes desde la misma carpeta agents/
-from agents.extractor import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
+# Importamos los agentes desde la misma carpeta agents/
+from agents.scrapper import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
 from agents.moderate import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma
 from agents.nemotron_vision import nemotron_classifier
 from agents.recommend import recomendar_a_vecinos
-from agents.event_chat import responder_duda_evento
+try:
+    from agents.event_chat import responder_duda_evento
+except ImportError:
+    responder_duda_evento = None
 
 app = FastAPI(title="ReactivaTuPueblo · Micro-Agentes IA y Moderación")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 sb = Supabase()
 
 # --- Modelos de petición ---
@@ -120,6 +134,8 @@ def endpoint_recommend(req: ReqRecommend):
 
 @app.post("/agents/event-chat")
 async def endpoint_event_chat(req: ReqEventChat):
+    if responder_duda_evento is None:
+        raise HTTPException(501, "El módulo agents.event_chat no está disponible.")
     aud = base64.b64decode(req.audio_base64) if req.audio_base64 else None
     return await responder_duda_evento(
         req.pregunta, req.ficha_evento, aud, req.audio_mime, req.devolver_audio

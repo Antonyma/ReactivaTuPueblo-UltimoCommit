@@ -1,4 +1,20 @@
 import { AppError } from '../middlewares/errorHandler.js'
+import { env } from '../config/env.js'
+
+async function moderarResenaConIa(texto) {
+  try {
+    const res = await fetch(`${env.aiAgentsUrl}/agents/moderate/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ texto }),
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
 
 export class ValoracionService {
   constructor({ valoracionRepository, eventoRepository }) {
@@ -74,12 +90,22 @@ export class ValoracionService {
       throw AppError.conflict('Ya has valorado este evento')
     }
 
+    const textoLimpio = String(texto ?? '').trim()
+    if (textoLimpio) {
+      const modResena = await moderarResenaConIa(textoLimpio)
+      if (modResena && modResena.aprobada === false) {
+        throw AppError.badRequest(
+          modResena.motivo || 'La reseña contiene lenguaje inapropiado y fue bloqueada por la IA'
+        )
+      }
+    }
+
     return this.valoracionRepository.create({
       usuarioId,
       eventoId: evento.id,
       evento,
       estrellas: estrellasNum,
-      texto: String(texto ?? '').trim(),
+      texto: textoLimpio,
       fecha: new Date(),
     })
   }
