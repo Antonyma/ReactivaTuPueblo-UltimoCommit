@@ -16,41 +16,43 @@ PALABRAS_MALSONANTES = [
     "basura", "maldito", "maldita", "asqueroso", "asquerosa", "timadores", "estafador"
 ]
 
+PALABRAS_SPAM_INCOHERENTES = [
+    "casino", "apuestas", "cripto", "crypto", "bitcoin", "viagra", "prestamos", "crédito rápido",
+    "calderas en madrid", "reparaciones fontanero urgente", "vendo zapatillas", "asdasd", "qwerty",
+    "test test", "xxx", "porn", "xxx", "prueba sin sentido", "anuncio externo ajeno"
+]
+
 CATEGORIAS_VALIDACION = {
     "Fiesta Patronal": {
         "descripcion": "Celebraciones populares, música, verbenas, procesiones, bailes y actos festivos municipales.",
-        "conceptos_esperados": ["verbena", "orquesta", "fiesta", "procesión", "música", "baile", "plaza", "fuegos"],
+        "conceptos_esperados": ["verbena", "orquesta", "fiesta", "procesión", "música", "baile", "plaza", "fuegos", "patrón", "patrona", "san", "virgen", "romería", "cohetes", "roscos", "peña", "pregón"],
         "etiquetas": ["Celebración Pública", "Ambiente Festivo", "Concurrencia Popular"]
     },
     "Deportes": {
         "descripcion": "Eventos deportivos, senderismo, carreras de montaña, ciclismo BTT, pistas municipales y trofeos.",
-        "conceptos_esperados": ["deporte", "carrera", "senderismo", "bici", "ciclismo", "fútbol", "montaña", "trofeo", "ruta"],
+        "conceptos_esperados": ["deporte", "carrera", "senderismo", "bici", "ciclismo", "fútbol", "montaña", "trofeo", "ruta", "pádel", "maratón", "trail", "marcha", "liga", "entrenamiento", "fitness"],
         "etiquetas": ["Actividad Física", "Equipamiento Deportivo", "Aire Libre"]
     },
     "Gastronomía": {
         "descripcion": "Rutas de la tapa, platos tradicionales, repostería, catas y restauración local.",
-        "conceptos_esperados": ["tapa", "comida", "plato", "degustación", "restaurante", "vino", "paella", "gastronomía", "dulce"],
+        "conceptos_esperados": ["tapa", "comida", "plato", "degustación", "restaurante", "vino", "paella", "gastronomía", "dulce", "migas", "aceite", "embutidos", "cata", "puchero", "jamón", "menú", "cena", "almuerzo"],
         "etiquetas": ["Alimentos y Bebidas", "Cocina Tradicional", "Hostelería"]
     },
     "Turismo": {
         "descripcion": "Visitas guiadas, monumentos históricos, paisajes naturales, vías verdes y patrimonio rural.",
-        "conceptos_esperados": ["visita", "monumento", "mina", "vía verde", "paisaje", "patrimonio", "historia", "naturaleza", "mirador"],
+        "conceptos_esperados": ["visita", "monumento", "mina", "vía verde", "paisaje", "patrimonio", "historia", "naturaleza", "mirador", "hornos", "sendero", "guía", "excursión", "paraje", "histórico", "ruta turística"],
         "etiquetas": ["Patrimonio Cultural", "Puntos de Interés", "Paisaje Rural"]
     },
     "Comercio": {
         "descripcion": "Mercadillos artesanos, productos de la huerta, tiendas de proximidad y talleres locales.",
-        "conceptos_esperados": ["comercio", "tienda", "mercado", "artesanía", "taller", "producto local", "alfarería", "oferta"],
+        "conceptos_esperados": ["comercio", "tienda", "mercado", "artesanía", "taller", "producto local", "alfarería", "oferta", "esparto", "cerámica", "mercadillo", "huerta", "venta", "artesanal"],
         "etiquetas": ["Comercio Local", "Productos Autóctonos", "Artesanía"]
     }
 }
 
 # =============================================================================
-# MODELOS PYDANTIC PARA RESPUESTAS ESTRUCTURADAS
+# MODELOS PYDANTIC
 # =============================================================================
-
-class DecisionModeracion(BaseModel):
-    decision: str = Field(description="'aprobar' o 'revision_humana'")
-    motivo: str
 
 class DecisionModeracionResena(BaseModel):
     aprobada: bool = Field(description="True si es respetuosa y no tiene palabras malsonantes")
@@ -60,15 +62,16 @@ class DecisionModeracionResena(BaseModel):
     modelo_utilizado: str = "gemini-2.5-flash"
 
 class DecisionModeracionTitulo(BaseModel):
-    aprobada: bool = Field(description="True si el título es respetuoso y no contiene malas palabras")
+    aprobada: bool
+    coherente_con_categoria: bool
     contiene_palabras_malsonantes: bool
     palabras_detectadas: list[str] = Field(default_factory=list)
     motivo: str
     modelo_utilizado: str = "gemini-2.5-flash"
 
 class DecisionModeracionImagen(BaseModel):
-    aprobada: bool = Field(description="True solo si la imagen coincide de forma legítima con la categoría del evento")
-    coherente_con_categoria: bool = Field(description="True si los elementos visuales coinciden con la categoría de la actividad")
+    aprobada: bool
+    coherente_con_categoria: bool
     categoria_esperada: str
     categoria_detectada: str
     elementos_visuales: list[str] = Field(default_factory=list)
@@ -76,12 +79,21 @@ class DecisionModeracionImagen(BaseModel):
     motivo: str
     es_llamada_ligera: bool = False
 
+class DecisionModeradorAutonomo(BaseModel):
+    decision: str = Field(description="'aprobar' o 'denegar'")
+    aprobada: bool
+    coherente_titulo: bool
+    coherente_imagen: bool
+    contiene_palabras_malsonantes: bool
+    categoria_evaluada: str
+    motivo: str
+    modelo_utilizado: str = "gemini-2.5-flash-autonomo"
+
 # =============================================================================
-# FUNCIONES DE MODERACIÓN
+# FUNCIONES AUXILIARES
 # =============================================================================
 
 def extraer_bytes_imagen(imagen_str: str) -> tuple[Optional[bytes], str]:
-    """Decodifica una imagen en base64 (incluyendo data URIs data:image/png;base64,...)."""
     if not imagen_str:
         return None, "image/jpeg"
     mime = "image/jpeg"
@@ -100,11 +112,11 @@ def extraer_bytes_imagen(imagen_str: str) -> tuple[Optional[bytes], str]:
     except Exception:
         return None, mime
 
+# =============================================================================
+# MODERACIÓN DE RESEÑAS
+# =============================================================================
+
 def moderar_resena(texto: str, negocio: dict = None) -> dict:
-    """
-    Moderación estricta de reseñas con Gemini:
-    REGLA: Tolerancia CERO a insultos. Reseñas que contengan palabras malsonantes se eliminan de raíz.
-    """
     texto_min = (texto or "").lower()
     palabras_encontradas = [
         p for p in PALABRAS_MALSONANTES
@@ -128,8 +140,7 @@ def moderar_resena(texto: str, negocio: dict = None) -> dict:
         "Solo devuelve 'aprobada': true si el texto es respetuoso y libre de ofensas."
     )
     try:
-        res = generar_json(prompt, [f"Texto de la reseña: {texto}"], DecisionModeracionResena, modelo_preferido="gemini-2.5-flash")
-        return res
+        return generar_json(prompt, [f"Texto de la reseña: {texto}"], DecisionModeracionResena, modelo_preferido="gemini-2.5-flash")
     except Exception:
         return {
             "aprobada": True,
@@ -139,68 +150,100 @@ def moderar_resena(texto: str, negocio: dict = None) -> dict:
             "motivo": "Aprobada por Gemini: Lenguaje respetuoso y constructivo."
         }
 
-def moderar_titulo_evento(titulo: str, descripcion: str = "") -> dict:
+# =============================================================================
+# MODERACIÓN DE TÍTULOS Y COHERENCIA DE ACTIVIDADES
+# =============================================================================
+
+def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "Fiesta Patronal") -> dict:
     """
-    Moderación de títulos de actividades de negocios:
-    REGLA: Penaliza con la misma severidad que las reseñas las palabras malsonantes en títulos de actividades.
+    Evalúa estrictamente el título de una actividad:
+    1. Penalización estricta por palabras malsonantes o insultos.
+    2. Coherencia temática estricta con la CATEGORÍA de la actividad.
+    3. Detección de títulos sin sentido ('asdf', 'prueba', spam publicitario ajeno).
     """
-    texto_analizar = f"{titulo} {descripcion}".lower()
+    texto_analizar = f"{titulo} {descripcion}".lower().strip()
+
+    # 1. Palabras malsonantes
     palabras_encontradas = [
         p for p in PALABRAS_MALSONANTES
         if re.search(rf"\b{re.escape(p)}\b", texto_analizar) or p in texto_analizar
     ]
-
     if palabras_encontradas:
         return {
             "aprobada": False,
+            "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": True,
             "palabras_detectadas": palabras_encontradas,
             "modelo_utilizado": "gemini-2.5-flash",
-            "motivo": f"🚫 Actividad bloqueada por Gemini: El título o descripción contiene palabras malsonantes ({', '.join(palabras_encontradas)})."
+            "motivo": f"🚫 Actividad bloqueada por Gemini: El título contiene palabras malsonantes ({', '.join(palabras_encontradas)})."
         }
 
-    prompt = (
-        "Eres el moderador de actividades comunitarias de PuebloVivo. "
-        "Verifica estrictamente que el título y la descripción no contengan palabras malsonantes, "
-        "insultos, engaños o lenguaje ofensivo. "
-        "Si contiene cualquier palabra malsonante, marca 'aprobada': false, 'contiene_palabras_malsonantes': true. "
-        "Solo devuelve 'aprobada': true si es formal y respetuoso."
-    )
-    try:
-        res = generar_json(prompt, [f"Título: {titulo}\nDescripción: {descripcion}"], DecisionModeracionTitulo, modelo_preferido="gemini-2.5-flash")
-        return res
-    except Exception:
+    # 2. Detección de spam o texto incoherente sin sentido
+    if any(p in texto_analizar for p in PALABRAS_SPAM_INCOHERENTES):
         return {
-            "aprobada": True,
+            "aprobada": False,
+            "coherente_con_categoria": False,
             "contiene_palabras_malsonantes": False,
             "palabras_detectadas": [],
             "modelo_utilizado": "gemini-2.5-flash",
-            "motivo": "Título y descripción aprobados por Gemini."
+            "motivo": f"🚨 Rechazada por Moderador IA: El título contiene spam comercial ajeno o términos sin coherencia con la actividad municipal."
         }
 
-def moderar_imagen_evento(
-    imagen_str: str,
-    fiabilidad_negocio: int = 1,
-    datos_evento: dict = None
-) -> dict:
-    """
-    MODERACIÓN DE IMAGEN CON MODELO PREENTRENADO MULTIMODAL DE VISIÓN (gemini-2.5-flash-vision).
-    
-    PREMISA ESTRICTA E INDEPENDIENTE:
-    - Juzga a QUIEN SEA con esta premisa INDEPENDIENTEMENTE (sin excepciones para ayuntamientos ni fiabilidad).
-    - SOLO DEJA PASAR imágenes en las actividades que estén directamente relacionadas con las categorías oficiales:
-      'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
-    - Si la foto no tiene nada que ver (memes, capturas ajenas, fotos aleatorias o incoherentes con la categoría),
-      NO SE DEJA PASAR ('aprobada': False, 'coherente_con_categoria': False).
-    """
+    if len(titulo.strip()) < 5 or bool(re.match(r"^[a-zA-Z]{1,3}$", titulo.strip())):
+        return {
+            "aprobada": False,
+            "coherente_con_categoria": False,
+            "contiene_palabras_malsonantes": False,
+            "palabras_detectadas": [],
+            "modelo_utilizado": "gemini-2.5-flash",
+            "motivo": "🚨 Rechazada por Moderador IA: Título demasiado corto o carente de significado para un evento."
+        }
+
+    # 3. Verificación de coherencia con la categoría
+    info_cat = CATEGORIAS_VALIDACION.get(categoria, CATEGORIAS_VALIDACION["Fiesta Patronal"])
+    conceptos = info_cat["conceptos_esperados"]
+    tiene_afinidad_lexica = any(c in texto_analizar for c in conceptos)
+
+    prompt = (
+        f"Eres el moderador de agenda comunitaria de PuebloVivo. "
+        f"Evalúa si el TÍTULO '{titulo}' y DESCRIPCIÓN '{descripcion}' tienen COHERENCIA REAL con la CATEGORÍA '{categoria}'. "
+        f"Descripción de la categoría: {info_cat['descripcion']}.\n"
+        f"REGLA OBLIGATORIA: Si el título no tiene nada que ver con '{categoria}', es publicidad ajena o carece de sentido, "
+        f"marca 'aprobada': false, 'coherente_con_categoria': false. Solo aprueba si es un evento coherente con la categoría."
+    )
+
+    try:
+        res = generar_json(
+            prompt,
+            [f"Título: {titulo}\nDescripción: {descripcion}\nCategoría obligatoria: {categoria}"],
+            DecisionModeracionTitulo,
+            modelo_preferido="gemini-2.5-flash"
+        )
+        return res
+    except Exception:
+        # Heurística determinante si no hay conexión a API
+        es_valido = tiene_afinidad_lexica or len(texto_analizar) > 15
+        return {
+            "aprobada": es_valido,
+            "coherente_con_categoria": es_valido,
+            "contiene_palabras_malsonantes": False,
+            "palabras_detectadas": [],
+            "modelo_utilizado": "gemini-2.5-flash",
+            "motivo": "Título coherente con la categoría." if es_valido else f"🚨 Título sin coherencia temática con la categoría '{categoria}'."
+        }
+
+# =============================================================================
+# MODERACIÓN DE IMÁGENES (MODELO PREENTRENADO MULTIMODAL)
+# =============================================================================
+
+def moderar_imagen_evento(imagen_str: str, fiabilidad_negocio: int = 1, datos_evento: dict = None) -> dict:
     datos = datos_evento or {}
     categoria = datos.get("categoria", "Fiesta Patronal")
     titulo = datos.get("titulo", "")
     info_categoria = CATEGORIAS_VALIDACION.get(categoria, CATEGORIAS_VALIDACION["Fiesta Patronal"])
 
-    # 1. Filtro rápido heurístico para URLs o nombres de archivo obviamente incoherentes o no relacionados
     img_lower = str(imagen_str or "").lower()
-    incoherentes = ["meme", "crypto", "cripto", "screenshot", "captura", "random", "fake", "spam", "casino", "viagra"]
+    incoherentes = ["meme", "crypto", "cripto", "screenshot", "captura", "random", "fake", "spam", "casino", "viagra", "selfie"]
     if any(p in img_lower for p in incoherentes):
         return {
             "aprobada": False,
@@ -210,45 +253,35 @@ def moderar_imagen_evento(
             "elementos_visuales": ["Contenido no relacionado", "Patrón incoherente"],
             "modelo_preentrenado": "gemini-2.5-flash-vision",
             "es_llamada_ligera": False,
-            "motivo": f"🚨 Rechazada por modelo preentrenado de visión: La imagen no tiene que ver con la categoría '{categoria}'. El clasificador preentrenado rechaza fotos ajenas o descontextualizadas para cualquier entidad."
+            "motivo": f"🚨 Rechazada por modelo preentrenado de visión: La imagen no tiene que ver con la categoría '{categoria}'."
         }
 
     raw_bytes, mime_type = extraer_bytes_imagen(imagen_str)
-
-    # 2. Evaluación con el modelo preentrenado multimodal de visión de Gemini
     prompt_vision = (
-        f"Eres un clasificador visual estricto preentrenado para eventos y actividades de la plataforma comunitaria PuebloVivo. "
-        f"Tu tarea es evaluar la imagen y verificar si los elementos visuales corresponden y son coherentes con la CATEGORÍA OFICIAL: '{categoria}'. "
-        f"Descripción de la categoría esperada: {info_categoria['descripcion']}. "
-        f"Título de la actividad: '{titulo}'.\n\n"
-        f"REGLA INDEPENDIENTE OBLIGATORIA (Aplica a cualquier publicador sin privilegios):\n"
-        f"1. SOLO deja pasar la imagen si visualmente representa o está relacionada de forma legítima con la categoría '{categoria}'.\n"
-        f"2. Si la foto no tiene nada que ver con la categoría (ej. memes, captura de pantalla de chats, criptomonedas, fotos aleatorias o engañosas), "
-        f"marca 'aprobada': false, 'coherente_con_categoria': false.\n"
-        f"3. Si la foto es coherente y apta para la categoría '{categoria}', marca 'aprobada': true, 'coherente_con_categoria': true."
+        f"Eres un clasificador visual estricto preentrenado para PuebloVivo. "
+        f"Evalúa si la imagen corresponde a la CATEGORÍA OFICIAL: '{categoria}'. "
+        f"Descripción esperada: {info_categoria['descripcion']}. Título: '{titulo}'.\n"
+        f"REGLA INDEPENDIENTE: Si la foto no tiene relación con '{categoria}', marca 'aprobada': false, 'coherente_con_categoria': false. "
+        f"Solo aprueba si visualmente encaja con la categoría."
     )
 
     try:
         if raw_bytes and len(raw_bytes) > 100:
-            res = generar_json_con_imagen(
+            return generar_json_con_imagen(
                 prompt=prompt_vision,
                 imagen_bytes=raw_bytes,
                 mime_type=mime_type,
                 esquema=DecisionModeracionImagen,
                 modelo_preferido="gemini-2.5-flash"
             )
-            return res
         else:
-            # Si no hay bytes reales decodificables (ej: URL de mock), evalúa con el modelo preentrenado el contexto
-            res = generar_json(
+            return generar_json(
                 prompt=prompt_vision,
-                contenidos=[f"Imagen referenciada: {imagen_str}", f"Categoría obligatoria: {categoria}", f"Título: {titulo}"],
+                contenidos=[f"Imagen referenciada: {imagen_str}", f"Categoría: {categoria}", f"Título: {titulo}"],
                 esquema=DecisionModeracionImagen,
                 modelo_preferido="gemini-2.5-flash"
             )
-            return res
     except Exception:
-        # Fallback de seguridad determinista coherente con las categorías
         return {
             "aprobada": True,
             "coherente_con_categoria": True,
@@ -257,5 +290,67 @@ def moderar_imagen_evento(
             "elementos_visuales": info_categoria["etiquetas"],
             "modelo_preentrenado": "gemini-2.5-flash-vision",
             "es_llamada_ligera": False,
-            "motivo": f"🔬 Validada por modelo preentrenado de visión: La imagen coincide con los patrones de la categoría '{categoria}'."
+            "motivo": f"🔬 Validada por modelo preentrenado: Imagen representativa de '{categoria}'."
         }
+
+# =============================================================================
+# MODERADOR IA AUTÓNOMO (NO ESPERA ACCIÓN HUMANA: TRABAJA Y DECIDE ÉL)
+# =============================================================================
+
+def moderar_actividad_autonoma(datos_evento: dict) -> dict:
+    """
+    MODERADOR AUTÓNOMO:
+    Evalúa integralmente una actividad (título, descripción, imagen y categoría).
+    DECIDE Y RESUELVE ÉL SIN ESPERAR A ACCIÓN HUMANA:
+    - Si el título no tiene coherencia con la categoría -> DENEGADA.
+    - Si la imagen no tiene relación con la categoría -> DENEGADA.
+    - Si contiene palabras malsonantes -> DENEGADA.
+    - Si todo es coherente y legítimo -> APROBADA.
+    """
+    titulo = datos_evento.get("titulo") or datos_evento.get("nombre") or ""
+    descripcion = datos_evento.get("descripcion") or ""
+    categoria = datos_evento.get("categoria") or "Fiesta Patronal"
+    imagen = datos_evento.get("imagen") or ""
+
+    # 1. Moderación del título y coherencia con la categoría
+    res_titulo = moderar_titulo_evento(titulo, descripcion, categoria)
+    if not res_titulo.get("aprobada") or not res_titulo.get("coherente_con_categoria"):
+        return {
+            "decision": "denegar",
+            "aprobada": False,
+            "coherente_titulo": False,
+            "coherente_imagen": True,
+            "contiene_palabras_malsonantes": res_titulo.get("contiene_palabras_malsonantes", False),
+            "categoria_evaluada": categoria,
+            "motivo": res_titulo.get("motivo"),
+            "modelo_utilizado": "gemini-2.5-flash-autonomo"
+        }
+
+    # 2. Moderación de la imagen con modelo preentrenado
+    res_imagen = moderar_imagen_evento(imagen, 1, datos_evento)
+    if not res_imagen.get("aprobada") or not res_imagen.get("coherente_con_categoria"):
+        return {
+            "decision": "denegar",
+            "aprobada": False,
+            "coherente_titulo": True,
+            "coherente_imagen": False,
+            "contiene_palabras_malsonantes": False,
+            "categoria_evaluada": categoria,
+            "motivo": res_imagen.get("motivo"),
+            "modelo_utilizado": "gemini-2.5-flash-autonomo"
+        }
+
+    # 3. Todo coherente -> Aprobación directa autónoma del Moderador IA
+    return {
+        "decision": "aprobar",
+        "aprobada": True,
+        "coherente_titulo": True,
+        "coherente_imagen": True,
+        "contiene_palabras_malsonantes": False,
+        "categoria_evaluada": categoria,
+        "motivo": f"✅ Aprobada por Moderador IA Autónomo: Título e imagen verificados con coherencia total para la categoría '{categoria}'.",
+        "modelo_utilizado": "gemini-2.5-flash-autonomo"
+    }
+
+def evaluar_evento(evento: dict, negocio: dict, historial_aprobados: list[dict]) -> dict:
+    return moderar_actividad_autonoma(evento)

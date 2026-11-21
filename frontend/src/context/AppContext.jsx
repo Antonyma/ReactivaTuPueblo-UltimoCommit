@@ -12,7 +12,8 @@ import {
 import {
   moderarResenaConGemini,
   moderarImagenConGemini,
-  moderarTituloActividadConGemini
+  moderarTituloActividadConGemini,
+  moderarActividadAutonomaConGemini
 } from "../services/geminiModeration.js";
 
 const AppContext = createContext();
@@ -209,43 +210,14 @@ export function AppProvider({ children }) {
   };
 
   const publicarEvento = async (nuevoData) => {
-    // 1. REGLA ESTRICTA: Penalización de palabras malsonantes en títulos de actividades de negocios
-    const modTitulo = await moderarTituloActividadConGemini(nuevoData.titulo, nuevoData.descripcion);
-    if (modTitulo.contieneMalasPalabras) {
-      mostrarToast(`🚫 Actividad bloqueada: El título contiene palabras malsonantes (${modTitulo.palabrasDetectadas.join(", ")}).`);
-      return {
-        exito: false,
-        motivo: `El título o descripción contiene palabras malsonantes (${modTitulo.palabrasDetectadas.join(", ")}). En PuebloVivo no se permiten insultos ni lenguaje ofensivo.`,
-        palabras: modTitulo.palabrasDetectadas
-      };
-    }
-
-    const evalRef = evaluarFiabilidadNegocio(nuevoData.negocio, cuentasNegocio);
     const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
 
-    // 2. MODERACIÓN DE IMAGEN CON MODELO PREENTRENADO DE VISIÓN (gemini-2.5-flash-vision)
-    // PREMISA ESTRICTA E INDEPENDIENTE:
-    // Juzga a QUIEN SEA con esta premisa independientemente (sin excepciones).
-    // SOLO deja pasar imágenes en las actividades que estén relacionadas con las categorías oficiales.
-    const moderacionImg = await moderarImagenConGemini(
-      nuevoData.imagen,
-      evalRef.nivel,
-      nuevoData,
-      muestrasAprendidasModelo
-    );
-
-    // Si la imagen no tiene relación con la categoría oficial, NO SE DEJA PASAR independientemente de quién sea
-    const fotoIncoherente = moderacionImg.coherenteConCategoria === false;
-
-    // Si la foto es coherente, las entidades de confianza (Nivel 2 o 3) pasan validadas directamente por el modelo
-    const pasaSinRevision = !fotoIncoherente && evalRef.esDeConfianza;
-
-    let estadoModeracion = "pendiente";
-    if (fotoIncoherente) {
-      estadoModeracion = "denegada";
-    } else if (pasaSinRevision) {
-      estadoModeracion = "aprobada";
-    }
+    // MODERADOR IA AUTÓNOMO (NO ESPERA A ACCIÓN HUMANA: TRABAJA Y DECIDE ÉL)
+    // 1. Evalúa palabras malsonantes en el título.
+    // 2. Evalúa coherencia temática estricta del título con la categoría.
+    // 3. Evalúa coherencia de la imagen con la categoría con el modelo preentrenado.
+    const resultadoIA = await moderarActividadAutonomaConGemini(nuevoData);
+    const esAprobada = resultadoIA.decision === "aprobar" && resultadoIA.aprobada;
 
     const nuevoEvento = {
       id: Date.now(),
@@ -262,49 +234,76 @@ export function AppProvider({ children }) {
       fechaInicioISO: nuevoData.fechaInicio,
       fechaFinISO: nuevoData.fechaFin,
       fecha: formatearFechaBonita(nuevoData.fechaInicio),
-      estadoModeracion,
-      ahorroTokens: pasaSinRevision,
-      motivoIA: fotoIncoherente
-        ? `🚨 Denegada por Modelo Preentrenado de Visión: La foto no guarda relación con la categoría "${nuevoData.categoria}".`
-        : pasaSinRevision
-        ? `✓ Validada por Modelo Preentrenado de Visión: Imagen coherente con la categoría "${nuevoData.categoria}". Pase de confianza.`
-        : `Cuenta Nivel 1/3 · Imagen analizada por Modelo Preentrenado (Categoría: ${nuevoData.categoria}). Pendiente de validación final.`,
-      moderacionImagen: moderacionImg,
+      estadoModeracion: esAprobada ? "aprobada" : "denegada",
+      ahorroTokens: esAprobada,
+      motivoIA: resultadoIA.motivo,
+      moderacionImagen: {
+        modelo: resultadoIA.modelo || "gemini-2.5-flash-autonomo",
+        aprobada: esAprobada,
+        coherenteConCategoria: resultadoIA.coherenteImagen,
+        motivo: resultadoIA.motivo
+      },
       imagen: nuevoData.imagen || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
     };
 
     setActividades((prev) => [nuevoEvento, ...prev]);
 
-    if (fotoIncoherente) {
+    if (!esAprobada) {
       setMuestrasAprendidasModelo((prev) => prev + 1);
       notificarDecisionPublicadorWhatsApp(nuevoEvento, "DENEGADA");
-      mostrarToast(`🚨 Actividad denegada: La imagen no corresponde a la categoría "${nuevoData.categoria}".`);
+      mostrarToast(`🚨 Actividad rechazada por el Moderador IA: ${resultadoIA.motivo}`);
       return {
         exito: false,
-        motivo: `🚨 La foto no tiene relación con la categoría "${nuevoData.categoria}". El modelo preentrenado de visión juzga a todos por igual y solo admite imágenes relacionadas con la temática.`
+        motivo: resultadoIA.motivo
       };
     }
 
-    if (pasaSinRevision) {
-      setEventosAhorradosTokens((prev) => prev + 1);
-      if (cuentasNegocio[nuevoData.negocio]) {
-        setCuentasNegocio((prev) => ({
-          ...prev,
-          [nuevoData.negocio]: {
-            ...prev[nuevoData.negocio],
-            actividadesAprobadas: prev[nuevoData.negocio].actividadesAprobadas + 1
-          }
-        }));
-      }
-      notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
-      mostrarToast(
-        `⚡ ¡Publicada! "${nuevoData.negocio}": Imagen verificada y coherente con la categoría "${nuevoData.categoria}" por el modelo preentrenado.`
-      );
-      return { exito: true };
+    // Si es aprobada autónomamente por el moderador
+    setEventosAhorradosTokens((prev) => prev + 1);
+    if (cuentasNegocio[nuevoData.negocio]) {
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [nuevoData.negocio]: {
+          ...prev[nuevoData.negocio],
+          actividadesAprobadas: prev[nuevoData.negocio].actividadesAprobadas + 1
+        }
+      }));
     }
-
-    mostrarToast(`⏳ Enviada a moderación: "${nuevoData.negocio}". Imagen analizada para la categoría "${nuevoData.categoria}" por el modelo preentrenado.`);
+    notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
+    mostrarToast(`✅ ¡Aprobada por el Moderador IA Autónomo! Título e imagen verificados para la categoría "${nuevoData.categoria}".`);
     return { exito: true };
+  };
+
+  const ejecutarModeradorAutonomoEnTodas = async () => {
+    let aprobadasCount = 0;
+    let denegadasCount = 0;
+
+    const nuevasActividades = await Promise.all(
+      actividades.map(async (act) => {
+        if (act.estadoModeracion === "pendiente") {
+          const resIA = await moderarActividadAutonomaConGemini({
+            titulo: act.nombre,
+            descripcion: act.descripcion,
+            categoria: act.categoria,
+            imagen: act.imagen
+          });
+          const estado = resIA.decision === "aprobar" ? "aprobada" : "denegada";
+          if (estado === "aprobada") aprobadasCount++;
+          else denegadasCount++;
+
+          return {
+            ...act,
+            estadoModeracion: estado,
+            motivoIA: resIA.motivo
+          };
+        }
+        return act;
+      })
+    );
+
+    setActividades(nuevasActividades);
+    setMuestrasAprendidasModelo((prev) => prev + 1);
+    mostrarToast(`⚡ Moderador IA Autónomo procesó todas las actividades: ${aprobadasCount} aprobadas y ${denegadasCount} denegadas.`);
   };
 
   const crearNegocio = ({ nombre, pueblo, instagramUrl, facebookUrl }) => {
@@ -496,6 +495,7 @@ export function AppProvider({ children }) {
         crearNegocio,
         aprobarActividad,
         denegarActividad,
+        ejecutarModeradorAutonomoEnTodas,
         agregarResena,
         eliminarResena,
         restaurarResena

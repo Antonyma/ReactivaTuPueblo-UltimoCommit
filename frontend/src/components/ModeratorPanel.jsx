@@ -12,6 +12,7 @@ export default function ModeratorPanel() {
     ultimoWhatsAppPublicador,
     aprobarActividad,
     denegarActividad,
+    ejecutarModeradorAutonomoEnTodas,
     eliminarResena,
     restaurarResena,
     cambiarRol
@@ -85,6 +86,18 @@ export default function ModeratorPanel() {
             <p className="text-xs font-bold text-amber-200 mt-1.5 leading-snug line-clamp-2">
               {ultimoWhatsAppPublicador}
             </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-800 pt-3">
+            <p className="text-xs text-blue-200">
+              ⚡ <strong>Modo Autónomo Activo:</strong> El agente Gemini evalúa coherencia de título e imagen y resuelve directamente sin esperar a humanos.
+            </p>
+            <button
+              type="button"
+              onClick={ejecutarModeradorAutonomoEnTodas}
+              className="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2 rounded-xl text-xs shadow transition"
+            >
+              ⚡ Ejecutar Moderador IA Autónomo en Pendientes
+            </button>
           </div>
         </div>
 

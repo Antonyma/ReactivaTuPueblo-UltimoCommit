@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 # Importamos los 4 agentes desde la misma carpeta agents/
 from agents.extractor import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
-from agents.moderate import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento
+from agents.moderate import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma
 from agents.recommend import recomendar_a_vecinos
 from agents.event_chat import responder_duda_evento
 
@@ -25,6 +25,10 @@ class ReqModerateImage(BaseModel):
 class ReqModerateEventTitle(BaseModel):
     titulo: str
     descripcion: str = ""
+    categoria: str = "Fiesta Patronal"
+
+class ReqModerateAutonomous(BaseModel):
+    evento: dict
 class ReqExtract(BaseModel):
     texto: str = ""
     url_post: Optional[str] = None
@@ -94,7 +98,11 @@ def endpoint_moderate_image(req: ReqModerateImage):
 
 @app.post("/agents/moderate/event-title")
 def endpoint_moderate_event_title(req: ReqModerateEventTitle):
-    return moderar_titulo_evento(req.titulo, req.descripcion)
+    return moderar_titulo_evento(req.titulo, req.descripcion, req.categoria)
+
+@app.post("/agents/moderate/autonomous")
+def endpoint_moderate_autonomous(req: ReqModerateAutonomous):
+    return moderar_actividad_autonoma(req.evento)
 
 @app.post("/agents/recommend")
 def endpoint_recommend(req: ReqRecommend):
