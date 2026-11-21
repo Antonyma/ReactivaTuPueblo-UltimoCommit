@@ -77,8 +77,14 @@ CATEGORIAS_VALIDACION = {
         "descripcion": "Mercadillos artesanos, productos de la huerta, tiendas de proximidad y talleres locales.",
         "conceptos_esperados": ["comercio", "tienda", "mercado", "artesanía", "taller", "producto local", "alfarería", "oferta", "esparto", "cerámica", "mercadillo", "huerta", "venta", "artesanal"],
         "etiquetas": ["Comercio Local", "Productos Autóctonos", "Artesanía"]
-    }
+    },
+    "Cultura": {
+        "descripcion": "Actos culturales, teatro, cine, conciertos, exposiciones, charlas, talleres y tradiciones locales.",
+        "conceptos_esperados": ["cultura", "teatro", "cine", "concierto", "música", "exposición", "charla", "libro", "taller", "arte", "flamenco", "poesía", "danza", "conferencia", "biblioteca"],
+        "etiquetas": ["Actividad Cultural", "Artes y Tradición", "Evento Comunitario"]
+    },
 }
+CATEGORIAS_VALIDACION["Deporte"] = CATEGORIAS_VALIDACION["Deportes"]
 
 # =============================================================================
 # MODELOS PYDANTIC

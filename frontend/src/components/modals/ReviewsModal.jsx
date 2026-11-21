@@ -15,7 +15,6 @@ export default function ReviewsModal() {
   } = useApp();
   const [estrellas, setEstrellas] = useState(5);
   const [texto, setTexto] = useState("");
-  const [ahoraMs] = useState(() => Date.now());
 
   const nombreNegocio = modalResenas.nombreNegocio;
 
@@ -46,6 +45,7 @@ export default function ReviewsModal() {
   const eventosAsistidos = actividades.filter(
     (a) => a.negocio === nombreNegocio && misInscripcionesIds.includes(a.id)
   );
+  const ahoraMs = Date.now();
   const puedeResenar =
     Boolean(usuario) &&
     eventosAsistidos.some((a) => {

@@ -6,7 +6,7 @@ const TIPO_EVENTO_CATEGORIA = {
   2: 'Fiesta Patronal',
   3: 'Gastronomía',
   4: 'Comercio',
-  5: 'Deporte',
+  5: 'Deportes',
   6: 'Cultura',
 }
 
@@ -148,6 +148,23 @@ export class EventoService {
 
     await this.eventoRepository.delete(eventoId)
     return { deleted: true, eventoId: Number(eventoId) }
+  }
+
+  async terminarEvento(eventoId, propietarioId) {
+    const evento = await this.obtenerEventoPorId(eventoId)
+    if (evento.negocio?.propietario?.id !== Number(propietarioId)) {
+      throw AppError.forbidden('Solo el publicador propietario puede terminar este evento')
+    }
+
+    const finAhora = new Date(Date.now() - 1000)
+    const updateData = { fechaFin: finAhora }
+
+    const inicioActual = evento.fechaInicio ? new Date(evento.fechaInicio) : null
+    if (!inicioActual || Number.isNaN(inicioActual.getTime()) || inicioActual >= finAhora) {
+      updateData.fechaInicio = new Date(finAhora.getTime() - 60 * 1000)
+    }
+
+    return this.eventoRepository.update(eventoId, updateData)
   }
 
   async inscribirse(eventoId, usuarioId) {

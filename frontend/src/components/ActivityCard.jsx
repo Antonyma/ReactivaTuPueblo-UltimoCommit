@@ -20,6 +20,7 @@ export default function ActivityCard({ act }) {
     apuntarse,
     desapuntarse,
     eliminarEvento,
+    terminarEvento,
     setModalCambiarHora,
     setModalDudas,
     setModalResenas,
@@ -34,6 +35,8 @@ export default function ActivityCard({ act }) {
   const sinPlazas = libres === 0;
   const yaApuntado = misInscripcionesIds.includes(act.id);
   const inscripcionPendienteSync = inscripcionesPendientesIds.includes(act.id);
+  const finMs = act.fechaFinISO ? new Date(act.fechaFinISO).getTime() : NaN;
+  const estaTerminado = !Number.isNaN(finMs) && finMs <= Date.now();
 
   const badgeEstado = act.pendienteSync ? (
     <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full shadow">
@@ -43,6 +46,10 @@ export default function ActivityCard({ act }) {
     <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">
       En revisión (Nivel 1)
     </span>
+  ) : estaTerminado ? (
+    <span className="absolute top-3 right-3 bg-emerald-700 text-white text-xs font-black px-3 py-1 rounded-full shadow">
+      Finalizado
+    </span>
   ) : (
     <span className="absolute top-3 right-3 bg-white/95 text-blue-950 text-xs font-black px-3 py-1 rounded-full">
       {act.dePago ? "De pago" : "Gratis"}
@@ -50,7 +57,10 @@ export default function ActivityCard({ act }) {
   );
 
   return (
-    <article className="tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between">
+    <article
+      id={`actividad-card-${act.id}`}
+      className="tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between scroll-mt-24 transition-shadow duration-300"
+    >
       <div>
         <div className="relative">
           <img src={act.imagen} alt={act.nombre} className="w-full h-44 sm:h-48 object-cover" />
@@ -84,20 +94,42 @@ export default function ActivityCard({ act }) {
             <span className="text-emerald-800">Ref. {evalRef.nivel}/3</span>
           </p>
           <p className="text-base text-stone-700">{act.descripcion}</p>
+          {(act.esRecomendada || act.es_recomendada) && act.motivoRecomendacion && (
+            <p className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+              {act.motivoRecomendacion}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="p-4 sm:p-5 pt-0">
         {esMia ? (
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setModalCambiarHora({ open: true, actividad: act })}
-              className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3 px-3 rounded-2xl text-sm shadow-sm"
-            >
-              <IconClock className="w-4 h-4" />
-              <span>Cambiar Hora</span>
-            </button>
+            {estaTerminado ? (
+              <div className="w-full inline-flex items-center justify-center gap-2 bg-emerald-100 text-emerald-950 border border-emerald-300 font-black py-2.5 px-3 rounded-2xl text-xs">
+                <IconCheck className="w-4 h-4 shrink-0" />
+                <span>Evento terminado · Reseñas habilitadas</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalCambiarHora({ open: true, actividad: act })}
+                  className="inline-flex items-center justify-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3 px-3 rounded-2xl text-xs sm:text-sm shadow-sm"
+                >
+                  <IconClock className="w-4 h-4 shrink-0" />
+                  <span>Cambiar Hora</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => terminarEvento(act.id)}
+                  className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 px-3 rounded-2xl text-xs sm:text-sm shadow-sm"
+                >
+                  <IconCheck className="w-4 h-4 shrink-0" />
+                  <span>Terminar</span>
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -119,7 +151,25 @@ export default function ActivityCard({ act }) {
           </div>
         ) : (
           <div className="space-y-2">
-            {sinPlazas ? (
+            {estaTerminado ? (
+              yaApuntado ? (
+                <button
+                  type="button"
+                  onClick={() => setModalResenas({ open: true, nombreNegocio: act.negocio })}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3.5 px-4 rounded-2xl shadow"
+                >
+                  <IconStar className="w-5 h-5 shrink-0" filled />
+                  <span>Evento terminado · Dejar reseña</span>
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="w-full bg-stone-400 text-white font-black py-3.5 px-4 rounded-2xl cursor-not-allowed"
+                >
+                  Evento finalizado
+                </button>
+              )
+            ) : sinPlazas ? (
               <button
                 disabled
                 className="w-full bg-stone-400 text-white font-black py-3.5 px-4 rounded-2xl cursor-not-allowed"

@@ -201,22 +201,50 @@ export function AppProvider({ children }) {
                excluir_ya_inscritas: true,
              }),
            });
-           if (recRes.ok) {
-             const recData = await recRes.json();
-             const ordenadas = Array.isArray(recData?.actividades_ordenadas)
-               ? recData.actividades_ordenadas
-               : [];
-             const idsRecomendados = new Set(
-               ordenadas
-                 .filter((a) => a && (a.es_recomendada || a.esRecomendada))
-                 .map((a) => String(a.id))
-             );
-             if (idsRecomendados.size > 0) {
-               listaEventos = listaEventosBase.map((e) =>
-                 idsRecomendados.has(String(e.id)) ? { ...e, esRecomendada: true } : e
-               );
-             }
-           }
+            if (recRes.ok) {
+              const recData = await recRes.json();
+              const ordenadas = Array.isArray(recData?.actividades_ordenadas)
+                ? recData.actividades_ordenadas
+                : [];
+              const mapaRecomendadas = new Map();
+              const ordenRank = new Map();
+              ordenadas.forEach((a, idx) => {
+                if (!a || a.id === undefined || a.id === null) return;
+                const key = String(a.id);
+                ordenRank.set(key, idx);
+                if (a.es_recomendada || a.esRecomendada) {
+                  mapaRecomendadas.set(
+                    key,
+                    a.motivo_recommend || a.motivoRecomendacion || ""
+                  );
+                }
+              });
+
+              if (mapaRecomendadas.size > 0) {
+                listaEventos = listaEventosBase
+                  .map((e) => {
+                    const key = String(e.id);
+                    if (!mapaRecomendadas.has(key)) return e;
+                    return {
+                      ...e,
+                      esRecomendada: true,
+                      motivoRecomendacion: mapaRecomendadas.get(key) || e.motivoRecomendacion,
+                    };
+                  })
+                  .sort((a, b) => {
+                    if (a.esRecomendada !== b.esRecomendada) {
+                      return a.esRecomendada ? -1 : 1;
+                    }
+                    const rankA = ordenRank.has(String(a.id))
+                      ? ordenRank.get(String(a.id))
+                      : Number.MAX_SAFE_INTEGER;
+                    const rankB = ordenRank.has(String(b.id))
+                      ? ordenRank.get(String(b.id))
+                      : Number.MAX_SAFE_INTEGER;
+                    return rankA - rankB;
+                  });
+              }
+            }
          } catch {
            // Si el servicio de recomendación no está disponible, seguimos sin marcas
          }
@@ -533,6 +561,30 @@ export function AppProvider({ children }) {
       setActividades((prev) => prev.filter((a) => a.id !== id));
       setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
       mostrarToast("Evento eliminado.");
+    } catch (err) {
+      mostrarToast(err.message);
+    }
+  };
+
+  const terminarEvento = async (id) => {
+    try {
+      const res = await eventosApi.terminar(id);
+      const actualizado = res?.data ? mapEventoFromApi(res.data) : null;
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? actualizado
+              ? {
+                  ...a,
+                  ...actualizado,
+                  esRecomendada: a.esRecomendada,
+                  motivoRecomendacion: a.motivoRecomendacion,
+                }
+              : { ...a, fechaFinISO: new Date(Date.now() - 1000).toISOString() }
+            : a
+        )
+      );
+      mostrarToast("Evento marcado como terminado. Ya están habilitadas las reseñas para los asistentes.");
     } catch (err) {
       mostrarToast(err.message);
     }
@@ -963,6 +1015,7 @@ export function AppProvider({ children }) {
         desapuntarse,
         guardarNuevaHora,
         eliminarEvento,
+        terminarEvento,
         publicarEvento,
         crearNegocio,
         actualizarNegocio,

@@ -118,6 +118,13 @@ export function createEventoRoutes(
     validateIntParam('id'),
     eventoController.eliminar
   )
+  router.post(
+    '/:id/terminar',
+    requireAuth,
+    requireRole(USUARIOS.PUBLICADOR),
+    validateIntParam('id'),
+    eventoController.terminar
+  )
   router.get(
     '/:id/inscritos',
     requireAuth,

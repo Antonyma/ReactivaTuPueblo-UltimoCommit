@@ -3,7 +3,6 @@ import base64
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from agents.recommend import recommend_actividades
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -17,7 +16,7 @@ from pydantic import BaseModel
 from agents.scrapper import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
 from agents.moderador import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma
 from agents.imagenes_actividades import nemotron_classifier
-from agents.recommend import recomendar_a_vecinos
+from agents.recommend import recomendar_a_vecinos, recommend_actividades
 try:
     from agents.event_chat import responder_duda_evento
 except ImportError:

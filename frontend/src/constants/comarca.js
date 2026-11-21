@@ -33,13 +33,16 @@ export const TIPO_EVENTO_A_CATEGORIA = {
   2: "Fiesta Patronal",
   3: "Gastronomía",
   4: "Comercio",
-  5: "Deporte",
+  5: "Deportes",
   6: "Cultura"
 };
 
-export const CATEGORIA_A_TIPO_EVENTO = Object.fromEntries(
-  Object.entries(TIPO_EVENTO_A_CATEGORIA).map(([k, v]) => [v, Number(k)])
-);
+export const CATEGORIA_A_TIPO_EVENTO = {
+  ...Object.fromEntries(
+    Object.entries(TIPO_EVENTO_A_CATEGORIA).map(([k, v]) => [v, Number(k)])
+  ),
+  Deporte: 5,
+};
 
 export function evaluarFiabilidadNegocio(nombreNegocio, cuentas = {}) {
   const info = cuentas[nombreNegocio];

@@ -104,7 +104,16 @@ export default function MapView() {
         });
         L.marker(act.coords, { icon })
           .addTo(capa)
-          .bindPopup(`<b>${act.nombre}</b><br/>${act.pueblo}<br/>${act.fecha}`);
+          .bindPopup(`<b>${act.nombre}</b><br/>${act.pueblo}<br/>${act.fecha}`)
+          .on("click", () => {
+            const cardEl = document.getElementById(`actividad-card-${act.id}`);
+            if (!cardEl) return;
+            cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            cardEl.classList.add("ring-4", "ring-amber-400");
+            window.setTimeout(() => {
+              cardEl.classList.remove("ring-4", "ring-amber-400");
+            }, 2200);
+          });
       });
   }, [actividades, puebloActivo]);
 

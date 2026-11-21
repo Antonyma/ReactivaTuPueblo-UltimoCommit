@@ -69,12 +69,41 @@ class RespuestaRankingIA(BaseModel):
 class RecommendActividades:
     def __init__(self):
         self.supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-        self.supabase_key = os.environ.get("SUPABASE_KEY", "")
+        self.supabase_key = (
+            os.environ.get("SUPABASE_KEY")
+            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            or os.environ.get("SUPABASE_ANON_KEY")
+            or ""
+        )
         self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")
         self.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
 
         self.modelo_principal = "nvidia/llama-3.1-nemotron-70b-instruct"
+
+    @staticmethod
+    def _get_inscripcion_evento_id(ins: dict) -> str:
+        val = ins.get("evento")
+        if val is None:
+            val = ins.get("evento_id")
+        if val is None:
+            val = ins.get("actividad_id")
+        return "" if val is None else str(val)
+
+    @staticmethod
+    def _get_inscripcion_usuario_id(ins: dict) -> str:
+        val = ins.get("usuario")
+        if val is None:
+            val = ins.get("usuario_id")
+        if val is None:
+            val = ins.get("user_id")
+        if val is None:
+            val = ins.get("email")
+        return "" if val is None else str(val)
+
+    @staticmethod
+    def _es_inscripcion_activa(ins: dict) -> bool:
+        return str(ins.get("estado") or "").upper() != "CANCELADA"
 
     # -------------------------------------------------------------------------
     # 1. CONSULTA A SUPABASE (TABLA 'inscripcion' Y 'actividades')
@@ -119,8 +148,13 @@ class RecommendActividades:
 
         filas = self._consultar_supabase(
             "inscripcion",
-            f"select=*&usuario_id=eq.{uid_encoded}"
+            f"select=*&usuario=eq.{uid_encoded}"
         )
+        if not filas:
+            filas = self._consultar_supabase(
+                "inscripcion",
+                f"select=*&usuario_id=eq.{uid_encoded}"
+            )
         if not filas:
             filas = self._consultar_supabase(
                 "inscripcion",
@@ -132,7 +166,7 @@ class RecommendActividades:
                 f"select=*&email=eq.{uid_encoded}"
             )
 
-        return filas
+        return [f for f in filas if self._es_inscripcion_activa(f)]
 
     def _extraer_preferencias_categorias(
         self,
@@ -154,7 +188,7 @@ class RecommendActividades:
         historial_detallado = []
 
         for ins in inscripciones:
-            act_id = str(ins.get("actividad_id") or ins.get("evento_id") or "")
+            act_id = self._get_inscripcion_evento_id(ins)
             act_info = mapa_actividades.get(act_id, {})
 
             categoria = (
@@ -279,7 +313,9 @@ class RecommendActividades:
         todas las actividades ordenadas poniendo PRIMERO las recomendadas.
         """
         if actividades_disponibles is None:
-            actividades_disponibles = self._consultar_supabase("actividades", "select=*")
+            actividades_disponibles = self._consultar_supabase("evento", "select=*")
+            if not actividades_disponibles:
+                actividades_disponibles = self._consultar_supabase("actividades", "select=*")
             if not actividades_disponibles:
                 actividades_disponibles = self._consultar_supabase("eventos", "select=*")
 
@@ -297,9 +333,9 @@ class RecommendActividades:
         # 1. Consultar historial en tabla 'inscripcion'
         inscripciones = self.obtener_historial_inscripciones(usuario_id)
         ids_ya_inscritos = {
-            str(ins.get("actividad_id") or ins.get("evento_id"))
+            self._get_inscripcion_evento_id(ins)
             for ins in inscripciones
-            if (ins.get("actividad_id") or ins.get("evento_id")) is not None
+            if self._get_inscripcion_evento_id(ins)
         }
 
         # -----------------------------------------------------------------
@@ -308,11 +344,15 @@ class RecommendActividades:
         # Para cada actividad a la que asistió el usuario, buscamos otros
         # usuarios que también se inscribieron a esa misma actividad y recopilamos
         # las actividades a las que esos usuarios asistieron (y el usuario actual no).
-        todas_inscripciones = self._consultar_supabase("inscripcion", "select=*")
+        todas_inscripciones = [
+            ins
+            for ins in self._consultar_supabase("inscripcion", "select=*")
+            if self._es_inscripcion_activa(ins)
+        ]
         actividad_a_usuarios: dict[str, set] = {}
         for ins in todas_inscripciones:
-            act_id_cf = str(ins.get("actividad_id") or ins.get("evento_id") or "")
-            uid_cf = str(ins.get("usuario_id") or ins.get("user_id") or ins.get("email") or "")
+            act_id_cf = self._get_inscripcion_evento_id(ins)
+            uid_cf = self._get_inscripcion_usuario_id(ins)
             if act_id_cf and uid_cf:
                 actividad_a_usuarios.setdefault(act_id_cf, set()).add(uid_cf)
 
@@ -323,8 +363,8 @@ class RecommendActividades:
 
         actividades_colaborativas = Counter()
         for ins in todas_inscripciones:
-            uid_cf = str(ins.get("usuario_id") or ins.get("user_id") or ins.get("email") or "")
-            act_id_cf = str(ins.get("actividad_id") or ins.get("evento_id") or "")
+            uid_cf = self._get_inscripcion_usuario_id(ins)
+            act_id_cf = self._get_inscripcion_evento_id(ins)
             if uid_cf in co_usuarios and act_id_cf and act_id_cf not in ids_ya_inscritos:
                 actividades_colaborativas[act_id_cf] += 1
 

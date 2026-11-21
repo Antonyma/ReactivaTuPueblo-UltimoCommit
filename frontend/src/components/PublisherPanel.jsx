@@ -62,6 +62,7 @@ export default function PublisherPanel() {
     actualizarNegocio,
     eliminarNegocio,
     eliminarEvento,
+    terminarEvento,
     setModalCambiarHora,
     setModalInscritos,
   } = useApp();
@@ -343,6 +344,7 @@ export default function PublisherPanel() {
               <option value="Gastronomía">Gastronomía</option>
               <option value="Turismo">Paseo / Turismo</option>
               <option value="Comercio">Comercio Local</option>
+              <option value="Cultura">Cultura</option>
             </select>
           </div>
           <div>
@@ -756,6 +758,21 @@ export default function PublisherPanel() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 shrink-0">
+                      {!(act.fechaFinISO && new Date(act.fechaFinISO).getTime() <= Date.now()) ? (
+                        <button
+                          type="button"
+                          onClick={() => terminarEvento(act.id)}
+                          className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-xs"
+                        >
+                          <IconCheck className="w-4 h-4" />
+                          <span>Terminar</span>
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 font-black px-3 py-2 rounded-xl text-xs">
+                          <IconCheck className="w-3.5 h-3.5" />
+                          <span>Finalizado</span>
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => setModalCambiarHora({ open: true, actividad: act })}

@@ -112,6 +112,10 @@ export const eventosApi = {
     apiFetch(`/eventos/${id}`, {
       method: 'DELETE',
     }),
+  terminar: (id) =>
+    apiFetch(`/eventos/${id}/terminar`, {
+      method: 'POST',
+    }),
   inscribirse: (id) =>
     apiFetch(`/eventos/${id}/inscribirse`, {
       method: 'POST',
