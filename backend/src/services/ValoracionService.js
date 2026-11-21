@@ -57,6 +57,13 @@ export class ValoracionService {
       throw AppError.forbidden('Solo los usuarios inscritos en el evento pueden valorarlo')
     }
 
+    if (evento.fechaFin) {
+      const finMs = new Date(evento.fechaFin).getTime()
+      if (!Number.isNaN(finMs) && finMs > Date.now()) {
+        throw AppError.badRequest('Solo puedes valorar el evento cuando haya finalizado')
+      }
+    }
+
     const estrellasNum = Number(estrellas)
     if (!Number.isInteger(estrellasNum) || estrellasNum < 1 || estrellasNum > 5) {
       throw AppError.badRequest('estrellas debe ser un entero entre 1 y 5')

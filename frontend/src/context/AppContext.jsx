@@ -67,6 +67,25 @@ export function AppProvider({ children }) {
   const cargarDatosIniciales = useCallback(async (usuarioActivo) => {
     setCargando(true);
     try {
+      let usuarioActualizado = usuarioActivo;
+      const token = getAuthToken();
+      if (token) {
+        try {
+          const meRes = await authApi.me();
+          const rawMe = meRes?.data?.usuario;
+          if (rawMe) {
+            usuarioActualizado = {
+              ...rawMe,
+              tipoUsuario: normalizeRoleForUi(rawMe.tipoUsuario),
+            };
+            setAuthSession(token, usuarioActualizado);
+            setUsuario(usuarioActualizado);
+          }
+        } catch {
+          // Si el token expiró o no es válido, mantenemos el estado o limpiamos
+        }
+      }
+
       const [eventosRes, negociosRes] = await Promise.all([
         eventosApi.listar(),
         negociosApi.listar(),
@@ -78,14 +97,14 @@ export function AppProvider({ children }) {
 
       const mapNegocios = {};
       for (const neg of negociosRes?.data || []) {
-        const mapped = mapNegocioFromApi(neg, usuarioActivo);
+        const mapped = mapNegocioFromApi(neg, usuarioActualizado);
         mapNegocios[mapped.nombre] = mapped;
       }
       setCuentasNegocio(mapNegocios);
 
-      if (usuarioActivo?.id && getAuthToken()) {
+      if (usuarioActualizado?.id && getAuthToken()) {
         try {
-          const histRes = await usuariosApi.obtenerHistorial(usuarioActivo.id);
+          const histRes = await usuariosApi.obtenerHistorial(usuarioActualizado.id);
           const ids = (histRes?.data || [])
             .filter((h) => h.estado !== "CANCELADA" && h.evento?.id)
             .map((h) => Number(h.evento.id));
@@ -97,7 +116,7 @@ export function AppProvider({ children }) {
         setMisInscripcionesIds([]);
       }
     } catch (err) {
-      mostrarToast(`⚠️ No se pudieron cargar los datos del servidor: ${err.message}`);
+      mostrarToast(`No se pudieron cargar los datos del servidor: ${err.message}`);
     } finally {
       setCargando(false);
     }
@@ -118,6 +137,7 @@ export function AppProvider({ children }) {
       ...rawUser,
       tipoUsuario: normalizeRoleForUi(rawUser.tipoUsuario),
     };
+    console.log("[DEBUG Auth] usuario:", u);
     setAuthSession(token, u);
     setUsuario(u);
     setModalLogin({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
@@ -133,10 +153,10 @@ export function AppProvider({ children }) {
         setActividades((prev) =>
           prev.map((a) => (a.id === idAct ? { ...a, asistentes: a.asistentes + 1 } : a))
         );
-        mostrarToast(`✅ ¡Bienvenido ${u.nombre}! Quedas apuntado a la actividad.`);
+        mostrarToast(`Bienvenido ${u.nombre}. Quedas apuntado a la actividad.`);
         return;
       } catch (err) {
-        mostrarToast(`⚠️ ${err.message}`);
+        mostrarToast(err.message);
         return;
       }
     }
@@ -149,7 +169,7 @@ export function AppProvider({ children }) {
       const res = await authApi.login({ nombre, password });
       await finalizarAutenticacion(res);
     } catch (err) {
-      mostrarToast(`❌ Error al entrar: ${err.message}`);
+      mostrarToast(`Error al entrar: ${err.message}`);
       throw err;
     }
   };
@@ -166,7 +186,7 @@ export function AppProvider({ children }) {
       });
       await finalizarAutenticacion(res);
     } catch (err) {
-      mostrarToast(`❌ Error al registrarse: ${err.message}`);
+      mostrarToast(`Error al registrarse: ${err.message}`);
       throw err;
     }
   };
@@ -216,9 +236,9 @@ export function AppProvider({ children }) {
         prev.map((a) => (a.id === id ? { ...a, asistentes: a.asistentes + 1 } : a))
       );
       setMisInscripcionesIds((prev) => [...prev, id]);
-      mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuario.telefono}.`);
+      mostrarToast(`Apuntado a "${act.nombre}". Te avisaremos por WhatsApp al ${usuario.telefono}.`);
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -232,9 +252,9 @@ export function AppProvider({ children }) {
         prev.map((a) => (a.id === id ? { ...a, asistentes: Math.max(0, a.asistentes - 1) } : a))
       );
       setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-      mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+      mostrarToast(`Te has desapuntado de "${act.nombre}".`);
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -251,9 +271,9 @@ export function AppProvider({ children }) {
         )
       );
       setModalCambiarHora({ open: false, actividad: null });
-      mostrarToast(`🕒 Hora actualizada a "${fechaBonita}".`);
+      mostrarToast(`Hora actualizada a "${fechaBonita}".`);
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -262,16 +282,16 @@ export function AppProvider({ children }) {
       await eventosApi.eliminar(id);
       setActividades((prev) => prev.filter((a) => a.id !== id));
       setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-      mostrarToast("🗑️ Evento eliminado.");
+      mostrarToast("Evento eliminado.");
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
   const publicarEvento = async (nuevoData) => {
     const negocioInfo = cuentasNegocio[nuevoData.negocio];
     if (!negocioInfo?.id) {
-      mostrarToast("⚠️ Selecciona un negocio válido antes de publicar.");
+      mostrarToast("Selecciona un negocio válido antes de publicar.");
       return;
     }
 
@@ -297,16 +317,16 @@ export function AppProvider({ children }) {
 
       if (nuevoEvento.estadoModeracion === "aprobada") {
         setEventosAhorradosTokens((prev) => prev + 1);
-        mostrarToast(`⚡ ¡Publicada al instante! "${nuevoData.negocio}" tiene pase directo.`);
+        mostrarToast(`Publicada al instante. "${nuevoData.negocio}" tiene pase directo.`);
       } else {
-        mostrarToast(`⏳ Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
+        mostrarToast(`Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
       }
     } catch (err) {
-      mostrarToast(`❌ No se pudo publicar el evento: ${err.message}`);
+      mostrarToast(`No se pudo publicar el evento: ${err.message}`);
     }
   };
 
-  const crearNegocio = async ({ nombre, pueblo, instagramUrl, facebookUrl }) => {
+  const crearNegocio = async ({ nombre, pueblo, instagramUrl, twitterUrl, facebookUrl, webUrl }) => {
     const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
     try {
       const res = await negociosApi.crear({
@@ -314,17 +334,108 @@ export function AppProvider({ children }) {
         pueblo,
         coordenadas: `${coords[0]}, ${coords[1]}`,
         instagramUrl,
+        twitterUrl,
         facebookUrl,
-        fiabilidad: 40,
+        webUrl,
+        fiabilidad: 0,
       });
       const mapped = mapNegocioFromApi(res.data, usuario);
       setCuentasNegocio((prev) => ({
         ...prev,
         [mapped.nombre]: mapped,
       }));
-      mostrarToast(`✅ Negocio "${mapped.nombre}" guardado en el servidor.`);
+      mostrarToast(`Comercio "${mapped.nombre}" enviado. Queda pendiente hasta que un moderador lo confirme.`);
     } catch (err) {
-      mostrarToast(`❌ Error al crear negocio: ${err.message}`);
+      mostrarToast(`Error al crear negocio: ${err.message}`);
+    }
+  };
+
+  const aprobarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      const res = await negociosApi.aprobar(info.id);
+      const mapped = mapNegocioFromApi(res.data, usuario);
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [mapped.nombre]: { ...mapped, resenas: info.resenas || [] },
+      }));
+      mostrarToast(`Comercio "${mapped.nombre}" confirmado.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
+  };
+
+  const denegarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      await negociosApi.denegar(info.id);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        delete next[nombreNegocio];
+        return next;
+      });
+      mostrarToast(`Comercio "${nombreNegocio}" denegado y eliminado.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
+  };
+
+  const actualizarNegocio = async (
+    nombreActual,
+    { nombre, pueblo, instagramUrl, twitterUrl, facebookUrl, webUrl }
+  ) => {
+    const info = cuentasNegocio[nombreActual];
+    if (!info?.id) return null;
+    const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    try {
+      const res = await negociosApi.actualizar(info.id, {
+        nombre,
+        pueblo,
+        coordenadas: `${coords[0]}, ${coords[1]}`,
+        instagramUrl,
+        twitterUrl,
+        facebookUrl,
+        webUrl,
+      });
+      const mapped = mapNegocioFromApi(res.data, usuario);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        if (nombreActual !== mapped.nombre) {
+          delete next[nombreActual];
+        }
+        next[mapped.nombre] = { ...mapped, resenas: info.resenas || [] };
+        return next;
+      });
+      if (nombreActual !== mapped.nombre) {
+        setActividades((prev) =>
+          prev.map((a) => (a.negocio === nombreActual ? { ...a, negocio: mapped.nombre } : a))
+        );
+      }
+      mostrarToast(`Negocio "${mapped.nombre}" actualizado.`);
+      return mapped;
+    } catch (err) {
+      mostrarToast(`Error al actualizar negocio: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const eliminarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      await negociosApi.eliminar(info.id);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        delete next[nombreNegocio];
+        return next;
+      });
+      setActividades((prev) => prev.filter((a) => a.negocio !== nombreNegocio));
+      mostrarToast(`Negocio "${nombreNegocio}" eliminado.`);
+    } catch (err) {
+      mostrarToast(`Error al eliminar negocio: ${err.message}`);
+      throw err;
     }
   };
 
@@ -342,9 +453,9 @@ export function AppProvider({ children }) {
       );
       setMuestrasAprendidasModelo((prev) => prev + 1);
       setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" aprobada y visible para los vecinos.`);
-      mostrarToast(`✅ Actividad "${act.nombre}" aprobada.`);
+      mostrarToast(`Actividad "${act.nombre}" aprobada.`);
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -362,9 +473,9 @@ export function AppProvider({ children }) {
       );
       setMuestrasAprendidasModelo((prev) => prev + 1);
       setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" denegada.`);
-      mostrarToast(`❌ Actividad "${act.nombre}" denegada.`);
+      mostrarToast(`Actividad "${act.nombre}" denegada.`);
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -390,12 +501,26 @@ export function AppProvider({ children }) {
   }, [cuentasNegocio]);
 
   const agregarResena = async (nombreNegocio, estrellas, texto) => {
+    if (!usuario || !getAuthToken()) {
+      mostrarToast("Inicia sesión para poder dejar una reseña.");
+      return;
+    }
+
+    const ahora = Date.now();
     const eventosDelNegocio = actividades.filter((a) => a.negocio === nombreNegocio);
-    const eventoObjetivo =
-      eventosDelNegocio.find((a) => misInscripcionesIds.includes(a.id)) || eventosDelNegocio[0];
+    const eventosAsistidos = eventosDelNegocio.filter((a) => misInscripcionesIds.includes(a.id));
+    const eventoObjetivo = eventosAsistidos.find((a) => {
+      if (!a.fechaFinISO) return false;
+      const finMs = new Date(a.fechaFinISO).getTime();
+      return !Number.isNaN(finMs) && finMs <= ahora;
+    });
 
     if (!eventoObjetivo) {
-      mostrarToast("⚠️ Este negocio aún no tiene eventos para valorar.");
+      if (eventosAsistidos.length > 0) {
+        mostrarToast("Solo puedes reseñar cuando haya acabado el evento al que asististe.");
+      } else {
+        mostrarToast("Solo puedes reseñar si has asistido a un evento de este negocio y ya ha acabado.");
+      }
       return;
     }
 
@@ -418,9 +543,9 @@ export function AppProvider({ children }) {
           },
         };
       });
-      mostrarToast("⭐ ¡Gracias! Tu opinión se ha guardado.");
+      mostrarToast("Gracias, tu opinión se ha guardado.");
     } catch (err) {
-      mostrarToast(`❌ ${err.message}`);
+      mostrarToast(err.message);
     }
   };
 
@@ -461,6 +586,10 @@ export function AppProvider({ children }) {
         eliminarEvento,
         publicarEvento,
         crearNegocio,
+        actualizarNegocio,
+        eliminarNegocio,
+        aprobarNegocio,
+        denegarNegocio,
         aprobarActividad,
         denegarActividad,
         cargarResenasNegocio,

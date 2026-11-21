@@ -1,4 +1,5 @@
 import { AppError } from '../../middlewares/errorHandler.js'
+import { createSupabaseAuthClient } from '../../config/supabaseClient.js'
 import { USUARIOS, Usuario } from '../../models/index.js'
 import { UsuarioRepository } from '../contracts/UsuarioRepository.js'
 import { unwrapSupabaseResult } from './supabaseHelpers.js'
@@ -223,6 +224,10 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     const cleanNombre = String(nombre || '').trim()
     let authId = null
 
+    const authClient = this.client.auth?.signUp || this.client.auth?.signInWithPassword
+      ? createSupabaseAuthClient()
+      : null
+
     if (this.client.auth?.admin?.createUser) {
       const { data: adminData, error: adminErr } = await this.client.auth.admin.createUser({
         email: normalizedEmail,
@@ -234,8 +239,8 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
         throw AppError.badRequest(adminErr.message || 'Error al registrar usuario en Supabase Auth')
       }
       authId = adminData?.user?.id || null
-    } else if (this.client.auth?.signUp) {
-      const { data: signUpData, error: signUpErr } = await this.client.auth.signUp({
+    } else if (authClient?.auth?.signUp) {
+      const { data: signUpData, error: signUpErr } = await authClient.auth.signUp({
         email: normalizedEmail,
         password: String(password),
         options: { data: { nombre: cleanNombre, telefono: String(telefono || '') } },
@@ -255,8 +260,8 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     })
 
     let token = null
-    if (this.client.auth?.signInWithPassword) {
-      const { data: signInData } = await this.client.auth.signInWithPassword({
+    if (authClient?.auth?.signInWithPassword) {
+      const { data: signInData } = await authClient.auth.signInWithPassword({
         email: normalizedEmail,
         password: String(password),
       })
@@ -267,13 +272,20 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
   }
 
   async loginWithNombre(nombre, password) {
-    const usuarioPorNombre = await this.findByNombre(nombre)
-    if (!usuarioPorNombre || !usuarioPorNombre.email || !password) {
+    const cleanInput = String(nombre || '').trim()
+    if (!cleanInput || !password) return null
+
+    let usuarioPorNombre = await this.findByNombre(cleanInput)
+    if (!usuarioPorNombre && cleanInput.includes('@')) {
+      usuarioPorNombre = await this.findByEmail(cleanInput)
+    }
+    if (!usuarioPorNombre || !usuarioPorNombre.email) {
       return null
     }
 
-    if (this.client.auth?.signInWithPassword) {
-      const { data, error } = await this.client.auth.signInWithPassword({
+    const authClient = this.client.auth?.signInWithPassword ? createSupabaseAuthClient() : null
+    if (authClient?.auth?.signInWithPassword) {
+      const { data, error } = await authClient.auth.signInWithPassword({
         email: usuarioPorNombre.email,
         password: String(password),
       })

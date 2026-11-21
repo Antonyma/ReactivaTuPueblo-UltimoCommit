@@ -4,8 +4,9 @@ import {
   municipiosMancomunidad,
   CENTRO_MANCOMUNIDAD,
   ZOOM_MANCOMUNIDAD,
-  coordsPueblos
+  coordsPueblos,
 } from "../constants/comarca.js";
+import { IconMap, IconTarget } from "./Icons.jsx";
 
 export default function MapView() {
   const mapContainerRef = useRef(null);
@@ -34,14 +35,14 @@ export default function MapView() {
       center: CENTRO_MANCOMUNIDAD,
       zoom: ZOOM_MANCOMUNIDAD,
       minZoom: 9,
-      maxZoom: 19
+      maxZoom: 19,
     });
 
     // Capa OpenStreetMap
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     const capaPueblos = L.layerGroup().addTo(map);
@@ -52,7 +53,7 @@ export default function MapView() {
         className: "",
         html: `<div class="pin-pueblo-base"></div>`,
         iconSize: [11, 11],
-        iconAnchor: [5, 5]
+        iconAnchor: [5, 5],
       });
       L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
     });
@@ -84,7 +85,8 @@ export default function MapView() {
 
   // Actualizar pines cuando cambien las actividades o el pueblo activo
   useEffect(() => {
-    if (!mapInstanceRef.current || !capaMarcadoresRef.current || typeof window.L === "undefined") return;
+    if (!mapInstanceRef.current || !capaMarcadoresRef.current || typeof window.L === "undefined")
+      return;
 
     const L = window.L;
     const capa = capaMarcadoresRef.current;
@@ -98,11 +100,11 @@ export default function MapView() {
           className: "",
           html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
           iconSize: [48, 48],
-          iconAnchor: [24, 24]
+          iconAnchor: [24, 24],
         });
         L.marker(act.coords, { icon })
           .addTo(capa)
-          .bindPopup(`<b>${act.nombre}</b><br/>📍 ${act.pueblo}<br/>🕒 ${act.fecha}`);
+          .bindPopup(`<b>${act.nombre}</b><br/>${act.pueblo}<br/>${act.fecha}`);
       });
   }, [actividades, puebloActivo]);
 
@@ -129,14 +131,18 @@ export default function MapView() {
 
   return (
     <div id="tab-contenido-mapa" className="caja-panel bg-white p-4 rounded-3xl shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-black text-lg">🗺️ Mapa de los Pueblos</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-black text-lg inline-flex items-center gap-2">
+          <IconMap className="w-5 h-5 text-blue-700 shrink-0" />
+          <span>Mapa de los Pueblos</span>
+        </h2>
         <button
           type="button"
           onClick={centrarTodos}
-          className="bg-blue-950 text-amber-300 text-xs font-bold px-3 py-2 rounded-xl hover:bg-blue-900 transition"
+          className="inline-flex items-center gap-1.5 bg-blue-950 text-amber-300 text-xs font-bold px-3 py-2 rounded-xl hover:bg-blue-900 transition shrink-0"
         >
-          🎯 Ver todos
+          <IconTarget className="w-4 h-4" />
+          <span>Ver todos</span>
         </button>
       </div>
       <div id="mapa-comarca" ref={mapContainerRef}></div>

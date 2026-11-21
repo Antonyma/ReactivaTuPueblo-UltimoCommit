@@ -1,16 +1,20 @@
 import React from "react";
 import { useApp } from "../context/AppContext.jsx";
+import { IconCalendar, IconStar } from "./Icons.jsx";
 
 export default function MyPlans() {
   const { actividades, misInscripcionesIds, desapuntarse, setModalResenas } = useApp();
 
   return (
-    <div id="tab-contenido-misplanes" className="caja-panel bg-white p-5 rounded-3xl shadow-sm space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-black text-lg">📅 Mis Planes Apuntados</h2>
+    <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-black text-lg inline-flex items-center gap-2">
+          <IconCalendar className="w-5 h-5 text-blue-700 shrink-0" />
+          <span>Mis Planes Apuntados</span>
+        </h2>
         <span
           id="badge-total-inscritos"
-          className="bg-blue-700 text-white font-black text-sm px-3 py-0.5 rounded-full"
+          className="bg-blue-700 text-white font-black text-sm px-3 py-0.5 rounded-full shrink-0"
         >
           {misInscripcionesIds.length}
         </span>
@@ -30,8 +34,8 @@ export default function MyPlans() {
                 key={id}
                 className="p-3 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between gap-2"
               >
-                <div>
-                  <p className="font-black">{act.nombre}</p>
+                <div className="min-w-0">
+                  <p className="font-black truncate">{act.nombre}</p>
                   <p className="text-xs text-stone-600">
                     {act.pueblo} · {act.fecha}
                   </p>
@@ -50,18 +54,19 @@ export default function MyPlans() {
       </ul>
 
       <div className="pt-3 border-t border-blue-200 space-y-2">
-        <h3 className="font-black text-base">📜 Actividades ya hechas</h3>
+        <h3 className="font-black text-base">Actividades ya hechas</h3>
         <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2">
-          <div>
-            <p className="font-bold text-sm">Fiesta de Montesión</p>
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate">Fiesta de Montesión</p>
             <p className="text-xs text-stone-600">Lucainena</p>
           </div>
           <button
             type="button"
             onClick={() => setModalResenas({ open: true, nombreNegocio: "Ayuntamiento de Lucainena" })}
-            className="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-3 py-2 rounded-xl text-xs"
+            className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-3 py-2 rounded-xl text-xs shrink-0"
           >
-            ⭐ Opinar
+            <IconStar className="w-4 h-4" filled />
+            <span>Opinar</span>
           </button>
         </div>
       </div>

@@ -45,6 +45,10 @@ export class EventoService {
       throw AppError.forbidden('No puedes crear eventos para un negocio que no es tuyo')
     }
 
+    if (Number(negocio.fiabilidad ?? 0) <= 0) {
+      throw AppError.forbidden('Este comercio está pendiente de confirmación por un moderador')
+    }
+
     if (new Date(data.fechaFin) <= new Date(data.fechaInicio)) {
       throw AppError.badRequest('fechaFin debe ser posterior a fechaInicio')
     }
