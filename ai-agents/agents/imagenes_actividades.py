@@ -1,5 +1,5 @@
 """
-Módulo de clasificación visual y OCR con NVIDIA NIM (Nemotron Vision-Language).
+Módulo de clasificación visual y OCR con enrutador multi-modelo (NVIDIA NIM + OpenRouter).
 Especializado en las 5 categorías oficiales de PuebloVivo:
 'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
 """
@@ -27,7 +27,7 @@ UMBRAL_RECHAZO_AUTO = 0.45
 DATASET_ENTRENAMIENTO_CATEGORIAS = {
     "Fiesta Patronal": {
         "descripcion": "Celebraciones populares, música, verbenas, procesiones, bailes y actos festivos municipales.",
-        "prohibido_visualmente": "Comida aislada sin ambiente festivo, frutas/verduras sueltas, deportes de competición, paisajes vacíos.",
+        "prohibido_visualmente": "Comida aislada sin ambiente festivo, frutas/verduras sueltas, deportes de competición, paisajes vacíos, violencia o armas.",
         "patrones_visuales_obligatorios": [
             "escenario", "orquesta", "guirnaldas", "plaza", "baile", "concurrencia",
             "iluminación festiva", "procesión", "andas", "santo", "patrona", "virgen",
@@ -47,7 +47,7 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
     },
     "Deportes": {
         "descripcion": "Eventos deportivos, senderismo, carreras de montaña, ciclismo BTT, pistas municipales y trofeos.",
-        "prohibido_visualmente": "Comida, frutas (sandías, etc.), fiestas nocturnas, monumentos sin actividad deportiva.",
+        "prohibido_visualmente": "Comida, frutas (sandías, etc.), fiestas nocturnas, monumentos sin actividad deportiva, peleas o violencia.",
         "patrones_visuales_obligatorios": [
             "bicicleta", "ciclista", "casco", "sendero", "sierra", "montaña", "btt",
             "bastones trekking", "deportistas", "pista deportiva", "fútbol", "pádel",
@@ -140,6 +140,7 @@ class ResultadoNemotronParse(BaseModel):
     coherencia_visual: bool = Field(default=False)
     texto_imagen_coherente_con_categoria: bool = Field(default=True)
     coherencia_titulo_imagen: bool = Field(default=True)
+    contiene_contenido_violento_o_peligroso: bool = Field(default=False)
     puntuacion_afinidad: float = Field(ge=0.0, le=1.0)
     estado_moderacion: Literal["APROBADO", "RECHAZADO", "PENDIENTE_MODERADOR"] = Field(default="PENDIENTE_MODERADOR")
     aprobada: bool = Field(default=False)
@@ -204,78 +205,117 @@ def _optimizar_imagen_bytes(raw_bytes: bytes, mime_type: str, max_lado: int = 10
 
 
 # =============================================================================
-# CLASIFICADOR CON NVIDIA NIM REAL (NEMOTRON VISION-LANGUAGE)
+# CLASIFICADOR CON ENRUTADOR AUTOMÁTICO (NVIDIA NIM -> OPENROUTER FALLBACK)
 # =============================================================================
 
 class NemotronVisionClassifier:
     def __init__(self):
         self.modelo_nombre = "nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
-        self.modelo_fallback_nim = "meta/llama-3.2-90b-vision-instruct"
         self.nim_endpoint = "https://integrate.api.nvidia.com/v1/chat/completions"
+        self.openrouter_endpoint = "https://openrouter.ai/api/v1/chat/completions"
         self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")
+        self.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
         self.dataset = DATASET_ENTRENAMIENTO_CATEGORIAS
 
     def get_info_entrenamiento(self) -> dict:
         return {
-            "modelo": self.modelo_nombre,
-            "proveedor": "NVIDIA NIM",
-            "api_key_configurada": bool(self.nvidia_api_key),
+            "modelo_principal": self.modelo_nombre,
+            "proveedores_activos": {
+                "nvidia_nim": bool(self.nvidia_api_key),
+                "openrouter": bool(self.openrouter_api_key)
+            },
             "categorias_activas": list(self.dataset.keys()),
-            "flujo": "Visión + OCR -> Validación Cruzada -> APROBADO / RECHAZADO / PENDIENTE_MODERADOR"
+            "flujo": "Visión + OCR (NIM -> OpenRouter Failover) -> APROBADO / RECHAZADO / PENDIENTE_MODERADOR"
         }
 
-    def _llamar_nvidia_nim(self, prompt: str, raw_bytes: bytes, mime_type: str) -> dict:
-        if not self.nvidia_api_key:
-            raise RuntimeError("Falta la variable de entorno NVIDIA_API_KEY")
+    def _invocar_endpoint_vision(
+        self,
+        endpoint: str,
+        api_key: str,
+        modelo: str,
+        prompt: str,
+        data_uri: str,
+        es_openrouter: bool = False
+    ) -> dict:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        if es_openrouter:
+            headers["HTTP-Referer"] = "https://pueblovivo.local"
+            headers["X-Title"] = "PuebloVivo-Moderador"
 
+        payload = {
+            "model": modelo,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_uri}}
+                    ]
+                }
+            ],
+            "max_tokens": 700,
+            "temperature": 0.1,
+            "top_p": 0.9
+        }
+
+        req = urllib.request.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            respuesta_raw = json.loads(resp.read().decode("utf-8"))
+            contenido = respuesta_raw["choices"][0]["message"]["content"]
+            contenido_limpio = re.sub(r"^```(?:json)?\s*|\s*```$", "", contenido.strip())
+            datos_json = json.loads(contenido_limpio)
+            datos_json["modelo"] = f"{'openrouter/' if es_openrouter else 'nim/'}{modelo}"
+            return datos_json
+
+    def _llamar_vision_con_failover(self, prompt: str, raw_bytes: bytes, mime_type: str) -> dict:
+        """
+        Enrutador automático con tolerancia a fallos y agotamiento de tokens:
+        1. Intenta NVIDIA NIM directo (Nemotron VL -> Llama 3.2 Vision).
+        2. Si falla o se acaban los tokens/créditos, salta automáticamente a OpenRouter.
+        """
         b64_img = base64.b64encode(raw_bytes).decode("utf-8")
         data_uri = f"data:{mime_type};base64,{b64_img}"
 
-        modelos_a_probar = [self.modelo_nombre, self.modelo_fallback_nim]
+        rutas_modelos = []
+
+        # Prioridad 1: NVIDIA NIM directo
+        if self.nvidia_api_key:
+            rutas_modelos.extend([
+                (self.nim_endpoint, self.nvidia_api_key, "nvidia/llama-3.1-nemotron-nano-vl-8b-v1", False),
+                (self.nim_endpoint, self.nvidia_api_key, "meta/llama-3.2-90b-vision-instruct", False),
+            ])
+
+        # Prioridad 2: OpenRouter (failover si NIM se cae o agota cuota)
+        if self.openrouter_api_key:
+            rutas_modelos.extend([
+                (self.openrouter_endpoint, self.openrouter_api_key, "nvidia/llama-3.1-nemotron-nano-vl-8b-v1", True),
+                (self.openrouter_endpoint, self.openrouter_api_key, "google/gemini-2.5-flash", True),
+                (self.openrouter_endpoint, self.openrouter_api_key, "meta-llama/llama-3.2-90b-vision-instruct", True),
+            ])
+
+        if not rutas_modelos:
+            raise RuntimeError("No hay API keys configuradas (NVIDIA_API_KEY ni OPENROUTER_API_KEY)")
+
         ultimo_error = None
-
-        for modelo in modelos_a_probar:
+        for endpoint, key, modelo, es_or in rutas_modelos:
             try:
-                payload = {
-                    "model": modelo,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": {"url": data_uri}}
-                            ]
-                        }
-                    ],
-                    "max_tokens": 700,
-                    "temperature": 0.1,
-                    "top_p": 0.9
-                }
-
-                req = urllib.request.Request(
-                    self.nim_endpoint,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={
-                        "Authorization": f"Bearer {self.nvidia_api_key}",
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    },
-                    method="POST"
-                )
-
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    respuesta_raw = json.loads(resp.read().decode("utf-8"))
-                    contenido = respuesta_raw["choices"][0]["message"]["content"]
-                    contenido_limpio = re.sub(r"^```(?:json)?\s*|\s*```$", "", contenido.strip())
-                    datos_json = json.loads(contenido_limpio)
-                    datos_json["modelo"] = modelo
-                    return datos_json
-
+                return self._invocar_endpoint_vision(endpoint, key, modelo, prompt, data_uri, es_openrouter=es_or)
             except Exception as e:
                 ultimo_error = e
-                logger.warning(f"Fallo con modelo NIM {modelo}: {e}")
+                proveedor = "OpenRouter" if es_or else "NVIDIA NIM"
+                logger.warning(f"Failover activado - Fallo en {proveedor} ({modelo}): {e}")
 
-        raise RuntimeError(f"Todos los modelos de NVIDIA NIM fallaron: {ultimo_error}")
+        raise RuntimeError(f"Todos los modelos de visión en la cadena fallaron: {ultimo_error}")
 
     def _aplicar_reglas_decision(
         self,
@@ -287,6 +327,18 @@ class NemotronVisionClassifier:
         score = res_obj.puntuacion_afinidad
         categorias_validas = set(self.dataset.keys())
         es_negocio_confianza = fiabilidad_negocio >= 3
+
+        # Tolerancia cero absoluta ante violencia, armas o amenazas (sin excepción Ref. 3)
+        if res_obj.contiene_contenido_violento_o_peligroso:
+            res_obj.estado_moderacion = "RECHAZADO"
+            res_obj.aprobada = False
+            res_obj.coherente_con_categoria = False
+            res_obj.requiere_revision_humana = False
+            res_obj.motivo = (
+                f"🚨 Publicación bloqueada por seguridad ({res_obj.modelo}): "
+                f"Se detectaron elementos violentos, amenazas o contenido peligroso."
+            )
+            return res_obj
 
         # Excepción para Ref. 3: umbral más flexible (0.60 vs 0.78)
         umbral_aprobacion = 0.60 if es_negocio_confianza else UMBRAL_APROBACION_AUTO
@@ -325,7 +377,7 @@ class NemotronVisionClassifier:
             res_obj.coherente_con_categoria = True
             res_obj.requiere_revision_humana = False
             res_obj.motivo = (
-                f"✅ Aprobado por {res_obj.modelo} ({score:.0%}) [Excepción Negocio Verificado Ref. {fiabilidad_negocio}]: "
+                f"✅ Aprobado por {res_obj.modelo} ({score:.0%}) [Negocio Verificado Ref. {fiabilidad_negocio}]: "
                 f"Coherente con '{categoria_esperada}'."
             )
             return res_obj
@@ -413,10 +465,11 @@ DATOS DEL EVENTO A MODERAR:
 - Título del evento: "{titulo_evento or 'Sin título'}"
 
 INSTRUCCIONES DE ANÁLISIS ESTRICTO:
-1. Mira primero la IMAGEN REAL (qué objetos, comida, personas, paisajes o carteles aparecen).
-2. Si la imagen muestra un objeto fuera de contexto (por ejemplo, una sandía o comida suelta en "Turismo", o un coche en "Gastronomía"), marca "coherencia_visual": false y "puntuacion_afinidad" menor a 0.25, INCLUSO SI el título del evento parece correcto y AUNQUE la imagen no tenga texto.
-3. Si la imagen contiene texto/cartel, transcríbelo en "texto_extraido_imagen" y comprueba si encaja con "{categoria_esperada}".
-4. Si la imagen es fronteriza o dudosa entre dos categorías (ej. senderismo cultural vs carrera deportiva), pon "puntuacion_afinidad" entre 0.50 y 0.72 para que lo revise un moderador humano.
+1. SEGURIDAD PRIMERO: Si la imagen contiene armas, peleas, sangre, amenazas escritas, incitación a la violencia, odio o contenido peligroso, marca "contiene_contenido_violento_o_peligroso": true y "puntuacion_afinidad": 0.0.
+2. Mira la IMAGEN REAL (objetos, comida, personas, paisajes o carteles).
+3. Si la imagen muestra un objeto fuera de contexto (por ejemplo, una sandía o comida suelta en "Turismo", o un coche en "Gastronomía"), marca "coherencia_visual": false y "puntuacion_afinidad" menor a 0.25, INCLUSO SI el título del evento parece correcto y AUNQUE la imagen no tenga texto.
+4. Si la imagen contiene texto/cartel, transcríbelo en "texto_extraido_imagen" y comprueba si encaja con "{categoria_esperada}".
+5. Si la imagen es fronteriza o dudosa entre dos categorías (ej. senderismo cultural vs carrera deportiva), pon "puntuacion_afinidad" entre 0.50 y 0.72 para que lo revise un moderador humano.
 
 DEVUELVE ÚNICAMENTE UN OBJETO JSON VÁLIDO con esta estructura exacta (sin markdown):
 {{
@@ -428,19 +481,20 @@ DEVUELVE ÚNICAMENTE UN OBJETO JSON VÁLIDO con esta estructura exacta (sin mark
   "coherencia_visual": true o false,
   "texto_imagen_coherente_con_categoria": true o false,
   "coherencia_titulo_imagen": true o false,
+  "contiene_contenido_violento_o_peligroso": true o false,
   "puntuacion_afinidad": 0.0 a 1.0,
   "motivo": "explicación breve en español de qué se ve en la imagen y por qué encaja o no"
 }}"""
 
-            res_api = self._llamar_nvidia_nim(prompt_nim, raw_bytes, mime_type)
+            res_api = self._llamar_vision_con_failover(prompt_nim, raw_bytes, mime_type)
             res_obj = ResultadoNemotronParse(**res_api)
             return self._aplicar_reglas_decision(res_obj, categoria_esperada, fiabilidad_negocio)
 
         except Exception as e:
-            logger.error(f"Error en NVIDIA NIM: {e}", exc_info=True)
+            logger.error(f"Error en cadena de visión (NIM + OpenRouter): {e}", exc_info=True)
             return ResultadoNemotronParse(
                 modelo=self.modelo_nombre,
-                texto_extraido_imagen="[Error temporal de conexión con NVIDIA NIM]",
+                texto_extraido_imagen="[Error temporal en modelos de visión]",
                 categoria_esperada=categoria_esperada,
                 categoria_detectada="Ambiguo",
                 coherencia_visual=False,
@@ -450,7 +504,7 @@ DEVUELVE ÚNICAMENTE UN OBJETO JSON VÁLIDO con esta estructura exacta (sin mark
                 aprobada=False,
                 coherente_con_categoria=False,
                 requiere_revision_humana=True,
-                motivo="⏳ El servicio de visión IA no respondió a tiempo. La publicación queda en Pendientes del Moderador."
+                motivo="⏳ Ningún modelo de visión respondió a tiempo. La publicación queda en Pendientes del Moderador."
             )
 
 
