@@ -24,5 +24,13 @@ export class UsuarioController {
       data: result,
     })
   }
+
+  listarAdmins = async (_req, res) => {
+    const admins = await this.usuarioService.listarAdmins()
+    res.status(200).json({
+      ok: true,
+      data: admins,
+    })
+  }
 }
 

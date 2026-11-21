@@ -69,10 +69,20 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ nombre, password }),
     }),
+  adminLogin: ({ nombre, password }) =>
+    apiFetch('/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ nombre, password }),
+    }),
   register: ({ nombre, email, telefono, password, tipoUsuario }) =>
     apiFetch('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ nombre, email, telefono, password, tipoUsuario }),
+    }),
+  registerAdmin: ({ nombre, password }) =>
+    apiFetch('/auth/admin/register', {
+      method: 'POST',
+      body: JSON.stringify({ nombre, password }),
     }),
   me: () => apiFetch('/auth/me'),
 }
@@ -153,4 +163,5 @@ export const negociosApi = {
 
 export const usuariosApi = {
   obtenerHistorial: (id) => apiFetch(`/usuarios/${id}/historial`),
+  listarAdmins: () => apiFetch('/usuarios/admins'),
 }

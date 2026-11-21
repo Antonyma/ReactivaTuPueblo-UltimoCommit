@@ -41,5 +41,10 @@ export class UsuarioService {
       historial,
     }
   }
+
+  async listarAdmins() {
+    const usuarios = await this.usuarioRepository.findAll()
+    return usuarios.filter((u) => u.tipoUsuario === USUARIOS.MODERADOR)
+  }
 }
 
