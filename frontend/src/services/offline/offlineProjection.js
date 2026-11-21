@@ -89,6 +89,9 @@ export function applyOutboxProjection(baseState, operations, usuarioActual) {
           aforo: Number(p.aforo ?? 0),
           listaInscritos: [],
           fechaInicioISO: p.fechaInicio,
+          fechaInicioMs: p.fechaInicio && !Number.isNaN(new Date(p.fechaInicio).getTime())
+            ? new Date(p.fechaInicio).getTime()
+            : null,
           fechaFinISO: p.fechaFin,
           fechaFinMs: p.fechaFin && !Number.isNaN(new Date(p.fechaFin).getTime())
             ? new Date(p.fechaFin).getTime()

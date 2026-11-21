@@ -1006,6 +1006,19 @@ export function AppProvider({ children }) {
         ...prev,
         [eventoObjetivo.id]: [nueva, ...(prev[eventoObjetivo.id] || [])],
       }));
+      setActividades((prev) =>
+        prev.map((a) => {
+          if (Number(a.id) !== Number(eventoObjetivo.id)) return a;
+          const prevTotal = Number(a.totalValoraciones || 0);
+          const prevSuma = (Number(a.mediaEstrellas || 0) * prevTotal) + Number(estrellas);
+          const nextTotal = prevTotal + 1;
+          return {
+            ...a,
+            totalValoraciones: nextTotal,
+            mediaEstrellas: Number((prevSuma / nextTotal).toFixed(1)),
+          };
+        })
+      );
       setCuentasNegocio((prev) => {
         const existe = prev[nombreNegocio];
         if (!existe) return prev;

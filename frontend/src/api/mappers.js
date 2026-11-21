@@ -52,6 +52,9 @@ export function mapEventoFromApi(ev) {
   const pueblo = ev.pueblo || ev.negocio?.pueblo || "Lucainena de las Torres";
   const fechaInicioISO = toDatetimeLocalInput(ev.fechaInicio);
   const fechaFinISO = toDatetimeLocalInput(ev.fechaFin);
+  const fechaInicioDate = ev.fechaInicio ? new Date(ev.fechaInicio) : null;
+  const fechaInicioMs =
+    fechaInicioDate && !Number.isNaN(fechaInicioDate.getTime()) ? fechaInicioDate.getTime() : null;
   const fechaFinDate = ev.fechaFin ? new Date(ev.fechaFin) : null;
   const fechaFinMs =
     fechaFinDate && !Number.isNaN(fechaFinDate.getTime()) ? fechaFinDate.getTime() : null;
@@ -71,6 +74,7 @@ export function mapEventoFromApi(ev) {
     aforo: Number(ev.aforo ?? 0),
     listaInscritos: Array.isArray(ev.listaInscritos) ? ev.listaInscritos : [],
     fechaInicioISO,
+    fechaInicioMs,
     fechaFinISO,
     fechaFinMs,
     fecha: formatearFechaBonita(ev.fechaInicio),
@@ -80,6 +84,11 @@ export function mapEventoFromApi(ev) {
     imagen: ev.imagen || DEFAULT_IMAGE,
     esRecomendada: Boolean(ev.es_recomendada ?? ev.esRecomendada ?? ev.recomendado ?? ev.recommended),
     motivoRecomendacion: ev.motivo_recommend || ev.motivoRecomendacion || "",
+    mediaEstrellas:
+      ev.mediaEstrellas !== undefined && ev.mediaEstrellas !== null
+        ? Number(ev.mediaEstrellas)
+        : null,
+    totalValoraciones: Number(ev.totalValoraciones ?? 0),
   };
 }
 

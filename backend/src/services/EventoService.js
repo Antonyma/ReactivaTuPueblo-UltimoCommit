@@ -34,13 +34,36 @@ async function moderarEventoConIa(data) {
 }
 
 export class EventoService {
-  constructor({ eventoRepository, negocioRepository }) {
+  constructor({ eventoRepository, negocioRepository, valoracionRepository = null }) {
     this.eventoRepository = eventoRepository
     this.negocioRepository = negocioRepository
+    this.valoracionRepository = valoracionRepository
   }
 
   async listarEventos(filters = {}) {
-    return this.eventoRepository.findAll(filters)
+    const [eventos, valoraciones] = await Promise.all([
+      this.eventoRepository.findAll(filters),
+      this.valoracionRepository ? this.valoracionRepository.findAll().catch(() => []) : Promise.resolve([]),
+    ])
+
+    const statsPorEvento = new Map()
+    for (const v of valoraciones || []) {
+      const evId = Number(v.evento?.id ?? v.eventoId)
+      if (!evId) continue
+      const prev = statsPorEvento.get(evId) || { suma: 0, total: 0 }
+      prev.suma += Number(v.estrellas || 0)
+      prev.total += 1
+      statsPorEvento.set(evId, prev)
+    }
+
+    return eventos.map((ev) => {
+      const st = statsPorEvento.get(Number(ev.id))
+      return {
+        ...ev,
+        totalValoraciones: st ? st.total : 0,
+        mediaEstrellas: st && st.total > 0 ? Number((st.suma / st.total).toFixed(1)) : null,
+      }
+    })
   }
 
   async obtenerMapaEventos(filters = {}) {

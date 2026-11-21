@@ -66,6 +66,14 @@ export default function ReviewsModal() {
       ? resenasPorEvento[eventoIdObjetivo] || []
       : cuentasNegocio[nombreNegocio]?.resenas || [];
 
+  const totalResenas = resenas.length;
+  const mediaResenas =
+    totalResenas > 0
+      ? Number(
+          (resenas.reduce((acc, r) => acc + Number(r.estrellas || 0), 0) / totalResenas).toFixed(1)
+        )
+      : eventoActual?.mediaEstrellas ?? null;
+
   const ahoraMs = Date.now();
   const eventosAsistidos = actividades.filter(
     (a) => a.negocio === nombreNegocio && misInscripcionesIds.includes(a.id)
@@ -126,6 +134,18 @@ export default function ReviewsModal() {
         </div>
 
         <div className="overflow-y-auto px-5 py-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-3.5 py-2.5">
+            <div className="inline-flex items-center gap-1.5">
+              <IconStar className="w-5 h-5 text-amber-500" filled />
+              <span className="font-black text-base text-stone-900">
+                {mediaResenas !== null ? `${Number(mediaResenas).toFixed(1)} / 5` : "Sin nota aún"}
+              </span>
+            </div>
+            <span className="text-xs font-bold text-stone-600">
+              {totalResenas === 1 ? "1 reseña" : `${totalResenas} reseñas`}
+            </span>
+          </div>
+
           <div className="max-h-44 overflow-y-auto space-y-2 text-sm bg-blue-50 p-3 rounded-2xl border border-blue-200">
             {resenas.length === 0 ? (
               <p className="text-stone-500 text-center py-2">Sin opiniones todavía para esta actividad.</p>

@@ -102,9 +102,30 @@ export default function ActivityCard({ act }) {
             <h3 className="font-black text-lg sm:text-xl leading-snug text-stone-900">
               {act.nombre}
             </h3>
-            <p className="text-xs font-semibold text-stone-500 mt-0.5">
-              Organiza: {act.negocio}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+              <p className="text-xs font-semibold text-stone-500">
+                Organiza: {act.negocio}
+              </p>
+              {(act.totalValoraciones > 0 || estaTerminado) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setModalResenas({ open: true, nombreNegocio: act.negocio, eventoId: act.id })
+                  }
+                  className="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-black px-2.5 py-1 rounded-full transition"
+                  title="Ver reseñas y nota media"
+                >
+                  <IconStar className="w-3.5 h-3.5 text-amber-500" filled />
+                  {act.totalValoraciones > 0 ? (
+                    <span>
+                      {Number(act.mediaEstrellas).toFixed(1)}/5 ({act.totalValoraciones})
+                    </span>
+                  ) : (
+                    <span className="font-bold text-stone-600">Sin reseñas</span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
 
           <p className="text-sm sm:text-base text-stone-700 line-clamp-2 leading-relaxed">
