@@ -12,7 +12,7 @@ export default function MapView() {
   const mapInstanceRef = useRef(null);
   const capaMarcadoresRef = useRef(null);
 
-  const { actividades, puebloActivo } = useApp();
+  const { actividades, puebloActivo, letraGrande } = useApp();
 
   // Inicializar mapa de OpenStreetMap con Leaflet
   useEffect(() => {
@@ -24,8 +24,13 @@ export default function MapView() {
       return;
     }
 
+    const container = mapContainerRef.current;
+    if (container._leaflet_id) {
+      delete container._leaflet_id;
+    }
+
     const L = window.L;
-    const map = L.map(mapContainerRef.current, {
+    const map = L.map(container, {
       center: CENTRO_MANCOMUNIDAD,
       zoom: ZOOM_MANCOMUNIDAD,
       minZoom: 9,
@@ -58,10 +63,24 @@ export default function MapView() {
     capaMarcadoresRef.current = capaMarcadores;
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
+
+  // Redimensionar suavemente si cambia el modo de accesibilidad (letra grande)
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      const timer = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+  }, [letraGrande]);
 
   // Actualizar pines cuando cambien las actividades o el pueblo activo
   useEffect(() => {

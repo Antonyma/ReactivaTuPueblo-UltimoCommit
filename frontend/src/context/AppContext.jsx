@@ -33,6 +33,7 @@ export function AppProvider({ children }) {
 
   // Toast
   const [toast, setToast] = useState({ open: false, mensaje: "" });
+  const [accionPendienteTrasRegistro, setAccionPendienteTrasRegistro] = useState(null);
 
   useEffect(() => {
     if (letraGrande) {
@@ -70,6 +71,33 @@ export function AppProvider({ children }) {
     const u = { id: Date.now(), nombre, email, telefono: formattedTel, tipoUsuario };
     setUsuario(u);
     setModalLogin({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
+
+    if (accionPendienteTrasRegistro) {
+      const idAct = accionPendienteTrasRegistro;
+      setAccionPendienteTrasRegistro(null);
+      const act = actividades.find((a) => a.id === idAct);
+      if (act && act.asistentes < act.aforo && !misInscripcionesIds.includes(idAct)) {
+        setActividades((prev) =>
+          prev.map((a) => {
+            if (a.id === idAct) {
+              return {
+                ...a,
+                asistentes: a.asistentes + 1,
+                listaInscritos: [
+                  ...a.listaInscritos,
+                  { nombre: u.nombre, email: u.email, telefono: u.telefono }
+                ]
+              };
+            }
+            return a;
+          })
+        );
+        setMisInscripcionesIds((prev) => [...prev, idAct]);
+        mostrarToast(`✅ ¡Bienvenido ${nombre}! Quedas apuntado a "${act.nombre}".`);
+        return;
+      }
+    }
+
     mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
   };
 
@@ -77,12 +105,20 @@ export function AppProvider({ children }) {
     if (usuario) {
       setUsuario({ ...usuario, tipoUsuario: nuevoRol });
     } else {
-      setModalLogin({ open: true, defaultTipo: nuevoRol, motivo: `Identifícate con rol ${nuevoRol}` });
+      setModalLogin({
+        open: true,
+        defaultTipo: nuevoRol,
+        motivo:
+          nuevoRol === "MODERADOR"
+            ? "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades."
+            : `Identifícate con rol ${nuevoRol}`
+      });
     }
   };
 
   const apuntarse = (id) => {
     if (!usuario) {
+      setAccionPendienteTrasRegistro(id);
       setModalLogin({
         open: true,
         defaultTipo: "REGISTRADO",
