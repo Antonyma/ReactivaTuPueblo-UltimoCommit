@@ -2,18 +2,24 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   actividadesIniciales,
   cuentasNegocioIniciales,
+  resenasIniciales,
   evaluarFiabilidadNegocio,
   formatearTelefonoConPrefijo,
   formatearFechaBonita,
   municipiosMancomunidad,
   CENTRO_MANCOMUNIDAD
 } from "../data/mockData.js";
+import {
+  moderarResenaConGemini,
+  moderarImagenConGemini
+} from "../services/geminiModeration.js";
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
   const [actividades, setActividades] = useState(actividadesIniciales);
   const [cuentasNegocio, setCuentasNegocio] = useState(cuentasNegocioIniciales);
+  const [resenas, setResenas] = useState(resenasIniciales);
   const [usuario, setUsuario] = useState(null); // { id, nombre, email, telefono, tipoUsuario }
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
@@ -201,10 +207,15 @@ export function AppProvider({ children }) {
     mostrarToast("🗑️ Evento eliminado.");
   };
 
-  const publicarEvento = (nuevoData) => {
+  const publicarEvento = async (nuevoData) => {
     const evalRef = evaluarFiabilidadNegocio(nuevoData.negocio, cuentasNegocio);
     const pasaSinRevision = evalRef.esDeConfianza;
     const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
+
+    // MODERACIÓN DE IMAGEN CON GEMINI
+    // Si fiabilidad === 3 (ej. Ayuntamiento), llamada ligera con gemini-2.5-flash-lite
+    // Si fiabilidad < 3, llamada completa profunda con gemini-2.5-flash
+    const moderacionImg = await moderarImagenConGemini(nuevoData.imagen, evalRef.nivel, nuevoData);
 
     const nuevoEvento = {
       id: Date.now(),
@@ -224,8 +235,9 @@ export function AppProvider({ children }) {
       estadoModeracion: pasaSinRevision ? "aprobada" : "pendiente",
       ahorroTokens: pasaSinRevision,
       motivoIA: pasaSinRevision
-        ? `Pase directo por Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados)`
-        : `Cuenta Nivel 1/3 · Pendiente de revisión por Moderador`,
+        ? `Pase directo por Referencia Nivel ${evalRef.nivel}/3 (${moderacionImg.esLlamadaLigera ? "Llamada ligera Gemini Flash-Lite" : "0 tokens"})`
+        : `Cuenta Nivel 1/3 · Pendiente de validación por Moderador (${moderacionImg.modelo})`,
+      moderacionImagen: moderacionImg,
       imagen: nuevoData.imagen || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
     };
 
@@ -243,9 +255,13 @@ export function AppProvider({ children }) {
         }));
       }
       notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
-      mostrarToast(`⚡ ¡Publicada al instante! "${nuevoData.negocio}" tiene Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados).`);
+      mostrarToast(
+        moderacionImg.esLlamadaLigera
+          ? `⚡ ¡Publicada! "${nuevoData.negocio}" es Nivel 3: Verificación ligera Gemini Flash-Lite completada.`
+          : `⚡ ¡Publicada al instante! "${nuevoData.negocio}" tiene Referencia Nivel ${evalRef.nivel}/3.`
+      );
     } else {
-      mostrarToast(`⏳ Enviada a revisión: "${nuevoData.negocio}" es Nivel 1/3. Te avisaremos por WhatsApp cuando el Moderador la apruebe.`);
+      mostrarToast(`⏳ Enviada a revisión: "${nuevoData.negocio}" es Nivel 1/3. Imagen analizada por ${moderacionImg.modelo}.`);
     }
   };
 
@@ -325,8 +341,40 @@ export function AppProvider({ children }) {
     notificarDecisionPublicadorWhatsApp(act, "DENEGADA");
   };
 
-  const agregarResena = (nombreNegocio, estrellas, texto) => {
+  const agregarResena = async (nombreNegocio, estrellas, texto) => {
     const autor = usuario ? usuario.nombre : "Vecino";
+
+    // 1. MODERACIÓN CON GEMINI (Detección de palabras malsonantes e insultos)
+    // REGLA DEL MODERADOR: "Reseñas que pongan malas palabras se van (sin excepciones de fidelidad)"
+    const analisisIA = await moderarResenaConGemini(texto);
+
+    const nuevaResena = {
+      id: Date.now(),
+      negocio: nombreNegocio,
+      usuario: autor,
+      estrellas,
+      texto,
+      estado: analisisIA.contieneMalasPalabras ? "rechazada" : "aprobada",
+      contieneMalasPalabras: analisisIA.contieneMalasPalabras,
+      palabrasDetectadas: analisisIA.palabrasDetectadas,
+      modeloIA: analisisIA.modelo,
+      motivoIA: analisisIA.motivo,
+      fecha: new Date().toISOString().split("T")[0]
+    };
+
+    setResenas((prev) => [nuevaResena, ...prev]);
+
+    if (analisisIA.contieneMalasPalabras) {
+      // Las reseñas con malas palabras SE VAN (no se publican en el negocio)
+      mostrarToast(`🚫 Reseña bloqueada por Gemini: contiene palabras malsonantes (${analisisIA.palabrasDetectadas.join(", ")}).`);
+      return {
+        exito: false,
+        motivo: analisisIA.motivo,
+        palabras: analisisIA.palabrasDetectadas
+      };
+    }
+
+    // Si está limpia, se añade a las opiniones públicas del negocio
     setCuentasNegocio((prev) => {
       const existe = prev[nombreNegocio] || {
         id: Date.now(),
@@ -342,7 +390,31 @@ export function AppProvider({ children }) {
         }
       };
     });
-    mostrarToast("⭐ ¡Gracias! Tu opinión actualiza la referencia del negocio.");
+
+    mostrarToast("⭐ ¡Gracias! Tu opinión ha sido aprobada por Gemini y publicada.");
+    return { exito: true };
+  };
+
+  const eliminarResena = (id) => {
+    setResenas((prev) => prev.filter((r) => r.id !== id));
+    mostrarToast("🗑️ Reseña eliminada del sistema.");
+  };
+
+  const restaurarResena = (id) => {
+    setResenas((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          return {
+            ...r,
+            estado: "aprobada",
+            contieneMalasPalabras: false,
+            motivoIA: "Aprobada manualmente por el Moderador."
+          };
+        }
+        return r;
+      })
+    );
+    mostrarToast("✅ Reseña marcada como aprobada por el Moderador.");
   };
 
   return (
@@ -350,6 +422,7 @@ export function AppProvider({ children }) {
       value={{
         actividades,
         cuentasNegocio,
+        resenas,
         usuario,
         letraGrande,
         setLetraGrande,
@@ -381,7 +454,11 @@ export function AppProvider({ children }) {
         crearNegocio,
         aprobarActividad,
         denegarActividad,
-        agregarResena
+        agregarResena,
+        eliminarResena,
+        restaurarResena
+      }}
+    >
       }}
     >
       {children}

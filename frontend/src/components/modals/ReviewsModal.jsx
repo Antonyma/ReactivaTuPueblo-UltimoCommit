@@ -6,6 +6,7 @@ export default function ReviewsModal() {
   const { modalResenas, setModalResenas, cuentasNegocio, agregarResena } = useApp();
   const [estrellas, setEstrellas] = useState(5);
   const [texto, setTexto] = useState("");
+  const [alertaRechazo, setAlertaRechazo] = useState("");
 
   const nombreNegocio = modalResenas.nombreNegocio;
   if (!modalResenas.open || !nombreNegocio) return null;
@@ -13,11 +14,22 @@ export default function ReviewsModal() {
   const info = cuentasNegocio[nombreNegocio] || { resenas: [] };
   const evalRef = evaluarFiabilidadNegocio(nombreNegocio, cuentasNegocio);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!texto.trim()) return;
-    agregarResena(nombreNegocio, estrellas, texto.trim());
-    setTexto("");
+    setAlertaRechazo("");
+
+    const res = await agregarResena(nombreNegocio, estrellas, texto.trim());
+    if (res && res.exito === false) {
+      setAlertaRechazo(
+        `🚫 Reseña bloqueada por Gemini: se detectaron palabras malsonantes (${res.palabras.join(
+          ", "
+        )}). En PuebloVivo no se permiten insultos ni lenguaje ofensivo.`
+      );
+    } else {
+      setTexto("");
+      setAlertaRechazo("");
+    }
   };
 
   return (
@@ -51,6 +63,13 @@ export default function ReviewsModal() {
             ))
           )}
         </div>
+
+        {alertaRechazo && (
+          <div className="bg-red-50 border-2 border-red-400 text-red-900 p-3 rounded-2xl text-xs font-bold space-y-1">
+            <p className="font-black text-sm text-red-700">⚠️ Reseña no admitida</p>
+            <p>{alertaRechazo}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <select

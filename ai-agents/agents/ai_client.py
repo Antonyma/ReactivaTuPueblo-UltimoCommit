@@ -3,10 +3,13 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 
-def generar_json(prompt: str, contenidos: list, esquema: type[BaseModel]) -> dict:
-    modelos = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
+def generar_json(prompt: str, contenidos: list, esquema: type[BaseModel], modelo_preferido: str = None) -> dict:
+    modelos = [modelo_preferido] if modelo_preferido else []
+    for m in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+        if m not in modelos:
+            modelos.append(m)
     for modelo in modelos:
         try:
             resp = client.models.generate_content(

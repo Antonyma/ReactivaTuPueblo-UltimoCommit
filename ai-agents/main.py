@@ -5,14 +5,22 @@ from pydantic import BaseModel
 
 # Importamos los 4 agentes desde la misma carpeta agents/
 from agents.extractor import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
-from agents.moderate import evaluar_evento
+from agents.moderate import evaluar_evento, moderar_resena, moderar_imagen_evento
 from agents.recommend import recomendar_a_vecinos
 from agents.event_chat import responder_duda_evento
 
-app = FastAPI(title="ReactivaTuPueblo · 4 Micro-Agentes IA")
+app = FastAPI(title="ReactivaTuPueblo · Micro-Agentes IA y Moderación")
 sb = Supabase()
 
 # --- Modelos de petición ---
+class ReqModerateReview(BaseModel):
+    texto: str
+    negocio: Optional[dict] = None
+
+class ReqModerateImage(BaseModel):
+    imagen_base64: str = ""
+    fiabilidad_negocio: int = 1
+    datos_evento: Optional[dict] = None
 class ReqExtract(BaseModel):
     texto: str = ""
     url_post: Optional[str] = None
@@ -71,6 +79,14 @@ def endpoint_extract(p: ReqExtract):
 @app.post("/agents/moderate")
 def endpoint_moderate(req: ReqModerate):
     return evaluar_evento(req.evento, req.negocio, req.historial_aprobados)
+
+@app.post("/agents/moderate/review")
+def endpoint_moderate_review(req: ReqModerateReview):
+    return moderar_resena(req.texto, req.negocio)
+
+@app.post("/agents/moderate/image")
+def endpoint_moderate_image(req: ReqModerateImage):
+    return moderar_imagen_evento(req.imagen_base64, req.fiabilidad_negocio, req.datos_evento)
 
 @app.post("/agents/recommend")
 def endpoint_recommend(req: ReqRecommend):

@@ -126,6 +126,12 @@ export const actividadesIniciales = [
     estadoModeracion: "aprobada",
     ahorroTokens: true,
     motivoIA: "Pase directo por Referencia Nivel 3/3 (0 tokens gastados)",
+    moderacionImagen: {
+      modelo: "gemini-2.5-flash-lite",
+      esLlamadaLigera: true,
+      tokensGastados: 12,
+      motivo: "⚡ Llamada ligera (gemini-2.5-flash-lite): Entidad oficial verificada (Nivel 3/3). Comprobación rápida superada sin alertas."
+    },
     imagen: "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=800&q=80"
   },
   {
@@ -225,3 +231,54 @@ export function formatearFechaBonita(isoStr) {
   const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   return `${dias[d.getDay()]} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}h`;
 }
+
+export const resenasIniciales = [
+  {
+    id: 1,
+    negocio: "Ayuntamiento de Lucainena",
+    usuario: "Carmen L.",
+    estrellas: 5,
+    texto: "Siempre muy bien organizado y cuidando el patrimonio del pueblo.",
+    estado: "aprobada",
+    contieneMalasPalabras: false,
+    palabrasDetectadas: [],
+    motivoIA: "Aprobada por Gemini: Lenguaje respetuoso y constructivo.",
+    fecha: "2026-11-20"
+  },
+  {
+    id: 2,
+    negocio: "Ayuntamiento de Lucainena",
+    usuario: "Antonio R.",
+    estrellas: 5,
+    texto: "Puntuales y atentos con todos los vecinos y turistas.",
+    estado: "aprobada",
+    contieneMalasPalabras: false,
+    palabrasDetectadas: [],
+    motivoIA: "Aprobada por Gemini: Lenguaje respetuoso y constructivo.",
+    fecha: "2026-11-20"
+  },
+  {
+    id: 3,
+    negocio: "Mesón El Mirador",
+    usuario: "Lucía P.",
+    estrellas: 5,
+    texto: "Comida casera riquísima y trato inmejorable.",
+    estado: "aprobada",
+    contieneMalasPalabras: false,
+    palabrasDetectadas: [],
+    motivoIA: "Aprobada por Gemini: Lenguaje respetuoso y constructivo.",
+    fecha: "2026-11-20"
+  },
+  {
+    id: 4,
+    negocio: "Mesón El Mirador",
+    usuario: "Vecino Anónimo",
+    estrellas: 1,
+    texto: "Vaya una mierda de servicio, el camarero es un sinvergüenza y un estafador.",
+    estado: "rechazada",
+    contieneMalasPalabras: true,
+    palabrasDetectadas: ["mierda", "sinvergüenza", "estafador"],
+    motivoIA: "Bloqueada por Gemini: Palabras malsonantes e insultos detectados ('mierda', 'sinvergüenza', 'estafador'). Eliminada de la vista pública.",
+    fecha: "2026-11-21"
+  }
+];
