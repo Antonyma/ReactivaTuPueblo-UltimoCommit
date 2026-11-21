@@ -10,6 +10,7 @@ import TimeModal from "./components/modals/TimeModal.jsx";
 import QuestionsModal from "./components/modals/QuestionsModal.jsx";
 import ReviewsModal from "./components/modals/ReviewsModal.jsx";
 import AttendeesModal from "./components/modals/AttendeesModal.jsx";
+import EventsChatWidget from "./components/EventsChatWidget.jsx";
 import "./App.css";
 
 function AppShell() {
@@ -22,6 +23,7 @@ function AppShell() {
       <OfflineStatusBar />
       <Home />
       {!enRutaAdmin && <MobileNav />}
+      {!enRutaAdmin && <EventsChatWidget />}
       <Toast />
 
       {/* Modals */}
