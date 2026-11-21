@@ -11,13 +11,12 @@ import json
 import base64
 import logging
 import urllib.request
-import unicodedata
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-# Umbrales de decisión
+# Umbrales de decisión estándar (Ref. 1)
 UMBRAL_APROBACION_AUTO = 0.78
 UMBRAL_RECHAZO_AUTO = 0.45
 
@@ -155,13 +154,11 @@ class ResultadoNemotronParse(BaseModel):
 # =============================================================================
 
 def _obtener_bytes_y_mime(imagen_str: str) -> tuple[Optional[bytes], str]:
-    """Extrae bytes tanto si viene en Data URL / Base64 como si viene en URL http/https."""
     if not imagen_str:
         return None, "image/jpeg"
 
     img_clean = imagen_str.strip()
 
-    # Caso 1: Data URI (data:image/jpeg;base64,...)
     if img_clean.startswith("data:image"):
         try:
             header, b64_data = img_clean.split(",", 1)
@@ -171,7 +168,6 @@ def _obtener_bytes_y_mime(imagen_str: str) -> tuple[Optional[bytes], str]:
             logger.error(f"Error decodificando data URI: {e}")
             return None, "image/jpeg"
 
-    # Caso 2: URL externa (http:// o https://) -> Descargar para que la IA VEA la foto real
     if img_clean.startswith("http://") or img_clean.startswith("https://"):
         try:
             req = urllib.request.Request(
@@ -185,7 +181,6 @@ def _obtener_bytes_y_mime(imagen_str: str) -> tuple[Optional[bytes], str]:
             logger.warning(f"No se pudo descargar la imagen desde URL ({img_clean}): {e}")
             return None, "image/jpeg"
 
-    # Caso 3: Base64 crudo sin cabecera
     try:
         return base64.b64decode(img_clean), "image/jpeg"
     except Exception:
@@ -213,12 +208,6 @@ def _optimizar_imagen_bytes(raw_bytes: bytes, mime_type: str, max_lado: int = 10
 # =============================================================================
 
 class NemotronVisionClassifier:
-    """
-    Clasificador y parser OCR conectado directamente a NVIDIA NIM.
-    Analiza tanto los píxeles de la imagen como el texto incrustado (OCR)
-    y enruta casos dudosos a 'PENDIENTE_MODERADOR'.
-    """
-
     def __init__(self):
         self.modelo_nombre = "nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
         self.modelo_fallback_nim = "meta/llama-3.2-90b-vision-instruct"
@@ -236,7 +225,6 @@ class NemotronVisionClassifier:
         }
 
     def _llamar_nvidia_nim(self, prompt: str, raw_bytes: bytes, mime_type: str) -> dict:
-        """Llama a la API oficial de NVIDIA NIM con imagen en base64 y pide salida JSON."""
         if not self.nvidia_api_key:
             raise RuntimeError("Falta la variable de entorno NVIDIA_API_KEY")
 
@@ -278,8 +266,6 @@ class NemotronVisionClassifier:
                 with urllib.request.urlopen(req, timeout=20) as resp:
                     respuesta_raw = json.loads(resp.read().decode("utf-8"))
                     contenido = respuesta_raw["choices"][0]["message"]["content"]
-
-                    # Limpiar posibles bloques markdown ```json ... ```
                     contenido_limpio = re.sub(r"^```(?:json)?\s*|\s*```$", "", contenido.strip())
                     datos_json = json.loads(contenido_limpio)
                     datos_json["modelo"] = modelo
@@ -294,11 +280,17 @@ class NemotronVisionClassifier:
     def _aplicar_reglas_decision(
         self,
         res_obj: ResultadoNemotronParse,
-        categoria_esperada: str
+        categoria_esperada: str,
+        fiabilidad_negocio: int = 1
     ) -> ResultadoNemotronParse:
         res_obj.categoria_esperada = categoria_esperada
         score = res_obj.puntuacion_afinidad
         categorias_validas = set(self.dataset.keys())
+        es_negocio_confianza = fiabilidad_negocio >= 3
+
+        # Excepción para Ref. 3: umbral más flexible (0.60 vs 0.78)
+        umbral_aprobacion = 0.60 if es_negocio_confianza else UMBRAL_APROBACION_AUTO
+        umbral_rechazo = 0.30 if es_negocio_confianza else UMBRAL_RECHAZO_AUTO
 
         if (
             res_obj.categoria_detectada in categorias_validas
@@ -306,11 +298,11 @@ class NemotronVisionClassifier:
         ):
             res_obj.sugerencia_categoria_alternativa = res_obj.categoria_detectada
 
-        # 1. RECHAZO AUTOMÁTICO: Visualmente incoherente claro (ej. sandía en Turismo) o texto ajeno
+        # 1. RECHAZO AUTOMÁTICO (Spam, texto contradictorio o incoherencia grave como sandía en Turismo)
         if (
             not res_obj.texto_imagen_coherente_con_categoria
-            or score < UMBRAL_RECHAZO_AUTO
-            or (not res_obj.coherencia_visual and score < 0.60)
+            or score < umbral_rechazo
+            or (not res_obj.coherencia_visual and score < 0.45)
         ):
             res_obj.estado_moderacion = "RECHAZADO"
             res_obj.aprobada = False
@@ -326,9 +318,21 @@ class NemotronVisionClassifier:
             )
             return res_obj
 
-        # 2. PENDIENTE MODERADOR: Zona de duda / frontera entre categorías
+        # 2. EXCEPCIÓN REFERENCIA 3 (fiabilidad >= 3)
+        if es_negocio_confianza and score >= umbral_aprobacion:
+            res_obj.estado_moderacion = "APROBADO"
+            res_obj.aprobada = True
+            res_obj.coherente_con_categoria = True
+            res_obj.requiere_revision_humana = False
+            res_obj.motivo = (
+                f"✅ Aprobado por {res_obj.modelo} ({score:.0%}) [Excepción Negocio Verificado Ref. {fiabilidad_negocio}]: "
+                f"Coherente con '{categoria_esperada}'."
+            )
+            return res_obj
+
+        # 3. ZONA DE DUDA -> PANEL DEL MODERADOR (PENDIENTES)
         es_zona_duda = (
-            (UMBRAL_RECHAZO_AUTO <= score < UMBRAL_APROBACION_AUTO)
+            (umbral_rechazo <= score < umbral_aprobacion)
             or not res_obj.coherencia_visual
             or not res_obj.coherencia_titulo_imagen
             or res_obj.categoria_detectada == "Ambiguo"
@@ -346,7 +350,7 @@ class NemotronVisionClassifier:
             )
             return res_obj
 
-        # 3. APROBADO
+        # 4. APROBADO ESTÁNDAR (Ref. 1)
         res_obj.estado_moderacion = "APROBADO"
         res_obj.aprobada = True
         res_obj.coherente_con_categoria = True
@@ -361,7 +365,8 @@ class NemotronVisionClassifier:
         self,
         imagen_str: str,
         categoria_esperada: str,
-        titulo_evento: str = ""
+        titulo_evento: str = "",
+        fiabilidad_negocio: int = 1
     ) -> ResultadoNemotronParse:
         cat_info = self.dataset.get(categoria_esperada)
         if not cat_info:
@@ -379,7 +384,6 @@ class NemotronVisionClassifier:
 
         raw_bytes, mime_type = _obtener_bytes_y_mime(imagen_str)
 
-        # Si no hay imagen válida, no se puede aprobar a ciegas por el título -> va a Pendientes
         if not raw_bytes or len(raw_bytes) < 200:
             return ResultadoNemotronParse(
                 modelo=self.modelo_nombre,
@@ -430,7 +434,7 @@ DEVUELVE ÚNICAMENTE UN OBJETO JSON VÁLIDO con esta estructura exacta (sin mark
 
             res_api = self._llamar_nvidia_nim(prompt_nim, raw_bytes, mime_type)
             res_obj = ResultadoNemotronParse(**res_api)
-            return self._aplicar_reglas_decision(res_obj, categoria_esperada)
+            return self._aplicar_reglas_decision(res_obj, categoria_esperada, fiabilidad_negocio)
 
         except Exception as e:
             logger.error(f"Error en NVIDIA NIM: {e}", exc_info=True)
