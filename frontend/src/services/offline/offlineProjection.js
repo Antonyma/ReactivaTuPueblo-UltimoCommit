@@ -90,6 +90,9 @@ export function applyOutboxProjection(baseState, operations, usuarioActual) {
           listaInscritos: [],
           fechaInicioISO: p.fechaInicio,
           fechaFinISO: p.fechaFin,
+          fechaFinMs: p.fechaFin && !Number.isNaN(new Date(p.fechaFin).getTime())
+            ? new Date(p.fechaFin).getTime()
+            : null,
           fecha: formatearFechaBonita(p.fechaInicio),
           estadoModeracion: "pendiente",
           ahorroTokens: false,

@@ -23,7 +23,7 @@ export function createEventoRoutes(
   router.post(
     '/:id/valoraciones',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     requireBodyFields(['estrellas']),
     valoracionController.crear
@@ -31,7 +31,7 @@ export function createEventoRoutes(
   router.delete(
     '/:id/valoraciones/:valoracionId',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     validateIntParam('valoracionId'),
     valoracionController.eliminar

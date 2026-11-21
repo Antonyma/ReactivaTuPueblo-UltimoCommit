@@ -52,6 +52,9 @@ export function mapEventoFromApi(ev) {
   const pueblo = ev.pueblo || ev.negocio?.pueblo || "Lucainena de las Torres";
   const fechaInicioISO = toDatetimeLocalInput(ev.fechaInicio);
   const fechaFinISO = toDatetimeLocalInput(ev.fechaFin);
+  const fechaFinDate = ev.fechaFin ? new Date(ev.fechaFin) : null;
+  const fechaFinMs =
+    fechaFinDate && !Number.isNaN(fechaFinDate.getTime()) ? fechaFinDate.getTime() : null;
 
   return {
     id: Number(ev.id),
@@ -69,6 +72,7 @@ export function mapEventoFromApi(ev) {
     listaInscritos: Array.isArray(ev.listaInscritos) ? ev.listaInscritos : [],
     fechaInicioISO,
     fechaFinISO,
+    fechaFinMs,
     fecha: formatearFechaBonita(ev.fechaInicio),
     estadoModeracion: String(ev.estado || "aprobada").trim().toLowerCase(),
     ahorroTokens: Number(ev.negocio?.fiabilidad ?? 0) >= 60,

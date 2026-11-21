@@ -394,22 +394,6 @@ export class SupabaseEventoRepository extends EventoRepository {
     }
   }
 
-  async desinscribirUsuario(eventoId, usuarioId) {
-    const eId = Number(eventoId)
-    const uId = Number(usuarioId)
-    const cols = EVENTO_SCHEMA.inscripcionesColumns
-
-    const result = await this.client
-      .from(EVENTO_SCHEMA.inscripcionesTable)
-      .delete()
-      .eq(cols.eventoId, eId)
-      .eq(cols.usuarioId, uId)
-      .select(cols.id)
-
-    const rows = unwrapSupabaseResult(result, 'Error al cancelar inscripción del evento') || []
-    return rows.length > 0
-  }
-
   async confirmarPublicacionWhatsapp(eventoId) {
     const evento = await this.findById(eventoId)
     if (!evento) return null

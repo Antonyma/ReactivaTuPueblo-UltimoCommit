@@ -2,6 +2,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useApp } from "../../context/AppContext.jsx";
 import { IconClose, IconStar } from "../Icons.jsx";
 
+function haFinalizado(act, ahoraMs) {
+  const finMs =
+    typeof act.fechaFinMs === "number"
+      ? act.fechaFinMs
+      : act.fechaFinISO
+        ? new Date(act.fechaFinISO).getTime()
+        : NaN;
+  return !Number.isNaN(finMs) && finMs <= ahoraMs;
+}
+
 export default function ReviewsModal() {
   const {
     modalResenas,
@@ -9,6 +19,7 @@ export default function ReviewsModal() {
     cuentasNegocio,
     actividades,
     misInscripcionesIds,
+    misValoracionesEventoIds,
     usuario,
     agregarResena,
     cargarResenasNegocio,
@@ -17,9 +28,10 @@ export default function ReviewsModal() {
   const [texto, setTexto] = useState("");
 
   const nombreNegocio = modalResenas.nombreNegocio;
+  const eventoIdObjetivo = modalResenas.eventoId ?? null;
 
   const cerrarModal = useCallback(() => {
-    setModalResenas({ open: false, nombreNegocio: null });
+    setModalResenas({ open: false, nombreNegocio: null, eventoId: null });
   }, [setModalResenas]);
 
   useEffect(() => {
@@ -42,22 +54,31 @@ export default function ReviewsModal() {
   const info = cuentasNegocio[nombreNegocio] || { resenas: [] };
   const resenas = info.resenas || [];
 
+  const ahoraMs = Date.now();
   const eventosAsistidos = actividades.filter(
     (a) => a.negocio === nombreNegocio && misInscripcionesIds.includes(a.id)
   );
-  const ahoraMs = Date.now();
-  const puedeResenar =
+  const eventosFinalizados = eventosAsistidos.filter((a) => haFinalizado(a, ahoraMs));
+  const eventosPendientesValorar = eventosFinalizados.filter(
+    (a) => !misValoracionesEventoIds.includes(a.id)
+  );
+
+  const eventoParaResenar = usuario
+    ? (eventoIdObjetivo != null
+        ? eventosPendientesValorar.find((a) => Number(a.id) === Number(eventoIdObjetivo))
+        : null) || eventosPendientesValorar[0] || null
+    : null;
+
+  const yaValoroTodos =
     Boolean(usuario) &&
-    eventosAsistidos.some((a) => {
-      if (!a.fechaFinISO) return false;
-      const finMs = new Date(a.fechaFinISO).getTime();
-      return !Number.isNaN(finMs) && finMs <= ahoraMs;
-    });
+    !eventoParaResenar &&
+    eventosFinalizados.length > 0 &&
+    (eventoIdObjetivo == null || misValoracionesEventoIds.includes(Number(eventoIdObjetivo)));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!texto.trim()) return;
-    agregarResena(nombreNegocio, estrellas, texto.trim());
+    if (!texto.trim() || !eventoParaResenar) return;
+    agregarResena(nombreNegocio, estrellas, texto.trim(), eventoParaResenar.id);
     setTexto("");
   };
 
@@ -92,7 +113,7 @@ export default function ReviewsModal() {
               <p className="text-stone-500 text-center py-2">Sin opiniones todavía.</p>
             ) : (
               resenas.map((r, i) => (
-                <div key={i} className="p-2.5 bg-white rounded-xl border border-blue-200">
+                <div key={r.id || i} className="p-2.5 bg-white rounded-xl border border-blue-200">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold">
                       {r.usuario}
@@ -117,8 +138,12 @@ export default function ReviewsModal() {
             )}
           </div>
 
-          {puedeResenar ? (
+          {eventoParaResenar ? (
             <form onSubmit={handleSubmit} className="space-y-2.5">
+              <p className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
+                Opinando sobre: <span className="font-black">{eventoParaResenar.nombre}</span>
+              </p>
+
               <select
                 value={estrellas}
                 onChange={(e) => setEstrellas(Number(e.target.value))}
@@ -149,9 +174,11 @@ export default function ReviewsModal() {
             </form>
           ) : (
             <p className="text-xs sm:text-sm text-blue-950 bg-blue-50 border border-blue-200 p-3 rounded-2xl text-center font-bold">
-              {eventosAsistidos.length > 0
-                ? "Podrás dejar tu reseña cuando haya acabado el evento al que te apuntaste."
-                : "Solo puedes reseñar si te has apuntado a un evento de este negocio y ya ha acabado."}
+              {yaValoroTodos
+                ? "Ya has enviado tu opinión para este evento. ¡Gracias!"
+                : eventosAsistidos.length > 0
+                  ? "Podrás dejar tu reseña cuando haya acabado el evento al que te apuntaste."
+                  : "Solo puedes reseñar si te has apuntado a un evento de este negocio y ya ha acabado."}
             </p>
           )}
         </div>

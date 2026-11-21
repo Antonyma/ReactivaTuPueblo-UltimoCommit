@@ -57,6 +57,7 @@ export function AppProvider({ children }) {
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
   const [misInscripcionesIds, setMisInscripcionesIds] = useState([]);
+  const [misValoracionesEventoIds, setMisValoracionesEventoIds] = useState([]);
   const [inscripcionesPendientesIds, setInscripcionesPendientesIds] = useState([]);
   const [pendientesSyncCount, setPendientesSyncCount] = useState(() => outboxRepository.count());
   const [sincronizando, setSincronizando] = useState(false);
@@ -86,7 +87,7 @@ export function AppProvider({ children }) {
   const [modalLogin, setModalLogin] = useState({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
   const [modalCambiarHora, setModalCambiarHora] = useState({ open: false, actividad: null });
   const [modalDudas, setModalDudas] = useState({ open: false, actividad: null });
-  const [modalResenas, setModalResenas] = useState({ open: false, nombreNegocio: null });
+  const [modalResenas, setModalResenas] = useState({ open: false, nombreNegocio: null, eventoId: null });
   const [modalInscritos, setModalInscritos] = useState({ open: false, actividad: null });
 
   // Toast
@@ -258,16 +259,26 @@ export function AppProvider({ children }) {
       }
 
       let idsInscripciones = [];
+      let idsValorados = [];
       if (usuarioActualizado?.id && getAuthToken()) {
         try {
           const histRes = await usuariosApi.obtenerHistorial(usuarioActualizado.id);
-          idsInscripciones = (histRes?.data || [])
+          const histList = Array.isArray(histRes?.data?.historial)
+            ? histRes.data.historial
+            : Array.isArray(histRes?.data)
+              ? histRes.data
+              : [];
+          idsInscripciones = histList
             .filter((h) => h.estado !== "CANCELADA" && h.evento?.id)
+            .map((h) => Number(h.evento.id));
+          idsValorados = histList
+            .filter((h) => h.valoracion && h.evento?.id)
             .map((h) => Number(h.evento.id));
         } catch {
           idsInscripciones = cachedSnapshot.misInscripcionesIds || [];
         }
       }
+      setMisValoracionesEventoIds(idsValorados);
 
       const saved = cacheRepository.saveSnapshot({
         actividades: listaEventos,
@@ -433,6 +444,7 @@ export function AppProvider({ children }) {
     setAuthSession(null, null);
     setUsuario(null);
     setMisInscripcionesIds([]);
+    setMisValoracionesEventoIds([]);
     setCuentasNegocio((prev) => {
       const next = {};
       for (const [k, v] of Object.entries(prev)) {
@@ -896,23 +908,39 @@ export function AppProvider({ children }) {
     }
   }, [cuentasNegocio]);
 
-  const agregarResena = async (nombreNegocio, estrellas, texto) => {
+  const agregarResena = async (nombreNegocio, estrellas, texto, eventoIdPreferido = null) => {
     if (!usuario || !getAuthToken()) {
       mostrarToast("Inicia sesión para poder dejar una reseña.");
       return;
     }
 
     const ahora = Date.now();
+    const haTerminado = (a) => {
+      const finMs =
+        typeof a.fechaFinMs === "number"
+          ? a.fechaFinMs
+          : a.fechaFinISO
+            ? new Date(a.fechaFinISO).getTime()
+            : NaN;
+      return !Number.isNaN(finMs) && finMs <= ahora;
+    };
+
     const eventosDelNegocio = actividades.filter((a) => a.negocio === nombreNegocio);
     const eventosAsistidos = eventosDelNegocio.filter((a) => misInscripcionesIds.includes(a.id));
-    const eventoObjetivo = eventosAsistidos.find((a) => {
-      if (!a.fechaFinISO) return false;
-      const finMs = new Date(a.fechaFinISO).getTime();
-      return !Number.isNaN(finMs) && finMs <= ahora;
-    });
+    const eventosFinalizados = eventosAsistidos.filter(haTerminado);
+    const eventosPendientesValorar = eventosFinalizados.filter(
+      (a) => !misValoracionesEventoIds.includes(a.id)
+    );
+
+    const eventoObjetivo =
+      (eventoIdPreferido != null
+        ? eventosPendientesValorar.find((a) => Number(a.id) === Number(eventoIdPreferido))
+        : null) || eventosPendientesValorar[0];
 
     if (!eventoObjetivo) {
-      if (eventosAsistidos.length > 0) {
+      if (eventosFinalizados.length > 0) {
+        mostrarToast("Ya has valorado todos los eventos finalizados de este negocio.");
+      } else if (eventosAsistidos.length > 0) {
         mostrarToast("Solo puedes reseñar cuando haya acabado el evento al que asististe.");
       } else {
         mostrarToast("Solo puedes reseñar si has asistido a un evento de este negocio y ya ha acabado.");
@@ -926,6 +954,9 @@ export function AppProvider({ children }) {
         payload: { eventoId: eventoObjetivo.id, estrellas, texto },
         meta: { nombreNegocio },
       });
+      setMisValoracionesEventoIds((prev) =>
+        prev.includes(eventoObjetivo.id) ? prev : [...prev, eventoObjetivo.id]
+      );
       aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
       mostrarToast("⏳ Opinión guardada sin conexión. Se enviará automáticamente al reconectar.");
     };
@@ -943,6 +974,9 @@ export function AppProvider({ children }) {
         estrellas,
         texto,
       };
+      setMisValoracionesEventoIds((prev) =>
+        prev.includes(eventoObjetivo.id) ? prev : [...prev, eventoObjetivo.id]
+      );
       setCuentasNegocio((prev) => {
         const existe = prev[nombreNegocio];
         if (!existe) return prev;
@@ -978,6 +1012,7 @@ export function AppProvider({ children }) {
         puebloActivo,
         setPuebloActivo,
         misInscripcionesIds,
+        misValoracionesEventoIds,
         inscripcionesPendientesIds,
         isOnline,
         modoOfflineSimulado,

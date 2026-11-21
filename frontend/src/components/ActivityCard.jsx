@@ -16,6 +16,7 @@ export default function ActivityCard({ act }) {
     usuario,
     cuentasNegocio,
     misInscripcionesIds,
+    misValoracionesEventoIds,
     inscripcionesPendientesIds,
     apuntarse,
     desapuntarse,
@@ -34,8 +35,14 @@ export default function ActivityCard({ act }) {
   const libres = Math.max(0, act.aforo - act.asistentes);
   const sinPlazas = libres === 0;
   const yaApuntado = misInscripcionesIds.includes(act.id);
+  const yaValorado = misValoracionesEventoIds.includes(act.id);
   const inscripcionPendienteSync = inscripcionesPendientesIds.includes(act.id);
-  const finMs = act.fechaFinISO ? new Date(act.fechaFinISO).getTime() : NaN;
+  const finMs =
+    typeof act.fechaFinMs === "number"
+      ? act.fechaFinMs
+      : act.fechaFinISO
+        ? new Date(act.fechaFinISO).getTime()
+        : NaN;
   const estaTerminado = !Number.isNaN(finMs) && finMs <= Date.now();
 
   const badgeEstado = act.pendienteSync ? (
@@ -155,11 +162,19 @@ export default function ActivityCard({ act }) {
               yaApuntado ? (
                 <button
                   type="button"
-                  onClick={() => setModalResenas({ open: true, nombreNegocio: act.negocio })}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3.5 px-4 rounded-2xl shadow"
+                  onClick={() =>
+                    setModalResenas({ open: true, nombreNegocio: act.negocio, eventoId: act.id })
+                  }
+                  className={`w-full inline-flex items-center justify-center gap-2 font-black py-3.5 px-4 rounded-2xl shadow ${
+                    yaValorado
+                      ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-950"
+                      : "bg-amber-400 hover:bg-amber-300 text-stone-950"
+                  }`}
                 >
                   <IconStar className="w-5 h-5 shrink-0" filled />
-                  <span>Evento terminado · Dejar reseña</span>
+                  <span>
+                    {yaValorado ? "Ya valorado · Ver opiniones" : "Evento terminado · Dejar reseña"}
+                  </span>
                 </button>
               ) : (
                 <button
@@ -209,7 +224,9 @@ export default function ActivityCard({ act }) {
               </button>
               <button
                 type="button"
-                onClick={() => setModalResenas({ open: true, nombreNegocio: act.negocio })}
+                onClick={() =>
+                  setModalResenas({ open: true, nombreNegocio: act.negocio, eventoId: act.id })
+                }
                 className="inline-flex items-center justify-center gap-1.5 bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold py-2.5 px-3 rounded-xl text-sm"
               >
                 <IconStar className="w-4 h-4 shrink-0" filled />
