@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PuebloVivo UAL · Mancomunidad Filabres - Alhamilla</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body {
+      background-color: #F4F1EA;
+      color: #1C1917;
+    }
+
+    body.accesible {
+      font-size: 1.25rem !important;
+      line-height: 1.65 !important;
+    }
+
+    body.accesible button,
+    body.accesible input,
+    body.accesible select,
+    body.accesible textarea {
+      min-height: 54px !important;
+      font-size: 1.15rem !important;
+    }
+
+    #mapa-comarca {
+      height: 400px;
+      width: 100%;
+      border-radius: 1.25rem;
+      z-index: 1;
+    }
+
+    .pin-actividad-foto {
+      width: 46px;
+      height: 46px;
+      border-radius: 9999px;
+      border: 3px solid #EA580C;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      background: #fff;
+      transition: transform 0.2s ease;
+    }
+
+    .pin-actividad-foto:hover {
+      transform: scale(1.18);
+      z-index: 999 !important;
+    }
+
+    .pin-actividad-foto img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+
+<body class="font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- NAVEGACIÓN SUPERIOR CON MENÚ HAMBURGUESA Y BOTÓN DE ACCESIBILIDAD -->
+  <header class="bg-stone-900 text-stone-50 sticky top-0 z-40 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 flex items-center justify-between gap-4">
+
+      <!-- Marca -->
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-orange-600 flex items-center justify-center text-2xl shadow shrink-0">
+          🏔️
+        </div>
+        <div>
+          <span class="font-black text-xl tracking-tight block">PuebloVivo <span
+              class="text-orange-400">Almería</span></span>
+          <span class="text-xs text-stone-400 block">Mancomunidad Filabres - Alhamilla</span>
+        </div>
+      </div>
+
+      <!-- Controles Derecha: Accesibilidad (♿) + Menú Hamburguesa (☰) -->
+      <div class="flex items-center gap-2.5">
+
+        <span id="badge-nav-rol"
+          class="hidden sm:inline-block bg-stone-800 text-stone-300 border border-stone-700 px-3 py-2 rounded-xl text-xs font-bold">
+          🏡 Vecino / Turista
+        </span>
+
+        <button type="button" id="btn-accesibilidad"
+          class="w-11 h-11 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 text-xl font-black flex items-center justify-center shadow transition"
+          title="Activar o desactivar modo lectura fácil" aria-label="Accesibilidad">
+          ♿
+        </button>
+
+        <div class="relative" id="contenedor-menu-hamburguesa">
+          <button type="button" id="btn-toggle-hamburguesa"
+            class="w-11 h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-2xl font-black flex items-center justify-center shadow transition"
+            title="Abrir menú" aria-label="Menú principal">
+            ☰
+          </button>
+
+          <div id="menu-hamburguesa"
+            class="hidden absolute right-0 mt-2 w-72 bg-white text-stone-900 rounded-2xl shadow-2xl border border-stone-200 py-2 z-50">
+
+            <div class="px-4 py-2.5 border-b border-stone-100 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-[11px] font-black uppercase text-stone-400">Cuenta actual</p>
+                <p id="nombre-usuario-activo" class="text-sm font-black text-stone-900 truncate">Invitado (Sin
+                  registrar)</p>
+              </div>
+              <button type="button" id="btn-abrir-login"
+                class="bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold px-3 py-2 rounded-xl shrink-0">
+                👤 Entrar
+              </button>
+            </div>
+
+            <div class="px-3 pt-2 pb-1 text-[11px] font-black uppercase tracking-wider text-stone-400">Cambiar Vista
+            </div>
+            <button type="button" data-rol="vecino" data-label="🏡 Vecino / Turista"
+              class="opcion-rol w-full text-left px-4 py-2.5 text-sm font-bold hover:bg-orange-50 flex items-center gap-2.5 text-orange-700">
+              <span>🏡</span>
+              <div>
+                <p>Vecino / Turista</p>
+                <p class="text-xs font-normal text-stone-500">Explorar planes y apuntarse</p>
+              </div>
+            </button>
+            <button type="button" data-rol="publicador" data-label="📢 Publicador"
+              class="opcion-rol w-full text-left px-4 py-2.5 text-sm font-bold hover:bg-orange-50 flex items-center gap-2.5">
+              <span>📢</span>
+              <div>
+                <p>Publicador (Negocio / Ayto)</p>
+                <p class="text-xs font-normal text-stone-500">Requiere registro · Gestionar eventos</p>
+              </div>
+            </button>
+            <button type="button" data-rol="moderador" data-label="🛡️ Moderador IA"
+              class="opcion-rol w-full text-left px-4 py-2.5 text-sm font-bold hover:bg-orange-50 flex items-center gap-2.5">
+              <span>🛡️</span>
+              <div>
+                <p>Moderador IA (NVIDIA NIM)</p>
+                <p class="text-xs font-normal text-stone-500">Revisión de imágenes y antispam</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR CENTRAL -->
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1">
+
+    <!-- ===================================================================== -->
+    <!-- VISTA PRINCIPAL UNIFICADA (VECINO Y PUBLICADOR COMPARTEN ESTRUCTURA)  -->
+    <!-- ===================================================================== -->
+    <section id="seccion-principal" class="space-y-6">
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+
+        <!-- Banner Comarcal (2/3) -->
+        <div class="lg:col-span-2 relative rounded-3xl overflow-hidden shadow-md min-h-[250px] flex items-end">
+          <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+            alt="Pueblo blanco del interior de Almería" class="absolute inset-0 w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/50 to-transparent"></div>
+          <div class="relative p-6 md:p-8 text-white space-y-2">
+            <span id="badge-hero-rol"
+              class="bg-orange-600 text-white text-xs font-black uppercase px-3 py-1 rounded-full">Agenda Comarcal
+              Viva</span>
+            <h1 id="titulo-hero" class="text-2xl md:text-4xl font-black leading-tight">Descubre qué hacer hoy en
+              nuestros pueblos</h1>
+            <p id="subtitulo-hero" class="text-stone-200 text-sm md:text-base max-w-xl">
+              Fiestas patronales, deporte en la sierra, gastronomía y comercios avalados por la IA y las reseñas de tus
+              vecinos.
+            </p>
+          </div>
+        </div>
+
+        <!-- PANEL LATERAL DERECHO: CAMBIA SEGÚN SI ERES VECINO O PUBLICADOR -->
+        <div class="bg-white rounded-3xl p-5 shadow-sm border border-stone-200 flex flex-col justify-between">
+
+          <!-- MODO A: PANEL DE VECINO -->
+          <div id="panel-lateral-vecino" class="flex flex-col justify-between h-full space-y-4">
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <h2 class="font-black text-base text-stone-900">📅 Próximos planes</h2>
+                  <span id="badge-total-inscritos"
+                    class="bg-orange-100 text-orange-800 font-black text-xs px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <ul id="lista-inscripciones" class="space-y-2 text-xs max-h-40 overflow-y-auto"></ul>
+              </div>
+
+              <div class="pt-3 border-t border-stone-100">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-black text-base text-stone-900">✅ Actividades ya hechas</h3>
+                  <span id="badge-hechas"
+                    class="bg-emerald-100 text-emerald-900 font-black text-xs px-2.5 py-0.5 rounded-full">2</span>
+                </div>
+                <ul id="lista-hechas" class="space-y-2 text-xs max-h-36 overflow-y-auto">
+                  <li
+                    class="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 flex justify-between items-center gap-2">
+                    <div>
+                      <p class="font-bold text-stone-900">Fiesta de la Virgen de Montesión</p>
+                      <p class="text-stone-500">Lucainena · Completada</p>
+                    </div>
+                    <button type="button" data-action="valorar-hecha" data-negocio="Ayuntamiento de Lucainena"
+                      class="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-2.5 py-1.5 rounded-lg shrink-0">
+                      ⭐ Valorar
+                    </button>
+                  </li>
+                  <li
+                    class="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 flex justify-between items-center gap-2">
+                    <div>
+                      <p class="font-bold text-stone-900">Torneo Pádel Sierra Filabres</p>
+                      <p class="text-stone-500">Velefique · Completada</p>
+                    </div>
+                    <button type="button" data-action="valorar-hecha" data-negocio="Club Deportivo Velefique"
+                      class="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-2.5 py-1.5 rounded-lg shrink-0">
+                      ⭐ Valorar
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <button type="button" id="btn-simular-cambio"
+              class="w-full bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-xs py-2.5 px-3 rounded-xl transition">
+              ⏰ Probar cambio de hora → Aviso WhatsApp
+            </button>
+          </div>
+
+          <!-- MODO B: PANEL DE PUBLICADOR -->
+          <div id="panel-lateral-publicador" class="hidden flex flex-col justify-between h-full space-y-4">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span
+                    class="bg-blue-100 text-blue-900 text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full">Panel
+                    Comercio / Monitor</span>
+                  <h2 class="font-black text-lg text-stone-900 mt-1">Mis Negocios y Eventos</h2>
+                </div>
+
+                <!-- BOTÓN "+" DESPLEGABLE CON LAS DOS OPCIONES -->
+                <div class="relative" id="contenedor-menu-mas">
+                  <button type="button" id="btn-mas-publicador"
+                    class="w-12 h-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-2xl font-black flex items-center justify-center shadow-lg transition"
+                    title="Crear actividad o añadir cuenta de negocio">
+                    +
+                  </button>
+
+                  <div id="dropdown-mas-opciones"
+                    class="hidden absolute right-0 mt-2 w-68 bg-white text-stone-900 rounded-2xl shadow-2xl border border-stone-200 py-2 z-50">
+                    <div class="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-stone-400">¿Qué deseas
+                      hacer?</div>
+                    <button type="button" id="opt-abrir-crear-actividad"
+                      class="w-full text-left px-4 py-3 text-sm font-bold hover:bg-orange-50 flex items-center gap-2.5 border-b border-stone-100">
+                      <span class="text-lg">📢</span>
+                      <div>
+                        <p id="titulo-opt-crear-act" class="text-stone-900">Publicar actividad</p>
+                        <p id="subtitulo-opt-crear-act" class="text-xs font-normal text-stone-500">Crear evento, fiesta
+                          o promoción</p>
+                      </div>
+                    </button>
+                    <button type="button" id="opt-abrir-crear-negocio"
+                      class="w-full text-left px-4 py-3 text-sm font-bold hover:bg-orange-50 flex items-center gap-2.5">
+                      <span class="text-lg">🏪</span>
+                      <div>
+                        <p class="text-stone-900">Añadir cuenta de negocio</p>
+                        <p class="text-xs font-normal text-stone-500">Vincular comercio y redes sociales</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Resumen de negocios propios -->
+              <div class="pt-2 border-t border-stone-100 space-y-2">
+                <p class="text-xs font-black text-stone-700">🏪 Tus negocios registrados (Evaluación IA):</p>
+                <div id="lista-cuentas-ia" class="space-y-2 text-xs max-h-48 overflow-y-auto"></div>
+              </div>
+            </div>
+
+            <div
+              class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs text-emerald-950 flex justify-between items-center">
+              <span>📲 Canal WhatsApp Bot:</span>
+              <strong class="text-emerald-800">Conectado y listo</strong>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- FORMULARIO DESPLEGABLE 1 (PUBLICADOR): PUBLICAR ACTIVIDAD CON SUBIDA DE IMAGEN -->
+      <div id="bloque-form-actividad"
+        class="hidden bg-white p-6 rounded-3xl shadow-md border-2 border-orange-300 space-y-4">
+        <div class="flex justify-between items-center border-b border-stone-200 pb-3">
+          <div>
+            <span class="bg-orange-100 text-orange-900 text-xs font-black px-3 py-1 rounded-full">Nueva
+              Publicación</span>
+            <h3 class="text-xl font-black mt-1">Publicar nueva actividad o fiesta</h3>
+          </div>
+          <button type="button" id="btn-cerrar-form-actividad"
+            class="text-stone-400 hover:text-stone-800 font-black text-xl">✕</button>
+        </div>
+
+        <form id="form-publicar" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold mb-1">Título de la actividad *</label>
+            <input type="text" id="input-titulo" required placeholder="Ej: Carrera Popular Subida a los Filabres"
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Categoría *</label>
+            <select id="input-categoria" class="w-full border border-stone-300 rounded-xl p-3 text-sm">
+              <option value="Fiesta Patronal">🎉 Fiesta Patronal</option>
+              <option value="Deportes">⚽ Deportes</option>
+              <option value="Gastronomía">🍲 Gastronomía</option>
+              <option value="Turismo">🥾 Turismo</option>
+              <option value="Comercio">🛍️ Comercio</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Cuenta de Negocio *</label>
+            <select id="input-negocio-select" required
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Municipio de la Mancomunidad (Todos los pueblos) *</label>
+            <select id="input-pueblo" class="w-full border border-stone-300 rounded-xl p-3 text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Fecha y Hora *</label>
+            <input type="text" id="input-fecha" value="Domingo · 12:00h" required
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm" />
+          </div>
+
+          <!-- APARTADO PARA SUBIR IMAGEN PROCESADA POR EL MODERADOR -->
+          <div class="md:col-span-2 bg-stone-50 border-2 border-dashed border-stone-300 rounded-2xl p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label for="input-imagen-archivo" class="block text-xs font-black text-stone-800">
+                  🖼️ Imagen o cartel de la actividad (procesada por el Moderador IA) *
+                </label>
+                <p class="text-[11px] text-stone-500">Sube una foto real del evento o cartel (JPG, PNG, WEBP). Pasará
+                  por el filtro de Moderación IA.</p>
+              </div>
+              <label for="input-imagen-archivo"
+                class="cursor-pointer bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">
+                📁 Seleccionar imagen
+              </label>
+              <input type="file" id="input-imagen-archivo" accept="image/*" required class="hidden" />
+            </div>
+
+            <div id="contenedor-preview-subida"
+              class="hidden flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-200">
+              <img id="img-preview-subida" src="" alt="Vista previa subida"
+                class="w-24 h-20 object-cover rounded-lg border border-stone-300 shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p id="nombre-archivo-subido" class="text-xs font-black text-stone-900 truncate"></p>
+                <span
+                  class="inline-block mt-1 bg-amber-100 text-amber-900 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                  🛡️ Lista para enviar a cola de Moderación IA
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold mb-1">Descripción *</label>
+            <textarea id="input-desc" rows="2" required placeholder="Actividad abierta en la plaza del pueblo."
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm"></textarea>
+          </div>
+          <div class="md:col-span-2 flex justify-end gap-2">
+            <button type="button" id="btn-cancelar-form-actividad"
+              class="bg-stone-200 text-stone-800 font-bold px-5 py-3 rounded-xl text-sm">Cancelar</button>
+            <button type="submit"
+              class="bg-orange-600 hover:bg-orange-700 text-white font-black px-6 py-3 rounded-xl text-sm shadow transition">
+              Publicar Actividad y Enviar Imagen a Moderador
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- FORMULARIO DESPLEGABLE 2 (PUBLICADOR): AÑADIR CUENTA DE NEGOCIO -->
+      <div id="bloque-form-negocio"
+        class="hidden bg-white p-6 rounded-3xl shadow-md border-2 border-emerald-400 space-y-4">
+        <div class="flex justify-between items-center border-b border-stone-200 pb-3">
+          <div>
+            <span class="bg-emerald-100 text-emerald-900 text-xs font-black px-3 py-1 rounded-full">Alta de Entidad /
+              Comercio</span>
+            <h3 class="text-xl font-black mt-1">Añadir nueva cuenta de negocio</h3>
+          </div>
+          <button type="button" id="btn-cerrar-form-negocio"
+            class="text-stone-400 hover:text-stone-800 font-black text-xl">✕</button>
+        </div>
+
+        <form id="form-nuevo-negocio" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold mb-1">Nombre del negocio / entidad *</label>
+            <input type="text" id="neg-nombre" required placeholder="Ej: Panadería Artesana Senés"
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold mb-1">Municipio de la Mancomunidad *</label>
+            <select id="neg-pueblo" class="w-full border border-stone-300 rounded-xl p-3 text-sm"></select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold mb-1">Coordenadas exactas (opcional)</label>
+            <input type="text" id="neg-coordenadas" placeholder="Ej: 37.2045,-2.3468"
+              class="w-full border border-stone-300 rounded-xl p-3 text-sm" />
+          </div>
+          <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold mb-1">📘 Facebook URL</label>
+              <input type="url" id="neg-facebook" placeholder="https://facebook.com/..."
+                class="w-full border border-stone-300 rounded-xl p-2.5 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">📸 Instagram URL</label>
+              <input type="url" id="neg-instagram" placeholder="https://instagram.com/..."
+                class="w-full border border-stone-300 rounded-xl p-2.5 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">🐦 X / Twitter URL</label>
+              <input type="url" id="neg-twitter" placeholder="https://x.com/..."
+                class="w-full border border-stone-300 rounded-xl p-2.5 text-sm" />
+            </div>
+          </div>
+          <div class="md:col-span-2 flex justify-end gap-2">
+            <button type="button" id="btn-cancelar-negocio"
+              class="bg-stone-200 text-stone-800 font-bold px-5 py-3 rounded-xl text-sm">Cancelar</button>
+            <button type="submit"
+              class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-xl text-sm shadow">
+              Guardar Cuenta de Negocio
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PESTAÑAS EXCLUSIVAS DEL PUBLICADOR: "MIS ACTIVIDADES" VS "ACTIVIDADES DE OTROS" -->
+      <div id="barra-tabs-publicador"
+        class="hidden bg-stone-900 text-white p-2 rounded-2xl flex flex-wrap items-center justify-between gap-2 shadow">
+        <div class="flex gap-2">
+          <button type="button" data-subtab="mias"
+            class="btn-subtab-pub bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-black transition">
+            📢 Mis actividades (Gestionar / Posponer / Cancelar)
+          </button>
+          <button type="button" data-subtab="otras"
+            class="btn-subtab-pub bg-stone-800 hover:bg-stone-700 text-stone-300 px-4 py-2 rounded-xl text-xs font-bold transition">
+            🌍 Actividades de otros organizadores
+          </button>
+        </div>
+        <span class="text-xs text-stone-400 px-2">Vista de organizador activa</span>
+      </div>
+
+      <!-- DOBLE BARRA DE FILTROS: SOLO VISIBLE PARA VECINO / TURISTA (OCULTA EN PUBLICADOR) -->
+      <div id="barra-filtros-vecino" class="bg-white p-4 rounded-2xl shadow-sm border border-stone-200 space-y-3">
+
+        <div class="flex flex-wrap items-center gap-2 pb-3 border-b border-stone-100" id="grupo-pueblos">
+          <span class="text-xs font-black uppercase text-stone-400 mr-1">📍 Municipio:</span>
+          <button type="button" data-pueblo="Todos"
+            class="btn-pueblo bg-stone-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold">Todos los
+            pueblos</button>
+          <button type="button" data-pueblo="Lucainena de las Torres"
+            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">Lucainena
+            de las Torres</button>
+          <button type="button" data-pueblo="Velefique"
+            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">Velefique</button>
+          <button type="button" data-pueblo="Senés"
+            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">Senés</button>
+          <button type="button" data-pueblo="Uleila del Campo"
+            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">Uleila
+            del Campo</button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2" id="grupo-filtros">
+            <span class="text-xs font-black uppercase text-stone-400 mr-1">🏷️ Categoría:</span>
+            <button type="button" data-cat="Todas"
+              class="btn-filtro bg-orange-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold">Todas</button>
+            <button type="button" data-cat="Fiesta Patronal"
+              class="btn-filtro bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">🎉
+              Fiesta Patronal</button>
+            <button type="button" data-cat="Deportes"
+              class="btn-filtro bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">⚽
+              Deportes</button>
+            <button type="button" data-cat="Turismo"
+              class="btn-filtro bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">🥾
+              Rutas y Turismo</button>
+            <button type="button" data-cat="Gastronomía"
+              class="btn-filtro bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">🍲
+              Gastronomía</button>
+            <button type="button" data-cat="Comercio"
+              class="btn-filtro bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-1.5 rounded-xl text-xs font-bold">🛍️
+              Comercio Local</button>
+          </div>
+          <span
+            class="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+            🤖 Reputación IA activa
+          </span>
+        </div>
+      </div>
+
+      <!-- Cuadrícula: Tarjetas (Izquierda) + Mapa Interactivo con Mini-Imágenes (Derecha) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="grid-actividades" class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Tarjetas generadas por JS -->
+        </div>
+
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-stone-200 h-fit space-y-3">
+          <h3 class="font-black text-lg text-stone-900">🗺️ Mapa Visual de Actividades</h3>
+          <p class="text-xs text-stone-500">Cada pin muestra la foto de la actividad en su ubicación exacta. Pulsa sobre
+            una foto para ver detalles.</p>
+          <div id="mapa-comarca"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA MODERADOR IA (PROCESA IMÁGENES SUBIDAS POR PUBLICADORES)       -->
+    <!-- ===================================================================== -->
+    <section id="seccion-moderador" class="hidden space-y-6">
+      <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-200 space-y-6">
+        <div class="flex flex-wrap justify-between items-center gap-4 border-b border-stone-200 pb-4">
+          <div>
+            <h2 class="text-2xl font-black">Control de Calidad y Procesamiento de Imágenes (NVIDIA NIM)</h2>
+            <p class="text-sm text-stone-600">Las imágenes subidas al crear una actividad llegan aquí para validación
+              visual y antispam.</p>
+          </div>
+          <div class="flex gap-2 text-xs font-black">
+            <span class="bg-emerald-100 text-emerald-900 px-3 py-2 rounded-xl">⚡ Score IA por Reseñas</span>
+            <span class="bg-amber-100 text-amber-900 px-3 py-2 rounded-xl">🖼️ Cola de imágenes subidas</span>
+          </div>
+        </div>
+
+        <!-- COLA DINÁMICA DE IMÁGENES SUBIDAS POR PUBLICADORES -->
+        <div id="bloque-cola-imagenes-moderador" class="space-y-3">
+          <h3 class="text-sm font-black uppercase tracking-wider text-orange-700">📥 Imágenes nuevas subidas por
+            publicadores</h3>
+          <div id="grid-imagenes-pendientes" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+        </div>
+
+        <!-- EJEMPLOS HISTÓRICOS DE MODERACIÓN -->
+        <div class="pt-4 border-t border-stone-200 space-y-3">
+          <h3 class="text-sm font-black uppercase tracking-wider text-stone-500">📋 Historial de análisis IA</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="border-2 border-emerald-300 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="bg-emerald-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg">APROBADA (0
+                  TOKENS)</span>
+                <span class="text-xs font-black">Score IA: 3/3</span>
+              </div>
+              <img src="https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=600&q=80"
+                class="w-full h-36 object-cover rounded-xl" alt="Fiesta patronal" />
+              <h4 class="font-bold">Fiesta Patronal San Roque</h4>
+              <p class="text-xs text-stone-600">Cuenta verificada con 18 eventos previos y 5.0★ en reseñas. Aprobación
+                directa sin gastar tokens de visión.</p>
+            </div>
+
+            <div id="card-mod-dudosa" class="border-2 border-amber-400 bg-amber-50/50 rounded-2xl p-4 space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="bg-amber-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg">DUDOSA · CONTACTO
+                  HUMANO</span>
+                <span class="text-xs font-black">Score IA: 2/3</span>
+              </div>
+              <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80"
+                class="w-full h-36 object-cover rounded-xl" alt="Local pueblo" />
+              <h4 class="font-bold">Encuentro vecinal en el bar</h4>
+              <p class="text-xs text-stone-700">Cuenta con pocas reseñas aún. Veredicto IA: Foto poco clara ("ahí ahí").
+                Teléfono humano: <strong>+34 950 00 11 22</strong>.</p>
+              <div class="flex gap-2">
+                <button type="button" id="btn-aprobar-dudosa"
+                  class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-2.5 rounded-xl">Aprobar
+                  manual</button>
+                <button type="button" id="btn-rechazar-dudosa"
+                  class="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 rounded-xl">Rechazar</button>
+              </div>
+            </div>
+
+            <div class="border-2 border-red-300 bg-red-50/40 rounded-2xl p-4 space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg">RECHAZADA (SPAM)</span>
+                <span class="text-xs font-black">Score IA: 1/3</span>
+              </div>
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80"
+                class="w-full h-36 object-cover rounded-xl grayscale" alt="Cara spam" />
+              <h4 class="font-bold">Oferta 2x1 en tapas</h4>
+              <p class="text-xs text-red-800">Cuenta nueva sin reseñas + rostro en primer plano sin contexto.
+                <strong>WhatsApp de cancelación enviado.</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL SIMPLE Y MÓVIL DE CAMBIO DE HORA / DÍA O CANCELAR ACTIVIDAD     -->
+  <!-- ===================================================================== -->
+  <div id="modal-posponer-cancelar" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <span
+            class="bg-amber-100 text-amber-900 text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full">Notificación
+            WhatsApp Inscritos</span>
+          <h3 id="titulo-modal-posponer" class="font-black text-lg mt-1">Cambiar horario o cancelar</h3>
+        </div>
+        <button type="button" id="btn-cerrar-posponer" class="text-stone-500 font-bold text-xl">✕</button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-black uppercase text-stone-500">1. Elige el nuevo día</label>
+        <div id="selector-dias-movil" class="grid grid-cols-4 gap-2">
+          <button type="button" data-dia="Lunes"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Lunes</button>
+          <button type="button" data-dia="Martes"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Martes</button>
+          <button type="button" data-dia="Miércoles"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Miércoles</button>
+          <button type="button" data-dia="Jueves"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Jueves</button>
+          <button type="button" data-dia="Viernes"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Viernes</button>
+          <button type="button" data-dia="Sábado"
+            class="btn-dia-movil bg-stone-100 text-stone-800 py-2.5 rounded-xl text-xs font-bold">Sábado</button>
+          <button type="button" data-dia="Domingo"
+            class="btn-dia-movil col-span-2 bg-orange-600 text-white py-2.5 rounded-xl text-xs font-black">Domingo</button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="input-hora-movil" class="block text-xs font-black uppercase text-stone-500">2. Elige la nueva
+          hora</label>
+        <input type="time" id="input-hora-movil" value="11:00"
+          class="w-full border-2 border-stone-300 focus:border-orange-600 rounded-2xl p-3 text-lg font-black text-center bg-stone-50" />
+      </div>
+
+      <div class="bg-stone-100 p-3.5 rounded-2xl flex items-center justify-between text-xs">
+        <span class="text-stone-600">Nuevo horario:</span>
+        <strong id="preview-nueva-fecha" class="text-sm text-orange-700">Domingo · 11:00h</strong>
+      </div>
+
+      <div class="flex flex-col gap-2.5">
+        <button type="button" id="btn-confirmar-posponer"
+          class="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3.5 px-4 rounded-xl text-sm shadow transition">
+          ⏰ Guardar nuevo horario y avisar por WhatsApp
+        </button>
+        <button type="button" id="btn-confirmar-cancelar-act"
+          class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 px-4 rounded-xl text-xs shadow transition">
+          🚫 Cancelar actividad definitivamente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE DUDAS -> PREPARA EL MENSAJE Y LO DEJA A 1 CLIC EN WHATSAPP -->
+  <div id="modal-dudas" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="titulo-modal-dudas" class="font-black text-lg">Preparar consulta para WhatsApp</h3>
+        <button type="button" id="btn-cerrar-dudas" class="text-stone-500 font-bold text-xl">✕</button>
+      </div>
+      <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl text-xs text-emerald-950 space-y-1">
+        <p class="font-black text-sm">📲 Respuesta directa en tu WhatsApp</p>
+        <p>Escribe tu duda abajo. No se enviará sola: te dejaremos el enlace listo para que con <strong>un solo
+            clic</strong> se abra tu WhatsApp con el mensaje ya escrito.</p>
+      </div>
+      <div class="space-y-3">
+        <textarea id="input-pregunta" rows="3"
+          placeholder="Ej: Hola, ¿hay aparcamiento cerca o acceso para carrito de bebé?"
+          class="w-full border border-stone-300 rounded-xl p-3 text-sm"></textarea>
+
+        <a id="link-whatsapp-listo" href="#" target="_blank" rel="noopener noreferrer"
+          class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow transition">
+          <span>💬 Ir a WhatsApp (mensaje listo para enviar)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE RESEÑAS Y EVALUACIÓN IA DEL NEGOCIO -->
+  <div id="modal-resenas" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 id="titulo-modal-resenas" class="font-black text-lg">Reseñas del Negocio</h3>
+          <p id="subtitulo-ia-negocio" class="text-xs text-emerald-800 font-bold"></p>
+        </div>
+        <button type="button" id="btn-cerrar-resenas" class="text-stone-500 font-bold text-xl">✕</button>
+      </div>
+      <div id="lista-resenas-modal"
+        class="max-h-44 overflow-y-auto space-y-2 text-xs bg-stone-50 p-3 rounded-2xl border"></div>
+      <form id="form-nueva-resena" class="space-y-2">
+        <label class="block text-xs font-bold text-stone-700">Deja tu valoración (la IA recalculará la fiabilidad del
+          negocio):</label>
+        <div class="flex gap-2">
+          <select id="select-estrellas" class="border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold">
+            <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+            <option value="4">⭐⭐⭐⭐ (4)</option>
+            <option value="3">⭐⭐⭐ (3)</option>
+            <option value="2">⭐⭐ (2)</option>
+            <option value="1">⭐ (1)</option>
+          </select>
+          <input type="text" id="input-texto-resena" required placeholder="Ej: Muy bien organizado y puntual"
+            class="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-xs" />
+        </div>
+        <button type="submit" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl text-xs">Publicar
+          Valoración y Recalcular IA</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE REGISTRO OBLIGATORIO CON +34 AUTOMÁTICO -->
+  <div id="modal-login" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="font-black text-xl">Registro Obligatorio</h3>
+        <button type="button" id="btn-cerrar-login" class="text-stone-500 font-bold text-xl">✕</button>
+      </div>
+      <p id="mensaje-motivo-registro" class="text-xs text-stone-600 bg-amber-50 border border-amber-200 p-3 rounded-xl">
+        Para apuntarte a actividades, gestionar eventos como publicador o recibir avisos en WhatsApp necesitas
+        registrarte primero.
+      </p>
+      <form id="form-login" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold mb-1">Tu nombre o entidad *</label>
+          <input type="text" id="login-nombre" required placeholder="Ej: María García"
+            class="w-full border border-stone-300 rounded-xl p-3 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold mb-1">Teléfono WhatsApp (prefijo +34 automático) *</label>
+          <div
+            class="flex items-center border border-stone-300 rounded-xl overflow-hidden focus-within:border-orange-600 bg-white">
+            <span
+              class="bg-stone-100 text-stone-800 font-black text-sm px-3.5 py-3 border-r border-stone-300 select-none">🇪🇸
+              +34</span>
+            <input type="tel" id="login-telefono" required placeholder="600 11 22 33"
+              class="w-full p-3 text-sm outline-none" />
+          </div>
+        </div>
+        <button type="submit"
+          class="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3 rounded-xl shadow">
+          Completar Registro y Continuar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST AVISO WHATSAPP -->
+  <div id="toast-alerta"
+    class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-emerald-950 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-400 flex items-start gap-3">
+    <span class="text-2xl">📲</span>
+    <div>
+      <p class="font-bold text-sm text-emerald-300">PuebloVivo · Canal WhatsApp</p>
+      <p id="toast-mensaje" class="text-xs mt-1 leading-relaxed"></p>
+    </div>
+  </div>
+
+  <script>
+    const TELEFONO_BOT_WHATSAPP = "34600112233";
+
+    const municipiosMancomunidad = {
+      "Alcudia de Monteagud": [37.2361, -2.2669],
+      "Benitagla": [37.2314, -2.2389],
+      "Benizalón": [37.2119, -2.2414],
+      "Castro de Filabres": [37.1847, -2.4403],
+      "Gérgal": [37.1186, -2.5397],
+      "Lucainena de las Torres": [37.0412, -2.2015],
+      "Olula de Castro": [37.1753, -2.4747],
+      "Senés": [37.2045, -2.3468],
+      "Sorbas": [37.0983, -2.1239],
+      "Tabernas": [37.0500, -2.3911],
+      "Tahal": [37.2281, -2.2856],
+      "Turrillas": [37.0297, -2.2633],
+      "Uleila del Campo": [37.1852, -2.2041],
+      "Velefique": [37.1941, -2.4032]
+    };
+
+    const coordsPueblos = {
+      "Todos": { center: [37.14, -2.28], zoom: 10 },
+      "Lucainena de las Torres": { center: [37.0412, -2.2015], zoom: 14 },
+      "Velefique": { center: [37.1941, -2.4032], zoom: 14 },
+      "Senés": { center: [37.2045, -2.3468], zoom: 14 },
+      "Uleila del Campo": { center: [37.1852, -2.2041], zoom: 14 }
+    };
+
+    const cuentasNegocio = {
+      "Ayuntamiento de Lucainena": {
+        esMio: true,
+        pueblo: "Lucainena de las Torres",
+        actividadesPrevias: 18,
+        cuentaVerificada: true,
+        facebookUrl: "https://facebook.com/ayto.lucainena",
+        instagramUrl: "https://instagram.com/ayto_lucainena",
+        resenas: [
+          { usuario: "Carmen L.", estrellas: 5, texto: "Las fiestas y rutas siempre impecables." },
+          { usuario: "Antonio R.", estrellas: 5, texto: "Muy puntual y todo bien señalizado." }
+        ]
+      },
+      "Mesón El Mirador": {
+        esMio: true,
+        pueblo: "Senés",
+        actividadesPrevias: 9,
+        cuentaVerificada: true,
+        facebookUrl: "",
+        instagramUrl: "https://instagram.com/mesonelmirador",
+        resenas: [
+          { usuario: "Lucía P.", estrellas: 5, texto: "Las mejores migas de toda la sierra." }
+        ]
+      },
+      "Club Deportivo Velefique": {
+        esMio: false,
+        pueblo: "Velefique",
+        actividadesPrevias: 11,
+        cuentaVerificada: true,
+        facebookUrl: "https://facebook.com/cdvelefique",
+        instagramUrl: "",
+        resenas: [
+          { usuario: "Javier M.", estrellas: 5, texto: "Gran organización en el torneo y en las rutas de bici." }
+        ]
+      },
+      "Asociación Comercio Uleila": {
+        esMio: false,
+        pueblo: "Uleila del Campo",
+        actividadesPrevias: 3,
+        cuentaVerificada: false,
+        facebookUrl: "https://facebook.com/comerciouleila",
+        instagramUrl: "",
+        resenas: [
+          { usuario: "Pedro S.", estrellas: 4, texto: "Buen ambiente en el mercadillo." }
+        ]
+      }
+    };
+
+    function obtenerMisNegocios() {
+      return Object.keys(cuentasNegocio).filter(nombre => cuentasNegocio[nombre].esMio);
+    }
+
+    function evaluarFiabilidadIA(nombreNegocio) {
+      const info = cuentasNegocio[nombreNegocio] || { actividadesPrevias: 0, cuentaVerificada: false, resenas: [] };
+      const totalResenas = info.resenas.length;
+      const mediaEstrellas = totalResenas > 0
+        ? info.resenas.reduce((acc, r) => acc + r.estrellas, 0) / totalResenas
+        : 0;
+
+      let nivel = 1;
+      let motivo = "Cuenta reciente o sin reseñas aún";
+
+      if (info.cuentaVerificada && info.actividadesPrevias >= 8 && mediaEstrellas >= 4.5) {
+        nivel = 3;
+        motivo = `${info.actividadesPrevias} act. · ${mediaEstrellas.toFixed(1)}★ (${totalResenas} reseñas)`;
+      } else if (info.actividadesPrevias >= 2 || mediaEstrellas >= 3.5) {
+        nivel = 2;
+        motivo = `${info.actividadesPrevias} act. · ${mediaEstrellas.toFixed(1)}★ (${totalResenas} reseñas)`;
+      }
+
+      return { nivel, mediaEstrellas: mediaEstrellas.toFixed(1), totalResenas, motivo };
+    }
+
+    const actividades = [
+      {
+        id: 1,
+        nombre: "Ruta Vía Verde y Hornos de Calcinación",
+        pueblo: "Lucainena de las Torres",
+        negocio: "Ayuntamiento de Lucainena",
+        categoria: "Turismo",
+        descripcion: "Recorrido guiado por los hornos históricos y sendero natural. Dificultad baja, apta para familias.",
+        coords: [37.0412, -2.2015],
+        dePago: false,
+        asistentes: 18,
+        aforo: 30,
+        fecha: "Sábado · 09:30h",
+        cancelada: false,
+        estadoModeracion: "aprobada",
+        imagen: "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=800&q=80",
+        recomendado: true
+      },
+      {
+        id: 2,
+        nombre: "Fiesta Patronal en Honor a San Roque",
+        pueblo: "Lucainena de las Torres",
+        negocio: "Ayuntamiento de Lucainena",
+        categoria: "Fiesta Patronal",
+        descripcion: "Procesión tradicional, verbena popular en la plaza del pueblo y degustación de roscos caseros.",
+        coords: [37.0425, -2.1995],
+        dePago: false,
+        asistentes: 85,
+        aforo: 150,
+        fecha: "Sábado · 20:30h",
+        cancelada: false,
+        estadoModeracion: "aprobada",
+        imagen: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80",
+        recomendado: true
+      },
+      {
+        id: 3,
+        nombre: "Trail y Ruta BTT Puerto de Velefique",
+        pueblo: "Velefique",
+        negocio: "Club Deportivo Velefique",
+        categoria: "Deportes",
+        descripcion: "Subida deportiva cronometrada y marcha cicloturista por las curvas míticas de la sierra.",
+        coords: [37.1941, -2.4032],
+        dePago: true,
+        asistentes: 59,
+        aforo: 60,
+        fecha: "Domingo · 09:00h",
+        cancelada: false,
+        estadoModeracion: "aprobada",
+        imagen: "https://images.unsplash.com/photo-1541625602330-2277a4c46182?auto=format&fit=crop&w=800&q=80",
+        recomendado: true
+      },
+      {
+        id: 4,
+        nombre: "Jornada de Migas Serranas y Vino",
+        pueblo: "Senés",
+        negocio: "Mesón El Mirador",
+        categoria: "Gastronomía",
+        descripcion: "Degustación popular de migas tradicionales elaboradas en lumbre de leña con productos de la tierra.",
+        coords: [37.2045, -2.3468],
+        dePago: true,
+        asistentes: 32,
+        aforo: 40,
+        fecha: "Domingo · 13:30h",
+        cancelada: false,
+        estadoModeracion: "aprobada",
+        imagen: "https://images.unsplash.com/photo-1515443961218-a51367888e4b?auto=format&fit=crop&w=800&q=80",
+        recomendado: false
+      },
+      {
+        id: 5,
+        nombre: "Mercado de Aceite y Artesanía Local",
+        pueblo: "Uleila del Campo",
+        negocio: "Asociación Comercio Uleila",
+        categoria: "Comercio",
+        descripcion: "Venta directa de aceite de oliva virgen extra, miel de sierra, cerámica y esparto artesanal.",
+        coords: [37.1852, -2.2041],
+        dePago: false,
+        asistentes: 15,
+        aforo: 80,
+        fecha: "Domingo · 10:30h",
+        cancelada: false,
+        estadoModeracion: "aprobada",
+        imagen: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=800&q=80",
+        recomendado: false
+      }
+    ];
+
+    let usuarioRegistrado = null;
+    let accionPendienteTrasRegistro = null;
+    let imagenSubidaBase64 = "";
+
+    let rolActual = "vecino";
+    let subtabPublicador = "mias";
+    let misInscripcionesIds = [];
+    let puebloActivo = "Todos";
+    let categoriaActiva = "Todas";
+    let eventoChatActual = null;
+    let eventoPosponerActual = null;
+    let negocioResenaActual = null;
+    let mapaLeaflet = null;
+    let capaMarcadores = null;
+
+    let diaSeleccionadoMovil = "Domingo";
+
+    // Formatear teléfono añadiendo +34 automáticamente
+    function formatearTelefonoConPrefijo(rawTel) {
+      const limpio = rawTel.trim().replace(/\s+/g, "");
+      if (!limpio) return "";
+      if (limpio.startsWith("+34")) return limpio;
+      if (limpio.startsWith("0034")) return "+34" + limpio.slice(4);
+      if (limpio.startsWith("34") && limpio.length > 9) return "+" + limpio;
+      return "+34" + limpio.replace(/^\+/, "");
+    }
+
+    // Lectura de archivo de imagen subido en el formulario de actividad
+    document.getElementById("input-imagen-archivo").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        imagenSubidaBase64 = "";
+        document.getElementById("contenedor-preview-subida").classList.add("hidden");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        imagenSubidaBase64 = ev.target.result;
+        document.getElementById("img-preview-subida").src = imagenSubidaBase64;
+        document.getElementById("nombre-archivo-subido").textContent = file.name;
+        document.getElementById("contenedor-preview-subida").classList.remove("hidden");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Renderizar cola de imágenes subidas en el panel del Moderador IA
+    function pintarColaImagenesModerador() {
+      const grid = document.getElementById("grid-imagenes-pendientes");
+      if (!grid) return;
+      grid.innerHTML = "";
+
+      const pendientes = actividades.filter(a => a.estadoModeracion === "pendiente");
+
+      if (pendientes.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-3 bg-stone-50 border border-stone-200 rounded-2xl p-4 text-center text-xs text-stone-500">
+            No hay imágenes nuevas pendientes de procesar. Cuando un publicador cree una actividad con foto aparecerá aquí.
+          </div>
+        `;
+        return;
+      }
+
+      pendientes.forEach(act => {
+        const evalIA = evaluarFiabilidadIA(act.negocio);
+        grid.innerHTML += `
+          <div class="border-2 border-orange-400 bg-orange-50/40 rounded-2xl p-4 space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg">PENDIENTE DE REVISIÓN</span>
+              <span class="text-xs font-black">Score IA: ${evalIA.nivel}/3</span>
+            </div>
+            <img src="${act.imagen}" class="w-full h-36 object-cover rounded-xl border border-stone-200" alt="${act.nombre}" />
+            <div>
+              <h4 class="font-bold text-stone-900">${act.nombre}</h4>
+              <p class="text-xs text-stone-600">${act.negocio} · ${act.pueblo}</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" data-action="mod-aprobar-imagen" data-id="${act.id}" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-2.5 rounded-xl">
+                ✓ Aprobar imagen
+              </button>
+              <button type="button" data-action="mod-rechazar-imagen" data-id="${act.id}" class="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 rounded-xl">
+                ✕ Rechazar
+              </button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function notificarCancelacionVecinoWhatsApp(actividad) {
+      const telefono = usuarioRegistrado ? usuarioRegistrado.telefono : "+34 600 00 00 00";
+      const nombre = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino";
+      const payload = {
+        tipo: "CANCELACION_INSCRIPCION_VECINO",
+        usuario: nombre,
+        telefono: telefono,
+        actividad: actividad.nombre,
+        pueblo: actividad.pueblo,
+        mensaje: `❌ Hola ${nombre}, confirmamos tu baja en "${actividad.nombre}" (${actividad.pueblo}). Tu plaza ha quedado libre.`
+      };
+      window.ultimoWhatsAppCancelacionVecino = payload;
+      console.info("[WhatsApp Cancelación Vecino]", payload);
+      mostrarToast(`📲 WhatsApp enviado a ${telefono}: Confirmada tu cancelación en "${actividad.nombre}".`);
+    }
+
+    function notificarCambioWhatsAppBackend(actividad, tipoCambio, detalleNuevo) {
+      const payloadWhatsApp = {
+        evento_id: actividad.id,
+        actividad: actividad.nombre,
+        pueblo: actividad.pueblo,
+        tipo_alerta: tipoCambio,
+        nuevo_horario: detalleNuevo,
+        total_inscritos_notificar: actividad.asistentes,
+        plantilla_mensaje: tipoCambio === "CANCELADA"
+          ? `⚠️ Aviso PuebloVivo: La actividad "${actividad.nombre}" en ${actividad.pueblo} ha sido CANCELADA por el organizador.`
+          : `⏰ Aviso PuebloVivo: La actividad "${actividad.nombre}" en ${actividad.pueblo} cambia a: ${detalleNuevo}.`
+      };
+      window.ultimoEventoWhatsApp = payloadWhatsApp;
+      console.info("[WhatsApp Webhook Ready]", payloadWhatsApp);
+      mostrarToast(`${payloadWhatsApp.plantilla_mensaje} (Aviso enviado al WhatsApp de los ${actividad.asistentes} inscritos).`);
+    }
+
+    function solicitarRegistroObligatorio(motivoTexto, accionPendiente) {
+      accionPendienteTrasRegistro = accionPendiente;
+      document.getElementById("mensaje-motivo-registro").textContent = motivoTexto;
+      document.getElementById("modal-login").classList.remove("hidden");
+    }
+
+    function ejecutarApuntarse(id) {
+      const act = actividades.find(a => a.id === id);
+      if (!act || act.asistentes >= act.aforo || act.cancelada) return;
+
+      act.asistentes++;
+      if (!misInscripcionesIds.includes(id)) {
+        misInscripcionesIds.push(id);
+      }
+
+      pintarMisInscripciones();
+      pintarActividades();
+      mostrarToast(`✅ ¡Apuntado! Te hemos enviado confirmación por WhatsApp a ${usuarioRegistrado.telefono} para "${act.nombre}".`);
+    }
+
+    function activarVistaRol(nuevoRol, label) {
+      rolActual = nuevoRol;
+      document.getElementById("badge-nav-rol").textContent = label;
+
+      document.querySelectorAll(".opcion-rol").forEach(op => {
+        if (op.dataset.rol === nuevoRol) {
+          op.classList.add("text-orange-700");
+        } else {
+          op.classList.remove("text-orange-700");
+        }
+      });
+
+      const secPrincipal = document.getElementById("seccion-principal");
+      const secModerador = document.getElementById("seccion-moderador");
+      const panelVecino = document.getElementById("panel-lateral-vecino");
+      const panelPublicador = document.getElementById("panel-lateral-publicador");
+      const barraTabsPub = document.getElementById("barra-tabs-publicador");
+      const barraFiltrosVecino = document.getElementById("barra-filtros-vecino");
+
+      document.getElementById("bloque-form-actividad").classList.add("hidden");
+      document.getElementById("bloque-form-negocio").classList.add("hidden");
+
+      if (rolActual === "moderador") {
+        secPrincipal.classList.add("hidden");
+        secModerador.classList.remove("hidden");
+        pintarColaImagenesModerador();
+      } else {
+        secModerador.classList.add("hidden");
+        secPrincipal.classList.remove("hidden");
+
+        if (rolActual === "publicador") {
+          panelVecino.classList.add("hidden");
+          panelPublicador.classList.remove("hidden");
+          barraTabsPub.classList.remove("hidden");
+          // Quitar los filtros en el panel de publicador
+          barraFiltrosVecino.classList.add("hidden");
+          document.getElementById("badge-hero-rol").textContent = "Modo Comercio / Organizador";
+          pintarCuentasIA();
+        } else {
+          panelPublicador.classList.add("hidden");
+          barraTabsPub.classList.add("hidden");
+          panelVecino.classList.remove("hidden");
+          // Mostrar los filtros en la vista de vecino
+          barraFiltrosVecino.classList.remove("hidden");
+          document.getElementById("badge-hero-rol").textContent = "Agenda Comarcal Viva";
+        }
+
+        pintarActividades();
+        if (mapaLeaflet) {
+          setTimeout(() => mapaLeaflet.invalidateSize(), 150);
+        }
+      }
+    }
+
+    function actualizarPreviewHorarioMovil() {
+      const horaVal = document.getElementById("input-hora-movil").value || "11:00";
+      document.getElementById("preview-nueva-fecha").textContent = `${diaSeleccionadoMovil} · ${horaVal}h`;
+    }
+
+    document.getElementById("selector-dias-movil").addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-dia-movil");
+      if (!btn) return;
+      diaSeleccionadoMovil = btn.dataset.dia;
+
+      document.querySelectorAll(".btn-dia-movil").forEach(b => {
+        b.classList.remove("bg-orange-600", "text-white", "font-black");
+        b.classList.add("bg-stone-100", "text-stone-800", "font-bold");
+      });
+      btn.classList.add("bg-orange-600", "text-white", "font-black");
+      btn.classList.remove("bg-stone-100", "text-stone-800", "font-bold");
+
+      actualizarPreviewHorarioMovil();
+    });
+
+    document.getElementById("input-hora-movil").addEventListener("input", actualizarPreviewHorarioMovil);
+
+    function rellenarSelectoresMunicipios() {
+      const selectActividad = document.getElementById("input-pueblo");
+      const selectNegocio = document.getElementById("neg-pueblo");
+      const nombresOrdenados = Object.keys(municipiosMancomunidad).sort();
+
+      [selectActividad, selectNegocio].forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = "";
+        nombresOrdenados.forEach(pueblo => {
+          const opt = document.createElement("option");
+          opt.value = pueblo;
+          opt.textContent = pueblo;
+          if (pueblo === "Lucainena de las Torres") opt.selected = true;
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    function initMapa() {
+      mapaLeaflet = L.map("mapa-comarca").setView([37.14, -2.28], 10);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+      }).addTo(mapaLeaflet);
+
+      capaMarcadores = L.layerGroup().addTo(mapaLeaflet);
+      actualizarPinesMapa();
+    }
+
+    function actualizarPinesMapa() {
+      if (!capaMarcadores) return;
+      capaMarcadores.clearLayers();
+
+      const filtradas = actividades.filter(a => {
+        if (rolActual === "publicador") return true;
+        const cumplePueblo = puebloActivo === "Todos" || a.pueblo === puebloActivo;
+        const cumpleCat = categoriaActiva === "Todas" || a.categoria === categoriaActiva;
+        return cumplePueblo && cumpleCat;
+      });
+
+      filtradas.forEach(act => {
+        const iconoFoto = L.divIcon({
+          className: "",
+          html: `<div class="pin-actividad-foto" title="${act.nombre}"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
+          iconSize: [46, 46],
+          iconAnchor: [23, 23],
+          popupAnchor: [0, -24]
+        });
+
+        const popupHTML = `
+          <div style="width: 190px; font-family: sans-serif;">
+            <img src="${act.imagen}" style="width: 100%; height: 90px; object-fit: cover; border-radius: 8px; margin-bottom: 6px;" />
+            <b style="font-size: 13px; display: block; line-height: 1.2;">${act.nombre}</b>
+            <span style="font-size: 11px; color: #C2410C; font-weight: bold;">📍 ${act.pueblo}</span><br/>
+            <span style="font-size: 11px; color: #57534E;">🕒 ${act.fecha}</span>
+          </div>
+        `;
+
+        L.marker(act.coords, { icon: iconoFoto })
+          .addTo(capaMarcadores)
+          .bindPopup(popupHTML);
+      });
+    }
+
+    function pintarMisInscripciones() {
+      const ul = document.getElementById("lista-inscripciones");
+      const badge = document.getElementById("badge-total-inscritos");
+      ul.innerHTML = "";
+      badge.textContent = misInscripcionesIds.length;
+
+      if (misInscripcionesIds.length === 0) {
+        ul.innerHTML = `<li class="p-3 rounded-xl bg-stone-50 text-stone-400 text-center">No estás apuntado a ningún plan próximo.</li>`;
+        return;
+      }
+
+      misInscripcionesIds.forEach(id => {
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        const li = document.createElement("li");
+        li.className = "p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex justify-between items-center gap-2";
+        li.innerHTML = `
+          <div>
+            <p class="font-bold text-stone-900">${act.nombre}</p>
+            <p class="text-stone-500">${act.pueblo} · ${act.fecha}</p>
+          </div>
+          <button type="button" data-action="desapuntar" data-id="${act.id}" class="bg-red-100 hover:bg-red-200 text-red-800 font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">
+            ✕ Desapuntar
+          </button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    function pintarCuentasIA() {
+      const cont = document.getElementById("lista-cuentas-ia");
+      const selectNegocio = document.getElementById("input-negocio-select");
+      const optCrearAct = document.getElementById("opt-abrir-crear-actividad");
+      const tituloOptAct = document.getElementById("titulo-opt-crear-act");
+      const subtituloOptAct = document.getElementById("subtitulo-opt-crear-act");
+      if (!cont || !selectNegocio) return;
+
+      cont.innerHTML = "";
+      selectNegocio.innerHTML = "";
+
+      const misNegocios = obtenerMisNegocios();
+      const tieneNegocios = misNegocios.length > 0;
+
+      if (optCrearAct && tituloOptAct && subtituloOptAct) {
+        if (!tieneNegocios) {
+          optCrearAct.classList.add("opacity-55", "bg-stone-50");
+          tituloOptAct.textContent = "🔒 Publicar actividad";
+          subtituloOptAct.textContent = "Debes crear un negocio primero";
+        } else {
+          optCrearAct.classList.remove("opacity-55", "bg-stone-50");
+          tituloOptAct.textContent = "Publicar actividad";
+          subtituloOptAct.textContent = "Crear evento, fiesta o promoción";
+        }
+      }
+
+      if (!tieneNegocios) {
+        cont.innerHTML = `
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 text-center space-y-1">
+            <p class="font-bold">⚠️ No tienes ninguna cuenta de negocio</p>
+            <p>Pulsa <strong>"+" → "Añadir cuenta de negocio"</strong> antes de publicar una actividad.</p>
+          </div>
+        `;
+        return;
+      }
+
+      misNegocios.forEach(nombre => {
+        const evalIA = evaluarFiabilidadIA(nombre);
+        const info = cuentasNegocio[nombre];
+        const colorBadge = evalIA.nivel === 3 ? "bg-emerald-100 text-emerald-900" : evalIA.nivel === 2 ? "bg-amber-100 text-amber-900" : "bg-red-100 text-red-900";
+
+        const opt = document.createElement("option");
+        opt.value = nombre;
+        opt.textContent = `${nombre} (IA Nivel ${evalIA.nivel}/3)`;
+        selectNegocio.appendChild(opt);
+
+        cont.innerHTML += `
+          <div class="p-2.5 bg-stone-50 rounded-xl border border-stone-200 flex justify-between items-center gap-2">
+            <div class="min-w-0">
+              <p class="font-bold text-stone-900 truncate">${nombre}</p>
+              <p class="text-stone-500 truncate">${info.pueblo} · <span class="font-bold ${colorBadge} px-1.5 py-0.5 rounded">IA ${evalIA.nivel}/3</span></p>
+            </div>
+            <button type="button" data-action="eliminar-negocio" data-negocio="${nombre}" class="bg-red-600 hover:bg-red-700 text-white font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition" title="Eliminar cuenta de negocio">
+              🗑️ Eliminar
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    function pintarActividades() {
+      const grid = document.getElementById("grid-actividades");
+      grid.innerHTML = "";
+
+      const lista = actividades.filter(a => {
+        if (rolActual === "publicador") {
+          const esActividadMia = Boolean(cuentasNegocio[a.negocio]?.esMio);
+          return subtabPublicador === "mias" ? esActividadMia : !esActividadMia;
+        }
+        const cumplePueblo = puebloActivo === "Todos" || a.pueblo === puebloActivo;
+        const cumpleCat = categoriaActiva === "Todas" || a.categoria === categoriaActiva;
+        return cumplePueblo && cumpleCat;
+      });
+
+      if (lista.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-2 bg-white p-8 rounded-3xl text-center border border-stone-200">
+            <p class="text-lg font-bold text-stone-700">No hay actividades que mostrar en esta vista.</p>
+            <p class="text-sm text-stone-500 mt-1">Prueba cambiando de pestaña o creando una nueva actividad.</p>
+          </div>
+        `;
+        return;
+      }
+
+      lista.forEach(act => {
+        const libres = Math.max(0, act.aforo - act.asistentes);
+        const sinPlazas = libres === 0;
+        const yaApuntado = misInscripcionesIds.includes(act.id);
+        const evalIA = evaluarFiabilidadIA(act.negocio);
+        const esActividadMia = Boolean(cuentasNegocio[act.negocio]?.esMio);
+
+        const claseTarjeta = (sinPlazas || act.cancelada)
+          ? "bg-stone-200/80 border-stone-300 opacity-85"
+          : "bg-white border-stone-200";
+
+        let accionesTarjetaHTML = "";
+
+        if (rolActual === "publicador") {
+          if (esActividadMia) {
+            accionesTarjetaHTML = `
+              <div class="flex gap-2">
+                <button type="button" data-action="ver-inscritos-pub" data-id="${act.id}" class="flex-1 bg-stone-900 hover:bg-stone-800 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                  👥 Inscritos (${act.asistentes}/${act.aforo})
+                </button>
+                <button type="button" data-action="abrir-posponer" data-id="${act.id}" class="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-2.5 px-3 rounded-xl text-xs transition">
+                  ⏰ Cambiar hora / Cancelar
+                </button>
+              </div>
+            `;
+          } else {
+            accionesTarjetaHTML = `
+              <div class="bg-stone-100 text-stone-600 text-center font-bold py-2.5 px-3 rounded-xl text-xs">
+                Organizado por ${act.negocio} · ${act.asistentes}/${act.aforo} plazas ocupadas
+              </div>
+            `;
+          }
+        } else {
+          let botonApuntarHTML = "";
+          if (act.cancelada) {
+            botonApuntarHTML = `
+              <button type="button" disabled class="flex-1 bg-red-200 text-red-900 font-bold py-2.5 px-3 rounded-xl text-sm cursor-not-allowed">
+                🚫 Actividad cancelada
+              </button>
+            `;
+          } else if (sinPlazas) {
+            botonApuntarHTML = `
+              <button type="button" disabled class="flex-1 bg-stone-400 text-stone-100 font-bold py-2.5 px-3 rounded-xl text-sm cursor-not-allowed">
+                🚫 Plazas agotadas (0)
+              </button>
+            `;
+          } else if (yaApuntado) {
+            botonApuntarHTML = `
+              <button type="button" data-action="desapuntar" data-id="${act.id}" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-3 rounded-xl text-sm transition" title="Pulsa para cancelar tu plaza">
+                ✓ Apuntado (${libres} pl.)
+              </button>
+            `;
+          } else {
+            botonApuntarHTML = `
+              <button type="button" data-action="apuntar" data-id="${act.id}" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 px-3 rounded-xl text-sm transition">
+                ✓ Apuntarme (${libres} pl.)
+              </button>
+            `;
+          }
+
+          accionesTarjetaHTML = `
+            <div class="flex gap-2">
+              ${botonApuntarHTML}
+              <button type="button" data-action="dudas" data-id="${act.id}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3.5 rounded-xl text-sm transition" title="Preparar pregunta para WhatsApp">
+                💬 Dudas
+              </button>
+            </div>
+          `;
+        }
+
+        let badgeSuperiorDerecho = "";
+        if (act.cancelada) {
+          badgeSuperiorDerecho = `<span class="absolute top-3 right-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-full">CANCELADA</span>`;
+        } else if (act.estadoModeracion === "pendiente") {
+          badgeSuperiorDerecho = `<span class="absolute top-3 right-3 bg-blue-600 text-white text-xs font-black px-2.5 py-1 rounded-full">🛡️ Imagen en Moderador IA</span>`;
+        } else if (act.estadoModeracion === "rechazada") {
+          badgeSuperiorDerecho = `<span class="absolute top-3 right-3 bg-red-700 text-white text-xs font-black px-2.5 py-1 rounded-full">✕ Imagen Rechazada</span>`;
+        } else if (sinPlazas) {
+          badgeSuperiorDerecho = `<span class="absolute top-3 right-3 bg-stone-700 text-white text-xs font-black px-2.5 py-1 rounded-full">COMPLETO</span>`;
+        } else if (act.recomendado) {
+          badgeSuperiorDerecho = `<span class="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-2.5 py-1 rounded-full">★ Recomendado</span>`;
+        }
+
+        const card = document.createElement("article");
+        card.className = `${claseTarjeta} rounded-3xl overflow-hidden shadow-sm border flex flex-col justify-between transition-colors duration-300`;
+        card.innerHTML = `
+          <div>
+            <div class="relative">
+              <img src="${act.imagen}" alt="${act.nombre}" class="w-full h-44 object-cover ${(sinPlazas || act.cancelada) ? 'grayscale' : ''}" />
+              <span class="absolute top-3 left-3 bg-stone-900/90 text-white text-xs font-bold px-3 py-1 rounded-full">${act.categoria}</span>
+              ${badgeSuperiorDerecho}
+            </div>
+            <div class="p-5 space-y-2">
+              <div class="flex justify-between items-center text-xs font-bold ${act.cancelada ? 'text-red-700' : (sinPlazas ? 'text-stone-600' : 'text-orange-700')}">
+                <span>📍 ${act.pueblo}</span>
+                <span>${act.fecha}</span>
+              </div>
+              <h4 class="font-black text-lg text-stone-900 leading-snug">${act.nombre}</h4>
+              <p class="text-xs text-stone-500">${act.negocio} · ${act.dePago ? "De pago" : "Gratis"}</p>
+              <p class="text-sm text-stone-700">${act.descripcion}</p>
+            </div>
+          </div>
+          <div class="p-5 pt-0 space-y-3">
+            <div class="bg-stone-100 px-3 py-2 rounded-xl flex justify-between items-center text-xs">
+              <span class="font-bold text-stone-700">🤖 Ref. IA: <strong class="text-emerald-800">${evalIA.nivel}/3</strong> (${evalIA.mediaEstrellas}★)</span>
+              <button type="button" data-action="ver-resenas" data-negocio="${act.negocio}" class="text-orange-700 font-black underline">
+                ${evalIA.totalResenas} reseñas
+              </button>
+            </div>
+            ${accionesTarjetaHTML}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Menú Hamburguesa
+    const btnToggleHamburguesa = document.getElementById("btn-toggle-hamburguesa");
+    const menuHamburguesa = document.getElementById("menu-hamburguesa");
+
+    btnToggleHamburguesa.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menuHamburguesa.classList.toggle("hidden");
+    });
+
+    document.addEventListener("click", () => {
+      menuHamburguesa.classList.add("hidden");
+      document.getElementById("dropdown-mas-opciones").classList.add("hidden");
+    });
+
+    menuHamburguesa.addEventListener("click", (e) => {
+      const opcion = e.target.closest(".opcion-rol");
+      if (!opcion) return;
+
+      const nuevoRol = opcion.dataset.rol;
+      const label = opcion.dataset.label;
+      menuHamburguesa.classList.add("hidden");
+
+      if (nuevoRol === "publicador" && !usuarioRegistrado) {
+        solicitarRegistroObligatorio(
+          "Para acceder al perfil de Publicador y gestionar negocios o eventos debes registrarte primero.",
+          { tipo: "rol-publicador", label: label }
+        );
+        return;
+      }
+
+      activarVistaRol(nuevoRol, label);
+    });
+
+    // Sub-pestañas del Publicador
+    document.getElementById("barra-tabs-publicador").addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-subtab-pub");
+      if (!btn) return;
+
+      subtabPublicador = btn.dataset.subtab;
+      document.querySelectorAll(".btn-subtab-pub").forEach(b => {
+        b.classList.remove("bg-orange-600", "text-white");
+        b.classList.add("bg-stone-800", "text-stone-300");
+      });
+      btn.classList.add("bg-orange-600", "text-white");
+      btn.classList.remove("bg-stone-800", "text-stone-300");
+
+      pintarActividades();
+    });
+
+    // Botón "+" del panel de Publicador
+    const btnMasPublicador = document.getElementById("btn-mas-publicador");
+    const dropdownMasOpciones = document.getElementById("dropdown-mas-opciones");
+
+    btnMasPublicador.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pintarCuentasIA();
+      dropdownMasOpciones.classList.toggle("hidden");
+    });
+
+    document.getElementById("opt-abrir-crear-actividad").addEventListener("click", () => {
+      dropdownMasOpciones.classList.add("hidden");
+
+      if (obtenerMisNegocios().length === 0) {
+        document.getElementById("bloque-form-actividad").classList.add("hidden");
+        document.getElementById("bloque-form-negocio").classList.remove("hidden");
+        mostrarToast("⚠️ No puedes crear una actividad sin tener antes una cuenta de negocio. Añade tu negocio primero.");
+        return;
+      }
+
+      document.getElementById("bloque-form-negocio").classList.add("hidden");
+      document.getElementById("bloque-form-actividad").classList.remove("hidden");
+      pintarCuentasIA();
+    });
+
+    document.getElementById("opt-abrir-crear-negocio").addEventListener("click", () => {
+      dropdownMasOpciones.classList.add("hidden");
+      document.getElementById("bloque-form-actividad").classList.add("hidden");
+      document.getElementById("bloque-form-negocio").classList.remove("hidden");
+    });
+
+    document.getElementById("btn-cerrar-form-actividad").addEventListener("click", () => {
+      document.getElementById("bloque-form-actividad").classList.add("hidden");
+    });
+    document.getElementById("btn-cancelar-form-actividad").addEventListener("click", () => {
+      document.getElementById("bloque-form-actividad").classList.add("hidden");
+    });
+
+    document.getElementById("btn-cerrar-form-negocio").addEventListener("click", () => {
+      document.getElementById("bloque-form-negocio").classList.add("hidden");
+    });
+    document.getElementById("btn-cancelar-negocio").addEventListener("click", () => {
+      document.getElementById("bloque-form-negocio").classList.add("hidden");
+    });
+
+    // Guardar nueva cuenta de negocio
+    document.getElementById("form-nuevo-negocio").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById("neg-nombre").value.trim();
+      const pueblo = document.getElementById("neg-pueblo").value;
+      const fb = document.getElementById("neg-facebook").value.trim();
+      const ig = document.getElementById("neg-instagram").value.trim();
+      const tw = document.getElementById("neg-twitter").value.trim();
+
+      if (!nombre) return;
+
+      cuentasNegocio[nombre] = {
+        esMio: true,
+        pueblo: pueblo,
+        actividadesPrevias: 0,
+        cuentaVerificada: false,
+        facebookUrl: fb,
+        instagramUrl: ig,
+        twitterUrl: tw,
+        resenas: []
+      };
+
+      document.getElementById("form-nuevo-negocio").reset();
+      document.getElementById("bloque-form-negocio").classList.add("hidden");
+
+      pintarCuentasIA();
+      document.getElementById("input-negocio-select").value = nombre;
+      mostrarToast(`✅ Cuenta de negocio "${nombre}" añadida en ${pueblo}. Ya puedes publicar actividades.`);
+    });
+
+    // Publicar nueva actividad con imagen subida enviada a Moderación IA
+    document.getElementById("form-publicar").addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      if (obtenerMisNegocios().length === 0) {
+        document.getElementById("bloque-form-actividad").classList.add("hidden");
+        document.getElementById("bloque-form-negocio").classList.remove("hidden");
+        mostrarToast("⚠️ Debes registrar al menos una cuenta de negocio antes de publicar una actividad.");
+        return;
+      }
+
+      const titulo = document.getElementById("input-titulo").value;
+      const categoria = document.getElementById("input-categoria").value;
+      const negocio = document.getElementById("input-negocio-select").value;
+      if (!negocio || !cuentasNegocio[negocio]) {
+        mostrarToast("⚠️ Selecciona una cuenta de negocio válida.");
+        return;
+      }
+
+      if (!imagenSubidaBase64) {
+        mostrarToast("⚠️ Sube una imagen de la actividad para que la procese el Moderador IA.");
+        return;
+      }
+
+      const pueblo = document.getElementById("input-pueblo").value;
+      const fecha = document.getElementById("input-fecha").value;
+      const desc = document.getElementById("input-desc").value;
+      const baseCoords = municipiosMancomunidad[pueblo] || [37.14, -2.28];
+      const coords = [
+        baseCoords[0] + (Math.random() - 0.5) * 0.004,
+        baseCoords[1] + (Math.random() - 0.5) * 0.004
+      ];
+
+      cuentasNegocio[negocio].actividadesPrevias++;
+      const evalIA = evaluarFiabilidadIA(negocio);
+
+      actividades.unshift({
+        id: Date.now(),
+        nombre: titulo,
+        pueblo: pueblo,
+        negocio: negocio,
+        categoria: categoria,
+        descripcion: desc,
+        coords: coords,
+        dePago: false,
+        asistentes: 1,
+        aforo: 40,
+        fecha: fecha,
+        cancelada: false,
+        estadoModeracion: "pendiente",
+        imagen: imagenSubidaBase64,
+        recomendado: true
+      });
+
+      imagenSubidaBase64 = "";
+      document.getElementById("form-publicar").reset();
+      document.getElementById("contenedor-preview-subida").classList.add("hidden");
+      document.getElementById("bloque-form-actividad").classList.add("hidden");
+
+      mostrarToast(`📢 Actividad "${titulo}" creada. Imagen enviada a la cola del Moderador IA (Score negocio: ${evalIA.nivel}/3).`);
+      pintarActividades();
+      pintarCuentasIA();
+      pintarColaImagenesModerador();
+      actualizarPinesMapa();
+    });
+
+    // Filtro por Pueblo (solo Vecino)
+    document.getElementById("grupo-pueblos").addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-pueblo");
+      if (!btn) return;
+
+      puebloActivo = btn.dataset.pueblo;
+      document.querySelectorAll(".btn-pueblo").forEach(b => {
+        b.classList.remove("bg-stone-900", "text-white");
+        b.classList.add("bg-stone-100", "text-stone-800");
+      });
+      btn.classList.add("bg-stone-900", "text-white");
+      btn.classList.remove("bg-stone-100", "text-stone-800");
+
+      if (mapaLeaflet && coordsPueblos[puebloActivo]) {
+        const vistaMapa = coordsPueblos[puebloActivo];
+        mapaLeaflet.setView(vistaMapa.center, vistaMapa.zoom);
+      }
+
+      pintarActividades();
+      actualizarPinesMapa();
+    });
+
+    // Filtro por Categoría (solo Vecino)
+    document.getElementById("grupo-filtros").addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-filtro");
+      if (!btn) return;
+
+      categoriaActiva = btn.dataset.cat;
+      document.querySelectorAll(".btn-filtro").forEach(b => {
+        b.classList.remove("bg-orange-600", "text-white");
+        b.classList.add("bg-stone-100", "text-stone-800");
+      });
+      btn.classList.add("bg-orange-600", "text-white");
+      btn.classList.remove("bg-stone-100", "text-stone-800");
+
+      pintarActividades();
+      actualizarPinesMapa();
+    });
+
+    // Delegación global de clics
+    document.body.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+
+      if (action === "apuntar") {
+        const id = Number(btn.dataset.id);
+        if (!usuarioRegistrado) {
+          solicitarRegistroObligatorio(
+            "Para apuntarte a una actividad y recibir tu confirmación por WhatsApp debes registrarte primero.",
+            { tipo: "apuntar", id: id }
+          );
+          return;
+        }
+        ejecutarApuntarse(id);
+      }
+
+      if (action === "desapuntar") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+
+        if (misInscripcionesIds.includes(id)) {
+          misInscripcionesIds = misInscripcionesIds.filter(item => item !== id);
+          act.asistentes = Math.max(0, act.asistentes - 1);
+          notificarCancelacionVecinoWhatsApp(act);
+        }
+
+        pintarMisInscripciones();
+        pintarActividades();
+      }
+
+      if (action === "dudas") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+
+        eventoChatActual = act;
+        document.getElementById("titulo-modal-dudas").textContent = `Duda sobre: ${act.nombre}`;
+        document.getElementById("input-pregunta").value = "";
+        actualizarEnlaceWhatsApp();
+        document.getElementById("modal-dudas").classList.remove("hidden");
+      }
+
+      if (action === "ver-resenas" || action === "valorar-hecha") {
+        negocioResenaActual = btn.dataset.negocio;
+        abrirModalResenas(negocioResenaActual);
+      }
+
+      if (action === "ver-inscritos-pub") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        mostrarToast(`👥 "${act.nombre}": ${act.asistentes} inscritos de ${act.aforo} plazas disponibles.`);
+      }
+
+      if (action === "abrir-posponer") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+
+        eventoPosponerActual = act;
+        document.getElementById("titulo-modal-posponer").textContent = `Gestionar: ${act.nombre}`;
+        actualizarPreviewHorarioMovil();
+        document.getElementById("modal-posponer-cancelar").classList.remove("hidden");
+      }
+
+      if (action === "eliminar-negocio") {
+        const nombreNeg = btn.dataset.negocio;
+        const confirmado = window.confirm(
+          `¿Estás seguro de que quieres eliminar la cuenta de negocio "${nombreNeg}"?\nEsta acción eliminará su ficha de organizador.`
+        );
+        if (!confirmado) return;
+
+        delete cuentasNegocio[nombreNeg];
+        if (obtenerMisNegocios().length === 0) {
+          document.getElementById("bloque-form-actividad").classList.add("hidden");
+        }
+        pintarCuentasIA();
+        pintarActividades();
+        mostrarToast(`🗑️ Cuenta de negocio "${nombreNeg}" eliminada correctamente.`);
+      }
+
+      if (action === "mod-aprobar-imagen") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        act.estadoModeracion = "aprobada";
+        pintarColaImagenesModerador();
+        pintarActividades();
+        mostrarToast(`✅ Imagen de "${act.nombre}" aprobada por el Moderador IA.`);
+      }
+
+      if (action === "mod-rechazar-imagen") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        act.estadoModeracion = "rechazada";
+        act.cancelada = true;
+        pintarColaImagenesModerador();
+        pintarActividades();
+        mostrarToast(`🚫 Imagen de "${act.nombre}" rechazada por el Moderador IA. Aviso enviado al organizador.`);
+      }
+    });
+
+    // Confirmar cambio de hora
+    document.getElementById("btn-confirmar-posponer").addEventListener("click", () => {
+      if (!eventoPosponerActual) return;
+      const horaVal = document.getElementById("input-hora-movil").value || "11:00";
+      const nuevaFecha = `${diaSeleccionadoMovil} · ${horaVal}h (NUEVO HORARIO)`;
+      eventoPosponerActual.fecha = nuevaFecha;
+      eventoPosponerActual.cancelada = false;
+
+      document.getElementById("modal-posponer-cancelar").classList.add("hidden");
+      pintarActividades();
+      pintarMisInscripciones();
+      actualizarPinesMapa();
+
+      notificarCambioWhatsAppBackend(eventoPosponerActual, "POSPUESTA", nuevaFecha);
+    });
+
+    // Confirmar Cancelación de actividad como Publicador
+    document.getElementById("btn-confirmar-cancelar-act").addEventListener("click", () => {
+      if (!eventoPosponerActual) return;
+      const confirmado = window.confirm(
+        `¿Confirmas la CANCELACIÓN definitiva de "${eventoPosponerActual.nombre}"?\nSe enviará aviso de cancelación por WhatsApp a los ${eventoPosponerActual.asistentes} inscritos.`
+      );
+      if (!confirmado) return;
+
+      eventoPosponerActual.cancelada = true;
+      eventoPosponerActual.fecha = "CANCELADA POR EL ORGANIZADOR";
+
+      document.getElementById("modal-posponer-cancelar").classList.add("hidden");
+      pintarActividades();
+      pintarMisInscripciones();
+      actualizarPinesMapa();
+
+      notificarCambioWhatsAppBackend(eventoPosponerActual, "CANCELADA", "Cancelada");
+    });
+
+    document.getElementById("btn-cerrar-posponer").addEventListener("click", () => {
+      document.getElementById("modal-posponer-cancelar").classList.add("hidden");
+    });
+
+    // Preparar enlace wa.me a un clic de enviarse
+    function actualizarEnlaceWhatsApp() {
+      if (!eventoChatActual) return;
+      const textoUsuario = document.getElementById("input-pregunta").value.trim();
+      const mensajeBase = textoUsuario
+        ? `Hola, tengo una duda sobre la actividad "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}): ${textoUsuario}`
+        : `Hola, tengo una duda sobre la actividad "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}).`;
+
+      const enlace = document.getElementById("link-whatsapp-listo");
+      enlace.href = `https://wa.me/${TELEFONO_BOT_WHATSAPP}?text=${encodeURIComponent(mensajeBase)}`;
+    }
+
+    document.getElementById("input-pregunta").addEventListener("input", actualizarEnlaceWhatsApp);
+
+    document.getElementById("link-whatsapp-listo").addEventListener("click", () => {
+      document.getElementById("modal-dudas").classList.add("hidden");
+      mostrarToast("📲 Mensaje preparado en WhatsApp. Pulsa enviar en tu chat y te responderemos por ahí.");
+    });
+
+    document.getElementById("btn-cerrar-dudas").addEventListener("click", () => {
+      document.getElementById("modal-dudas").classList.add("hidden");
+    });
+
+    // Modal de Reseñas
+    function abrirModalResenas(nombreNegocio) {
+      const info = cuentasNegocio[nombreNegocio] || { actividadesPrevias: 1, cuentaVerificada: false, resenas: [] };
+      const evalIA = evaluarFiabilidadIA(nombreNegocio);
+
+      document.getElementById("titulo-modal-resenas").textContent = nombreNegocio;
+      document.getElementById("subtitulo-ia-negocio").textContent = `Evaluación IA: Nivel ${evalIA.nivel}/3 (${evalIA.motivo})`;
+
+      const lista = document.getElementById("lista-resenas-modal");
+      lista.innerHTML = "";
+      if (info.resenas.length === 0) {
+        lista.innerHTML = `<p class="text-stone-400 text-center py-2">Aún no hay reseñas para este negocio.</p>`;
+      } else {
+        info.resenas.forEach(r => {
+          lista.innerHTML += `
+            <div class="p-2.5 bg-white rounded-xl border border-stone-200">
+              <div class="flex justify-between font-bold">
+                <span>${r.usuario}</span>
+                <span class="text-amber-600">${"⭐".repeat(r.estrellas)}</span>
+              </div>
+              <p class="text-stone-600 mt-0.5">${r.texto}</p>
+            </div>
+          `;
+        });
+      }
+
+      document.getElementById("modal-resenas").classList.remove("hidden");
+    }
+
+    document.getElementById("btn-cerrar-resenas").addEventListener("click", () => {
+      document.getElementById("modal-resenas").classList.add("hidden");
+    });
+
+    document.getElementById("form-nueva-resena").addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!negocioResenaActual) return;
+
+      const estrellas = Number(document.getElementById("select-estrellas").value);
+      const texto = document.getElementById("input-texto-resena").value.trim();
+      const usuario = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino Verificado";
+
+      if (!cuentasNegocio[negocioResenaActual]) {
+        cuentasNegocio[negocioResenaActual] = { esMio: false, pueblo: "Lucainena de las Torres", actividadesPrevias: 1, cuentaVerificada: false, resenas: [] };
+      }
+      cuentasNegocio[negocioResenaActual].resenas.unshift({ usuario, estrellas, texto });
+      document.getElementById("input-texto-resena").value = "";
+
+      abrirModalResenas(negocioResenaActual);
+      pintarActividades();
+      pintarCuentasIA();
+      mostrarToast(`Valoración guardada. La IA ha recalculado la reputación de ${negocioResenaActual}.`);
+    });
+
+    // Cambio de hora (Simulador vecino)
+    document.getElementById("btn-simular-cambio").addEventListener("click", () => {
+      actividades[0].fecha = "Sábado · 10:30h (NUEVA HORA)";
+      pintarMisInscripciones();
+      pintarActividades();
+      actualizarPinesMapa();
+      notificarCambioWhatsAppBackend(actividades[0], "POSPUESTA", "Sábado · 10:30h");
+    });
+
+    // Botón de Accesibilidad (♿)
+    document.getElementById("btn-accesibilidad").addEventListener("click", () => {
+      const activo = document.body.classList.toggle("accesible");
+      mostrarToast(activo ? "♿ Modo lectura fácil activado (texto y botones ampliados)." : "♿ Modo lectura estándar restaurado.");
+    });
+
+    // Moderación Manual
+    document.getElementById("btn-aprobar-dudosa").addEventListener("click", () => {
+      const card = document.getElementById("card-mod-dudosa");
+      card.classList.replace("border-amber-400", "border-emerald-400");
+      mostrarToast("Actividad aprobada manualmente por el moderador.");
+    });
+
+    document.getElementById("btn-rechazar-dudosa").addEventListener("click", () => {
+      document.getElementById("card-mod-dudosa").remove();
+      mostrarToast("Actividad rechazada.");
+    });
+
+    // Registro / Login Obligatorio con +34 automático
+    document.getElementById("btn-abrir-login").addEventListener("click", () => {
+      menuHamburguesa.classList.add("hidden");
+      accionPendienteTrasRegistro = null;
+      document.getElementById("mensaje-motivo-registro").textContent =
+        "Regístrate con tu nombre y teléfono WhatsApp (+34 automático) para apuntarte a actividades o gestionar eventos.";
+      document.getElementById("modal-login").classList.remove("hidden");
+    });
+
+    document.getElementById("btn-cerrar-login").addEventListener("click", () => {
+      accionPendienteTrasRegistro = null;
+      document.getElementById("modal-login").classList.add("hidden");
+    });
+
+    document.getElementById("form-login").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById("login-nombre").value.trim();
+      const telefono = formatearTelefonoConPrefijo(document.getElementById("login-telefono").value);
+      if (!nombre || !telefono) return;
+
+      usuarioRegistrado = { nombre, telefono };
+      document.getElementById("nombre-usuario-activo").textContent = `${nombre} (${telefono})`;
+      document.getElementById("btn-abrir-login").textContent = "✓ Registrado";
+      document.getElementById("modal-login").classList.add("hidden");
+
+      if (accionPendienteTrasRegistro) {
+        const pendiente = accionPendienteTrasRegistro;
+        accionPendienteTrasRegistro = null;
+
+        if (pendiente.tipo === "apuntar") {
+          ejecutarApuntarse(pendiente.id);
+          return;
+        }
+        if (pendiente.tipo === "rol-publicador") {
+          activarVistaRol("publicador", pendiente.label);
+          mostrarToast(`Bienvenido/a ${nombre} (${telefono}). Acceso concedido al panel de Publicador.`);
+          return;
+        }
+      }
+
+      mostrarToast(`Registro completado. Bienvenido/a ${nombre} (${telefono}).`);
+    });
+
+    function mostrarToast(txt) {
+      const toast = document.getElementById("toast-alerta");
+      document.getElementById("toast-mensaje").textContent = txt;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 6000);
+    }
+
+    // Arranque inicial
+    rellenarSelectoresMunicipios();
+    pintarMisInscripciones();
+    pintarActividades();
+    pintarCuentasIA();
+    pintarColaImagenesModerador();
+    initMapa();
+  </script>
+</body>
+
+</html>
