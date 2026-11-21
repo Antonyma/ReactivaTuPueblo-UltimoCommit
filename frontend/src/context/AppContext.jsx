@@ -184,7 +184,43 @@ export function AppProvider({ children }) {
         negociosApi.listar(),
       ]);
 
-      const listaEventos = (eventosRes?.data || []).map(mapEventoFromApi);
+      const listaEventosBase = (eventosRes?.data || []).map(mapEventoFromApi);
+
+       // Marcar actividades recomendadas para el usuario (recomendador colaborativo + categorías)
+       let listaEventos = listaEventosBase;
+       if (usuarioActualizado?.id && getAuthToken() && isOnlineRef.current) {
+         try {
+           const AI_AGENTS_URL =
+             import.meta.env?.VITE_AI_AGENTS_URL || "http://localhost:8000";
+           const recRes = await fetch(`${AI_AGENTS_URL}/agents/recommend-activities`, {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({
+               usuario_id: String(usuarioActualizado.id),
+               actividades_disponibles: listaEventosBase,
+               excluir_ya_inscritas: true,
+             }),
+           });
+           if (recRes.ok) {
+             const recData = await recRes.json();
+             const ordenadas = Array.isArray(recData?.actividades_ordenadas)
+               ? recData.actividades_ordenadas
+               : [];
+             const idsRecomendados = new Set(
+               ordenadas
+                 .filter((a) => a && (a.es_recomendada || a.esRecomendada))
+                 .map((a) => String(a.id))
+             );
+             if (idsRecomendados.size > 0) {
+               listaEventos = listaEventosBase.map((e) =>
+                 idsRecomendados.has(String(e.id)) ? { ...e, esRecomendada: true } : e
+               );
+             }
+           }
+         } catch {
+           // Si el servicio de recomendación no está disponible, seguimos sin marcas
+         }
+       }
 
       const mapNegocios = {};
       for (const neg of negociosRes?.data || []) {

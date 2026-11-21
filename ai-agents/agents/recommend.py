@@ -302,6 +302,32 @@ class RecommendActividades:
             if (ins.get("actividad_id") or ins.get("evento_id")) is not None
         }
 
+        # -----------------------------------------------------------------
+        # FILTRADO COLABORATIVO: usuarios que han estado en la misma actividad
+        # -----------------------------------------------------------------
+        # Para cada actividad a la que asistió el usuario, buscamos otros
+        # usuarios que también se inscribieron a esa misma actividad y recopilamos
+        # las actividades a las que esos usuarios asistieron (y el usuario actual no).
+        todas_inscripciones = self._consultar_supabase("inscripcion", "select=*")
+        actividad_a_usuarios: dict[str, set] = {}
+        for ins in todas_inscripciones:
+            act_id_cf = str(ins.get("actividad_id") or ins.get("evento_id") or "")
+            uid_cf = str(ins.get("usuario_id") or ins.get("user_id") or ins.get("email") or "")
+            if act_id_cf and uid_cf:
+                actividad_a_usuarios.setdefault(act_id_cf, set()).add(uid_cf)
+
+        co_usuarios = set()
+        for act_id_cf in ids_ya_inscritos:
+            co_usuarios |= actividad_a_usuarios.get(act_id_cf, set())
+        co_usuarios.discard(str(usuario_id))
+
+        actividades_colaborativas = Counter()
+        for ins in todas_inscripciones:
+            uid_cf = str(ins.get("usuario_id") or ins.get("user_id") or ins.get("email") or "")
+            act_id_cf = str(ins.get("actividad_id") or ins.get("evento_id") or "")
+            if uid_cf in co_usuarios and act_id_cf and act_id_cf not in ids_ya_inscritos:
+                actividades_colaborativas[act_id_cf] += 1
+
         conteo_categorias, historial_detallado = self._extraer_preferencias_categorias(
             inscripciones,
             actividades_disponibles
@@ -364,6 +390,8 @@ HISTORIAL DE INSCRIPCIONES ANTERIORES DEL USUARIO (tabla 'inscripcion'):
 - Frecuencia por categoría: {json.dumps(dict(conteo_categorias), ensure_ascii=False)}
 - Actividades a las que asistió: {json.dumps(historial_detallado[-10:], ensure_ascii=False)}
 
+ACTIVIDADES A LAS QUE ASISTIERON USUARIOS CON GUSTOS SIMILARES (filtrado colaborativo): {json.dumps(dict(actividades_colaborativas), ensure_ascii=False)}
+
 ACTIVIDADES DISPONIBLES ACTUALMENTE:
 {json.dumps(resumen_candidatas, ensure_ascii=False)}
 
@@ -371,6 +399,7 @@ INSTRUCCIONES:
 1. Da mayor 'puntuacion_relevancia' (0.70 a 1.0) a las actividades que coincidan con las categorías anteriores del usuario o sean complementarias a sus gustos.
 2. Da menor puntuación (0.10 a 0.55) a las categorías en las que nunca ha participado.
 3. Escribe en 'razon_personalizada' una frase breve, natural y amigable en español (ej: "Porque ya disfrutaste de rutas de Turismo anteriormente").
+4. Considera también las actividades a las que asistieron otros usuarios que participaron en las mismas actividades que este usuario (filtrado colaborativo).
 
 DEVUELVE ÚNICAMENTE UN JSON VÁLIDO con esta estructura (sin markdown):
 {{
@@ -406,13 +435,30 @@ DEVUELVE ÚNICAMENTE UN JSON VÁLIDO con esta estructura (sin markdown):
             info_ia = mapa_ia.get(act_id)
             score_ia = float(info_ia["puntuacion_relevancia"]) if info_ia else (0.75 if veces_en_cat > 0 else 0.30)
 
+            co_count = actividades_colaborativas.get(act_id, 0)
+
             if veces_en_cat > 0:
                 score_final = round(min(1.0, 0.65 + (0.20 * peso_cat) + (0.15 * score_ia)), 3)
                 es_recomendada = True
+                if co_count > 0 and not (info_ia and info_ia.get("razon_personalizada")):
+                    motivo = (
+                        f"✨ Recomendado: vecinos con gustos similares también asistieron "
+                        f"a esta actividad de '{cat_act}'"
+                    )
+                else:
+                    motivo = (
+                        info_ia["razon_personalizada"]
+                        if info_ia and info_ia.get("razon_personalizada")
+                        else f"✨ Recomendado porque participaste en {veces_en_cat} actividad(es) de '{cat_act}'"
+                    )
+            elif co_count > 0:
+                # Boost colaborativo: otros usuarios con gustos similares asistieron a esta actividad
+                score_final = round(min(1.0, 0.55 + (0.10 * min(co_count, 5)) + (0.15 * score_ia)), 3)
+                es_recomendada = score_final >= 0.50
                 motivo = (
                     info_ia["razon_personalizada"]
                     if info_ia and info_ia.get("razon_personalizada")
-                    else f"✨ Recomendado porque participaste en {veces_en_cat} actividad(es) de '{cat_act}'"
+                    else f"✨ Recomendado porque vecinos con gustos similares asistieron a esta actividad"
                 )
             else:
                 score_final = round(score_ia * 0.60, 3)

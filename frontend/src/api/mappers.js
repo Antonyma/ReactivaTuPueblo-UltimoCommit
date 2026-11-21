@@ -74,6 +74,8 @@ export function mapEventoFromApi(ev) {
     ahorroTokens: Number(ev.negocio?.fiabilidad ?? 0) >= 60,
     motivoIA: ev.motivo || "",
     imagen: ev.imagen || DEFAULT_IMAGE,
+    esRecomendada: Boolean(ev.es_recomendada ?? ev.esRecomendada ?? ev.recomendado ?? ev.recommended),
+    motivoRecomendacion: ev.motivo_recommend || ev.motivoRecomendacion || "",
   };
 }
 
