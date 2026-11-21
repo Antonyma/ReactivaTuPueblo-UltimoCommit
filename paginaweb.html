@@ -1118,426 +1118,425 @@
     }
 
     // =====================================================================
-    // MAPA CARTODB VOYAGER CENTRADO EN LA MANCOMUNIDAD
+    // MAPA OPENSTREETMAP CENTRADO EN LA MANCOMUNIDAD
     // =====================================================================
     function initMapa() {
       mapaLeaflet = L.map("mapa-comarca", {
         center: CENTRO_MANCOMUNIDAD,
         zoom: ZOOM_MANCOMUNIDAD,
         minZoom: 9,
-        maxZoom: 17
+        maxZoom: 19
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd",
-        maxZoom: 19,
-        attribution: "&copy; OSM &copy; CARTO"
-      }).addTo(mapaLeaflet);
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(mapaLeaflet);
 
-      const capaPueblos = L.layerGroup().addTo(mapaLeaflet);
-      capaMarcadores = L.layerGroup().addTo(mapaLeaflet);
+        const capaPueblos = L.layerGroup().addTo(mapaLeaflet);
+        capaMarcadores = L.layerGroup().addTo(mapaLeaflet);
 
-      Object.entries(municipiosMancomunidad).forEach(([nombre, coords]) => {
-        const icon = L.divIcon({
-          className: "",
-          html: `<div class="pin-pueblo-base"></div>`,
-          iconSize: [11, 11],
-          iconAnchor: [5, 5]
+        Object.entries(municipiosMancomunidad).forEach(([nombre, coords]) => {
+          const icon = L.divIcon({
+            className: "",
+            html: `<div class="pin-pueblo-base"></div>`,
+            iconSize: [11, 11],
+            iconAnchor: [5, 5]
+          });
+          L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
         });
-        L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
-      });
 
-      centrarMapaMancomunidad();
+        centrarMapaMancomunidad();
       actualizarPinesMapa();
-    }
+      }
 
     function centrarMapaMancomunidad() {
-      if (!mapaLeaflet) return;
-      mapaLeaflet.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
-    }
+          if (!mapaLeaflet) return;
+          mapaLeaflet.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
+        }
 
     function actualizarPinesMapa() {
-      if (!capaMarcadores) return;
-      capaMarcadores.clearLayers();
+          if (!capaMarcadores) return;
+          capaMarcadores.clearLayers();
 
-      actividades.filter(a => a.estadoModeracion === "aprobada").forEach(act => {
-        if (puebloActivo !== "Todos" && act.pueblo !== puebloActivo) return;
-        const icon = L.divIcon({
-          className: "",
-          html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
-        });
-        L.marker(act.coords, { icon })
-          .addTo(capaMarcadores)
-          .bindPopup(`<b>${act.nombre}</b><br/>📍 ${act.pueblo}<br/>🕒 ${act.fecha}`);
-      });
-    }
+          actividades.filter(a => a.estadoModeracion === "aprobada").forEach(act => {
+            if (puebloActivo !== "Todos" && act.pueblo !== puebloActivo) return;
+            const icon = L.divIcon({
+              className: "",
+              html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
+              iconSize: [48, 48],
+              iconAnchor: [24, 24]
+            });
+            L.marker(act.coords, { icon })
+              .addTo(capaMarcadores)
+              .bindPopup(`<b>${act.nombre}</b><br/>📍 ${act.pueblo}<br/>🕒 ${act.fecha}`);
+          });
+        }
 
     // =====================================================================
     // EVENTOS DE INTERACCIÓN Y FORMULARIOS
     // =====================================================================
     function rellenarSelectoresMunicipios() {
-      const nombres = Object.keys(municipiosMancomunidad).sort();
-      ["input-pueblo", "neg-pueblo"].forEach(id => {
-        const sel = document.getElementById(id);
-        sel.innerHTML = "";
-        nombres.forEach(p => {
-          const opt = document.createElement("option");
-          opt.value = p;
-          opt.textContent = p;
-          if (p === "Lucainena de las Torres") opt.selected = true;
-          sel.appendChild(opt);
-        });
-      });
-      document.getElementById("input-fecha-inicio").value = "2026-11-29T12:00";
-      document.getElementById("input-fecha-fin").value = "2026-11-29T14:00";
-    }
+          const nombres = Object.keys(municipiosMancomunidad).sort();
+          ["input-pueblo", "neg-pueblo"].forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = "";
+            nombres.forEach(p => {
+              const opt = document.createElement("option");
+              opt.value = p;
+              opt.textContent = p;
+              if (p === "Lucainena de las Torres") opt.selected = true;
+              sel.appendChild(opt);
+            });
+          });
+          document.getElementById("input-fecha-inicio").value = "2026-11-29T12:00";
+          document.getElementById("input-fecha-fin").value = "2026-11-29T14:00";
+        }
 
     document.getElementById("input-imagen-archivo").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        imagenSubidaBase64 = ev.target.result;
-        document.getElementById("img-preview-subida").src = imagenSubidaBase64;
-        document.getElementById("nombre-archivo-subido").textContent = file.name;
-        document.getElementById("contenedor-preview-subida").classList.remove("hidden");
-      };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById("grupo-pueblos").addEventListener("click", (e) => {
-      const btn = e.target.closest(".btn-pueblo");
-      if (!btn) return;
-      puebloActivo = btn.dataset.pueblo;
-
-      document.querySelectorAll(".btn-pueblo").forEach(b => {
-        b.classList.remove("bg-stone-900", "text-white");
-        b.classList.add("bg-stone-100", "text-stone-900");
-      });
-      btn.classList.add("bg-stone-900", "text-white");
-      btn.classList.remove("bg-stone-100", "text-stone-900");
-
-      if (mapaLeaflet) {
-        if (puebloActivo === "Todos") centrarMapaMancomunidad();
-        else if (coordsPueblos[puebloActivo]) mapaLeaflet.setView(coordsPueblos[puebloActivo].center, 14);
-      }
-      pintarActividades();
-      actualizarPinesMapa();
-    });
-
-    document.getElementById("btn-centrar-mancomunidad").addEventListener("click", centrarMapaMancomunidad);
-
-    // Botones de acceso a roles
-    document.getElementById("btn-abrir-cuenta").addEventListener("click", () => {
-      document.getElementById("modal-login").classList.remove("hidden");
-    });
-
-    document.getElementById("btn-acceso-publicador").addEventListener("click", () => {
-      if (!usuarioRegistrado) {
-        document.getElementById("login-tipo-usuario").value = "PUBLICADOR";
-        document.getElementById("modal-login").classList.remove("hidden");
-      } else {
-        usuarioRegistrado.tipoUsuario = "PUBLICADOR";
-        actualizarVistaPorRol();
-      }
-    });
-
-    document.getElementById("btn-acceso-moderador").addEventListener("click", () => {
-      if (!usuarioRegistrado || usuarioRegistrado.tipoUsuario !== "MODERADOR") {
-        document.getElementById("login-tipo-usuario").value = "MODERADOR";
-        document.getElementById("mensaje-motivo-registro").textContent =
-          "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades.";
-        document.getElementById("modal-login").classList.remove("hidden");
-      } else {
-        actualizarVistaPorRol();
-      }
-    });
-
-    document.getElementById("btn-salir-publicador").addEventListener("click", () => {
-      if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
-      actualizarVistaPorRol();
-    });
-
-    document.getElementById("btn-salir-moderador").addEventListener("click", () => {
-      if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
-      actualizarVistaPorRol();
-    });
-
-    document.getElementById("btn-cerrar-login").addEventListener("click", () => {
-      document.getElementById("modal-login").classList.add("hidden");
-    });
-
-    document.getElementById("form-login").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const nombre = document.getElementById("login-nombre").value.trim();
-      const email = document.getElementById("login-email").value.trim();
-      const telefono = formatearTelefonoConPrefijo(document.getElementById("login-telefono").value);
-      const tipoUsuario = document.getElementById("login-tipo-usuario").value;
-
-      usuarioRegistrado = { id: Date.now(), nombre, email, telefono, tipoUsuario };
-      document.getElementById("modal-login").classList.add("hidden");
-      actualizarVistaPorRol();
-
-      if (accionPendienteTrasRegistro) {
-        const idAct = accionPendienteTrasRegistro;
-        accionPendienteTrasRegistro = null;
-        ejecutarApuntarse(idAct);
-      } else {
-        mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
-      }
-    });
-
-    function ejecutarApuntarse(id) {
-      const act = actividades.find(a => a.id === id);
-      if (!act || act.asistentes >= act.aforo) return;
-      if (!misInscripcionesIds.includes(id)) {
-        act.asistentes++;
-        misInscripcionesIds.push(id);
-        act.listaInscritos.push({
-          nombre: usuarioRegistrado.nombre,
-          email: usuarioRegistrado.email,
-          telefono: usuarioRegistrado.telefono
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            imagenSubidaBase64 = ev.target.result;
+            document.getElementById("img-preview-subida").src = imagenSubidaBase64;
+            document.getElementById("nombre-archivo-subido").textContent = file.name;
+            document.getElementById("contenedor-preview-subida").classList.remove("hidden");
+          };
+          reader.readAsDataURL(file);
         });
-      }
-      pintarMisInscripciones();
-      pintarActividades();
-      mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuarioRegistrado.telefono}.`);
-    }
 
-    // Formularios Publicador
-    document.getElementById("btn-mostrar-form-evento").addEventListener("click", () => {
-      document.getElementById("form-nuevo-negocio").classList.add("hidden");
-      document.getElementById("form-publicar").classList.toggle("hidden");
-    });
-    document.getElementById("btn-cancelar-form-actividad").addEventListener("click", () => {
-      document.getElementById("form-publicar").classList.add("hidden");
-    });
+      document.getElementById("grupo-pueblos").addEventListener("click", (e) => {
+        const btn = e.target.closest(".btn-pueblo");
+        if (!btn) return;
+        puebloActivo = btn.dataset.pueblo;
 
-    document.getElementById("btn-mostrar-form-negocio").addEventListener("click", () => {
-      document.getElementById("form-publicar").classList.add("hidden");
-      document.getElementById("form-nuevo-negocio").classList.toggle("hidden");
-    });
-    document.getElementById("btn-cancelar-negocio").addEventListener("click", () => {
-      document.getElementById("form-nuevo-negocio").classList.add("hidden");
-    });
+        document.querySelectorAll(".btn-pueblo").forEach(b => {
+          b.classList.remove("bg-stone-900", "text-white");
+          b.classList.add("bg-stone-100", "text-stone-900");
+        });
+        btn.classList.add("bg-stone-900", "text-white");
+        btn.classList.remove("bg-stone-100", "text-stone-900");
 
-    document.getElementById("form-nuevo-negocio").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const nombre = document.getElementById("neg-nombre").value.trim();
-      const pueblo = document.getElementById("neg-pueblo").value;
-      if (!nombre) return;
-      cuentasNegocio[nombre] = {
-        id: Date.now(),
-        nombre,
-        esMio: true,
-        pueblo,
-        instagramUrl: document.getElementById("neg-instagram").value.trim(),
-        facebookUrl: document.getElementById("neg-facebook").value.trim(),
-        resenas: []
-      };
-      document.getElementById("form-nuevo-negocio").reset();
-      document.getElementById("form-nuevo-negocio").classList.add("hidden");
-      pintarNegociosPublicador();
-      mostrarToast(`✅ Negocio "${nombre}" guardado.`);
-    });
-
-    document.getElementById("form-publicar").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const titulo = document.getElementById("input-titulo").value.trim();
-      const categoria = document.getElementById("input-categoria").value;
-      const negocio = document.getElementById("input-negocio-select").value;
-      const pueblo = document.getElementById("input-pueblo").value;
-      const aforo = Number(document.getElementById("input-aforo").value) || 40;
-      const dePago = document.getElementById("input-depago").value === "true";
-      const fechaInicio = document.getElementById("input-fecha-inicio").value;
-      const desc = document.getElementById("input-desc").value.trim();
-      const baseCoords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
-
-      actividades.unshift({
-        id: Date.now(),
-        nombre: titulo,
-        pueblo,
-        negocio,
-        categoria,
-        descripcion: desc,
-        coords: baseCoords,
-        dePago,
-        asistentes: 0,
-        aforo,
-        listaInscritos: [],
-        fecha: formatearFechaBonita(fechaInicio),
-        estadoModeracion: "pendiente",
-        motivoIA: "Pendiente de validación por el Moderador",
-        imagen: imagenSubidaBase64 || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
+        if (mapaLeaflet) {
+          if (puebloActivo === "Todos") centrarMapaMancomunidad();
+          else if (coordsPueblos[puebloActivo]) mapaLeaflet.setView(coordsPueblos[puebloActivo].center, 14);
+        }
+        pintarActividades();
+        actualizarPinesMapa();
       });
 
-      imagenSubidaBase64 = "";
-      document.getElementById("form-publicar").reset();
-      document.getElementById("contenedor-preview-subida").classList.add("hidden");
-      document.getElementById("form-publicar").classList.add("hidden");
-      pintarActividades();
-      mostrarToast(`⏳ Actividad "${titulo}" enviada a la bandeja de Pendientes del Moderador.`);
-    });
+      document.getElementById("btn-centrar-mancomunidad").addEventListener("click", centrarMapaMancomunidad);
 
-    // Delegación global de acciones
-    document.body.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-action]");
-      if (!btn) return;
-      const action = btn.dataset.action;
+      // Botones de acceso a roles
+      document.getElementById("btn-abrir-cuenta").addEventListener("click", () => {
+        document.getElementById("modal-login").classList.remove("hidden");
+      });
 
-      if (action === "apuntar") {
-        const id = Number(btn.dataset.id);
+      document.getElementById("btn-acceso-publicador").addEventListener("click", () => {
         if (!usuarioRegistrado) {
-          accionPendienteTrasRegistro = id;
-          document.getElementById("login-tipo-usuario").value = "REGISTRADO";
+          document.getElementById("login-tipo-usuario").value = "PUBLICADOR";
           document.getElementById("modal-login").classList.remove("hidden");
-          return;
+        } else {
+          usuarioRegistrado.tipoUsuario = "PUBLICADOR";
+          actualizarVistaPorRol();
         }
-        ejecutarApuntarse(id);
-      }
+      });
 
-      if (action === "desapuntar") {
-        const id = Number(btn.dataset.id);
+      document.getElementById("btn-acceso-moderador").addEventListener("click", () => {
+        if (!usuarioRegistrado || usuarioRegistrado.tipoUsuario !== "MODERADOR") {
+          document.getElementById("login-tipo-usuario").value = "MODERADOR";
+          document.getElementById("mensaje-motivo-registro").textContent =
+            "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades.";
+          document.getElementById("modal-login").classList.remove("hidden");
+        } else {
+          actualizarVistaPorRol();
+        }
+      });
+
+      document.getElementById("btn-salir-publicador").addEventListener("click", () => {
+        if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+        actualizarVistaPorRol();
+      });
+
+      document.getElementById("btn-salir-moderador").addEventListener("click", () => {
+        if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+        actualizarVistaPorRol();
+      });
+
+      document.getElementById("btn-cerrar-login").addEventListener("click", () => {
+        document.getElementById("modal-login").classList.add("hidden");
+      });
+
+      document.getElementById("form-login").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById("login-nombre").value.trim();
+        const email = document.getElementById("login-email").value.trim();
+        const telefono = formatearTelefonoConPrefijo(document.getElementById("login-telefono").value);
+        const tipoUsuario = document.getElementById("login-tipo-usuario").value;
+
+        usuarioRegistrado = { id: Date.now(), nombre, email, telefono, tipoUsuario };
+        document.getElementById("modal-login").classList.add("hidden");
+        actualizarVistaPorRol();
+
+        if (accionPendienteTrasRegistro) {
+          const idAct = accionPendienteTrasRegistro;
+          accionPendienteTrasRegistro = null;
+          ejecutarApuntarse(idAct);
+        } else {
+          mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
+        }
+      });
+
+      function ejecutarApuntarse(id) {
         const act = actividades.find(a => a.id === id);
-        if (!act) return;
-        misInscripcionesIds = misInscripcionesIds.filter(i => i !== id);
-        act.asistentes = Math.max(0, act.asistentes - 1);
+        if (!act || act.asistentes >= act.aforo) return;
+        if (!misInscripcionesIds.includes(id)) {
+          act.asistentes++;
+          misInscripcionesIds.push(id);
+          act.listaInscritos.push({
+            nombre: usuarioRegistrado.nombre,
+            email: usuarioRegistrado.email,
+            telefono: usuarioRegistrado.telefono
+          });
+        }
         pintarMisInscripciones();
         pintarActividades();
-        mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+        mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuarioRegistrado.telefono}.`);
       }
 
-      if (action === "dudas") {
-        const id = Number(btn.dataset.id);
-        const act = actividades.find(a => a.id === id);
-        if (!act) return;
-        eventoChatActual = act;
-        document.getElementById("titulo-modal-dudas").textContent = `Duda: ${act.nombre}`;
-        document.getElementById("input-pregunta").value = "";
-        actualizarEnlaceWhatsApp();
-        document.getElementById("modal-dudas").classList.remove("hidden");
-      }
+      // Formularios Publicador
+      document.getElementById("btn-mostrar-form-evento").addEventListener("click", () => {
+        document.getElementById("form-nuevo-negocio").classList.add("hidden");
+        document.getElementById("form-publicar").classList.toggle("hidden");
+      });
+      document.getElementById("btn-cancelar-form-actividad").addEventListener("click", () => {
+        document.getElementById("form-publicar").classList.add("hidden");
+      });
 
-      if (action === "ver-resenas" || action === "valorar-hecha") {
-        negocioResenaActual = btn.dataset.negocio;
-        abrirModalResenas(negocioResenaActual);
-      }
+      document.getElementById("btn-mostrar-form-negocio").addEventListener("click", () => {
+        document.getElementById("form-publicar").classList.add("hidden");
+        document.getElementById("form-nuevo-negocio").classList.toggle("hidden");
+      });
+      document.getElementById("btn-cancelar-negocio").addEventListener("click", () => {
+        document.getElementById("form-nuevo-negocio").classList.add("hidden");
+      });
 
-      if (action === "ver-inscritos") {
-        const id = Number(btn.dataset.id);
-        const act = actividades.find(a => a.id === id);
-        if (!act) return;
-        const cont = document.getElementById("lista-modal-inscritos");
-        cont.innerHTML = act.listaInscritos.length === 0
-          ? `<p class="text-stone-500 text-center py-4">Aún no hay nadie apuntado.</p>`
-          : act.listaInscritos.map((p, i) => `<div class="p-3 bg-stone-50 rounded-xl border"><b>${i + 1}. ${p.nombre}</b><br/><span class="text-xs text-stone-600">${p.email} · ${p.telefono}</span></div>`).join("");
-        document.getElementById("modal-inscritos").classList.remove("hidden");
-      }
+      document.getElementById("form-nuevo-negocio").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById("neg-nombre").value.trim();
+        const pueblo = document.getElementById("neg-pueblo").value;
+        if (!nombre) return;
+        cuentasNegocio[nombre] = {
+          id: Date.now(),
+          nombre,
+          esMio: true,
+          pueblo,
+          instagramUrl: document.getElementById("neg-instagram").value.trim(),
+          facebookUrl: document.getElementById("neg-facebook").value.trim(),
+          resenas: []
+        };
+        document.getElementById("form-nuevo-negocio").reset();
+        document.getElementById("form-nuevo-negocio").classList.add("hidden");
+        pintarNegociosPublicador();
+        mostrarToast(`✅ Negocio "${nombre}" guardado.`);
+      });
 
-      if (action === "eliminar-evento") {
-        const id = Number(btn.dataset.id);
-        const idx = actividades.findIndex(a => a.id === id);
-        if (idx !== -1) {
-          actividades.splice(idx, 1);
-          pintarActividades();
-          actualizarPinesMapa();
-          mostrarToast("🗑️ Evento eliminado.");
+      document.getElementById("form-publicar").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const titulo = document.getElementById("input-titulo").value.trim();
+        const categoria = document.getElementById("input-categoria").value;
+        const negocio = document.getElementById("input-negocio-select").value;
+        const pueblo = document.getElementById("input-pueblo").value;
+        const aforo = Number(document.getElementById("input-aforo").value) || 40;
+        const dePago = document.getElementById("input-depago").value === "true";
+        const fechaInicio = document.getElementById("input-fecha-inicio").value;
+        const desc = document.getElementById("input-desc").value.trim();
+        const baseCoords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+
+        actividades.unshift({
+          id: Date.now(),
+          nombre: titulo,
+          pueblo,
+          negocio,
+          categoria,
+          descripcion: desc,
+          coords: baseCoords,
+          dePago,
+          asistentes: 0,
+          aforo,
+          listaInscritos: [],
+          fecha: formatearFechaBonita(fechaInicio),
+          estadoModeracion: "pendiente",
+          motivoIA: "Pendiente de validación por el Moderador",
+          imagen: imagenSubidaBase64 || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
+        });
+
+        imagenSubidaBase64 = "";
+        document.getElementById("form-publicar").reset();
+        document.getElementById("contenedor-preview-subida").classList.add("hidden");
+        document.getElementById("form-publicar").classList.add("hidden");
+        pintarActividades();
+        mostrarToast(`⏳ Actividad "${titulo}" enviada a la bandeja de Pendientes del Moderador.`);
+      });
+
+      // Delegación global de acciones
+      document.body.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        const action = btn.dataset.action;
+
+        if (action === "apuntar") {
+          const id = Number(btn.dataset.id);
+          if (!usuarioRegistrado) {
+            accionPendienteTrasRegistro = id;
+            document.getElementById("login-tipo-usuario").value = "REGISTRADO";
+            document.getElementById("modal-login").classList.remove("hidden");
+            return;
+          }
+          ejecutarApuntarse(id);
         }
-      }
 
-      // ACCIONES DEL MODERADOR (APRENDE EL MODELO)
-      if (action === "mod-aprobar") {
-        const id = Number(btn.dataset.id);
-        const act = actividades.find(a => a.id === id);
-        if (!act) return;
-        act.estadoModeracion = "aprobada";
-        act.motivoIA = "Aprobada por Moderador → Patrón positivo aprendido";
-        registrarAprendizajeModelo(act, true);
-        pintarDisplaysModerador();
-        actualizarPinesMapa();
-        mostrarToast(`✅ Aprobada "${act.nombre}". El modelo ha aprendido este patrón positivo.`);
-      }
+        if (action === "desapuntar") {
+          const id = Number(btn.dataset.id);
+          const act = actividades.find(a => a.id === id);
+          if (!act) return;
+          misInscripcionesIds = misInscripcionesIds.filter(i => i !== id);
+          act.asistentes = Math.max(0, act.asistentes - 1);
+          pintarMisInscripciones();
+          pintarActividades();
+          mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+        }
 
-      if (action === "mod-denegar") {
-        const id = Number(btn.dataset.id);
-        const act = actividades.find(a => a.id === id);
-        if (!act) return;
-        act.estadoModeracion = "denegada";
-        act.motivoIA = "Denegada por Moderador → Patrón negativo aprendido";
-        registrarAprendizajeModelo(act, false);
-        pintarDisplaysModerador();
-        actualizarPinesMapa();
-        mostrarToast(`❌ Denegada "${act.nombre}". El modelo ha registrado este rechazo.`);
-      }
-    });
+        if (action === "dudas") {
+          const id = Number(btn.dataset.id);
+          const act = actividades.find(a => a.id === id);
+          if (!act) return;
+          eventoChatActual = act;
+          document.getElementById("titulo-modal-dudas").textContent = `Duda: ${act.nombre}`;
+          document.getElementById("input-pregunta").value = "";
+          actualizarEnlaceWhatsApp();
+          document.getElementById("modal-dudas").classList.remove("hidden");
+        }
 
-    function actualizarEnlaceWhatsApp() {
-      if (!eventoChatActual) return;
-      const txt = document.getElementById("input-pregunta").value.trim();
-      const msg = `Hola, tengo una duda sobre "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}): ${txt}`;
-      document.getElementById("link-whatsapp-listo").href = `https://wa.me/${TELEFONO_BOT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    }
-    document.getElementById("input-pregunta").addEventListener("input", actualizarEnlaceWhatsApp);
-    document.getElementById("btn-cerrar-dudas").addEventListener("click", () => document.getElementById("modal-dudas").classList.add("hidden"));
-    document.getElementById("btn-cerrar-inscritos").addEventListener("click", () => document.getElementById("modal-inscritos").classList.add("hidden"));
+        if (action === "ver-resenas" || action === "valorar-hecha") {
+          negocioResenaActual = btn.dataset.negocio;
+          abrirModalResenas(negocioResenaActual);
+        }
 
-    function abrirModalResenas(nombreNeg) {
-      const info = cuentasNegocio[nombreNeg] || { resenas: [] };
-      document.getElementById("titulo-modal-resenas").textContent = `Opiniones: ${nombreNeg}`;
-      const lista = document.getElementById("lista-resenas-modal");
-      lista.innerHTML = info.resenas.length === 0
-        ? `<p class="text-stone-500 text-center">Sin opiniones todavía.</p>`
-        : info.resenas.map(r => `<div class="p-2.5 bg-white rounded-xl border"><b>${r.usuario}</b> (${"⭐".repeat(r.estrellas)})<p>${r.texto}</p></div>`).join("");
-      document.getElementById("modal-resenas").classList.remove("hidden");
-    }
-    document.getElementById("btn-cerrar-resenas").addEventListener("click", () => document.getElementById("modal-resenas").classList.add("hidden"));
-    document.getElementById("form-nueva-resena").addEventListener("submit", (e) => {
-      e.preventDefault();
-      if (!negocioResenaActual) return;
-      const estrellas = Number(document.getElementById("select-estrellas").value);
-      const texto = document.getElementById("input-texto-resena").value.trim();
-      const usuario = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino";
-      if (!cuentasNegocio[negocioResenaActual]) cuentasNegocio[negocioResenaActual] = { resenas: [] };
-      cuentasNegocio[negocioResenaActual].resenas.unshift({ usuario, estrellas, texto });
-      document.getElementById("input-texto-resena").value = "";
-      abrirModalResenas(negocioResenaActual);
-      mostrarToast("⭐ ¡Gracias! Tu opinión se ha guardado.");
-    });
+        if (action === "ver-inscritos") {
+          const id = Number(btn.dataset.id);
+          const act = actividades.find(a => a.id === id);
+          if (!act) return;
+          const cont = document.getElementById("lista-modal-inscritos");
+          cont.innerHTML = act.listaInscritos.length === 0
+            ? `<p class="text-stone-500 text-center py-4">Aún no hay nadie apuntado.</p>`
+            : act.listaInscritos.map((p, i) => `<div class="p-3 bg-stone-50 rounded-xl border"><b>${i + 1}. ${p.nombre}</b><br/><span class="text-xs text-stone-600">${p.email} · ${p.telefono}</span></div>`).join("");
+          document.getElementById("modal-inscritos").classList.remove("hidden");
+        }
 
-    // Navegación inferior en móvil (scroll suave a cada bloque)
-    document.querySelectorAll(".btn-movil-nav").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tab = btn.dataset.movilTab;
-        document.querySelectorAll(".btn-movil-nav").forEach(b => b.classList.remove("text-orange-400", "font-black"));
-        btn.classList.add("text-orange-400", "font-black");
+        if (action === "eliminar-evento") {
+          const id = Number(btn.dataset.id);
+          const idx = actividades.findIndex(a => a.id === id);
+          if (idx !== -1) {
+            actividades.splice(idx, 1);
+            pintarActividades();
+            actualizarPinesMapa();
+            mostrarToast("🗑️ Evento eliminado.");
+          }
+        }
 
-        if (tab === "cuenta") {
-          document.getElementById("modal-login").classList.remove("hidden");
-        } else if (tab === "mapa") {
-          document.getElementById("tab-contenido-mapa").scrollIntoView({ behavior: "smooth" });
-          if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 200);
-        } else if (tab === "misplanes") {
-          document.getElementById("tab-contenido-misplanes").scrollIntoView({ behavior: "smooth" });
-        } else {
-          window.scrollTo({ top: 0, behavior: "smooth" });
+        // ACCIONES DEL MODERADOR (APRENDE EL MODELO)
+        if (action === "mod-aprobar") {
+          const id = Number(btn.dataset.id);
+          const act = actividades.find(a => a.id === id);
+          if (!act) return;
+          act.estadoModeracion = "aprobada";
+          act.motivoIA = "Aprobada por Moderador → Patrón positivo aprendido";
+          registrarAprendizajeModelo(act, true);
+          pintarDisplaysModerador();
+          actualizarPinesMapa();
+          mostrarToast(`✅ Aprobada "${act.nombre}". El modelo ha aprendido este patrón positivo.`);
+        }
+
+        if (action === "mod-denegar") {
+          const id = Number(btn.dataset.id);
+          const act = actividades.find(a => a.id === id);
+          if (!act) return;
+          act.estadoModeracion = "denegada";
+          act.motivoIA = "Denegada por Moderador → Patrón negativo aprendido";
+          registrarAprendizajeModelo(act, false);
+          pintarDisplaysModerador();
+          actualizarPinesMapa();
+          mostrarToast(`❌ Denegada "${act.nombre}". El modelo ha registrado este rechazo.`);
         }
       });
-    });
 
-    function mostrarToast(txt) {
-      const t = document.getElementById("toast-alerta");
-      document.getElementById("toast-mensaje").textContent = txt;
-      t.classList.remove("hidden");
-      setTimeout(() => t.classList.add("hidden"), 5000);
-    }
+      function actualizarEnlaceWhatsApp() {
+        if (!eventoChatActual) return;
+        const txt = document.getElementById("input-pregunta").value.trim();
+        const msg = `Hola, tengo una duda sobre "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}): ${txt}`;
+        document.getElementById("link-whatsapp-listo").href = `https://wa.me/${TELEFONO_BOT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+      }
+      document.getElementById("input-pregunta").addEventListener("input", actualizarEnlaceWhatsApp);
+      document.getElementById("btn-cerrar-dudas").addEventListener("click", () => document.getElementById("modal-dudas").classList.add("hidden"));
+      document.getElementById("btn-cerrar-inscritos").addEventListener("click", () => document.getElementById("modal-inscritos").classList.add("hidden"));
 
-    // Arranque
-    rellenarSelectoresMunicipios();
-    pintarMisInscripciones();
-    actualizarVistaPorRol();
-    initMapa();
+      function abrirModalResenas(nombreNeg) {
+        const info = cuentasNegocio[nombreNeg] || { resenas: [] };
+        document.getElementById("titulo-modal-resenas").textContent = `Opiniones: ${nombreNeg}`;
+        const lista = document.getElementById("lista-resenas-modal");
+        lista.innerHTML = info.resenas.length === 0
+          ? `<p class="text-stone-500 text-center">Sin opiniones todavía.</p>`
+          : info.resenas.map(r => `<div class="p-2.5 bg-white rounded-xl border"><b>${r.usuario}</b> (${"⭐".repeat(r.estrellas)})<p>${r.texto}</p></div>`).join("");
+        document.getElementById("modal-resenas").classList.remove("hidden");
+      }
+      document.getElementById("btn-cerrar-resenas").addEventListener("click", () => document.getElementById("modal-resenas").classList.add("hidden"));
+      document.getElementById("form-nueva-resena").addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!negocioResenaActual) return;
+        const estrellas = Number(document.getElementById("select-estrellas").value);
+        const texto = document.getElementById("input-texto-resena").value.trim();
+        const usuario = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino";
+        if (!cuentasNegocio[negocioResenaActual]) cuentasNegocio[negocioResenaActual] = { resenas: [] };
+        cuentasNegocio[negocioResenaActual].resenas.unshift({ usuario, estrellas, texto });
+        document.getElementById("input-texto-resena").value = "";
+        abrirModalResenas(negocioResenaActual);
+        mostrarToast("⭐ ¡Gracias! Tu opinión se ha guardado.");
+      });
+
+      // Navegación inferior en móvil (scroll suave a cada bloque)
+      document.querySelectorAll(".btn-movil-nav").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tab = btn.dataset.movilTab;
+          document.querySelectorAll(".btn-movil-nav").forEach(b => b.classList.remove("text-orange-400", "font-black"));
+          btn.classList.add("text-orange-400", "font-black");
+
+          if (tab === "cuenta") {
+            document.getElementById("modal-login").classList.remove("hidden");
+          } else if (tab === "mapa") {
+            document.getElementById("tab-contenido-mapa").scrollIntoView({ behavior: "smooth" });
+            if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 200);
+          } else if (tab === "misplanes") {
+            document.getElementById("tab-contenido-misplanes").scrollIntoView({ behavior: "smooth" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      });
+
+      function mostrarToast(txt) {
+        const t = document.getElementById("toast-alerta");
+        document.getElementById("toast-mensaje").textContent = txt;
+        t.classList.remove("hidden");
+        setTimeout(() => t.classList.add("hidden"), 5000);
+      }
+
+      // Arranque
+      rellenarSelectoresMunicipios();
+      pintarMisInscripciones();
+      actualizarVistaPorRol();
+      initMapa();
   </script>
 </body>
 
