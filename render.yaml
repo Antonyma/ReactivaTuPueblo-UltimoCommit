@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: pueblovivo-ai-agents
+    runtime: docker
+    rootDir: ai-agents
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+
+  - type: web
+    name: pueblovivo-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: DATA_SOURCE
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        value: dev_whatsapp_token
+      - key: AI_AGENTS_URL
+        sync: false

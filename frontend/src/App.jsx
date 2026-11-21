@@ -1,6 +1,7 @@
 import React from "react";
 import { AppProvider, useApp } from "./context/AppContext.jsx";
 import Navbar from "./components/Navbar.jsx";
+import OfflineStatusBar from "./components/OfflineStatusBar.jsx";
 import Home from "./pages/Home.jsx";
 import MobileNav from "./components/MobileNav.jsx";
 import Toast from "./components/Toast.jsx";
@@ -18,6 +19,7 @@ function AppShell() {
   return (
     <>
       <Navbar />
+      <OfflineStatusBar />
       <Home />
       {!enRutaAdmin && <MobileNav />}
       <Toast />

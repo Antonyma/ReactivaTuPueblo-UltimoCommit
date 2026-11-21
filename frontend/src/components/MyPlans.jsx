@@ -3,7 +3,8 @@ import { useApp } from "../context/AppContext.jsx";
 import { IconCalendar, IconStar } from "./Icons.jsx";
 
 export default function MyPlans() {
-  const { actividades, misInscripcionesIds, desapuntarse, setModalResenas } = useApp();
+  const { actividades, misInscripcionesIds, inscripcionesPendientesIds, desapuntarse, setModalResenas } =
+    useApp();
 
   return (
     <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">
@@ -29,6 +30,7 @@ export default function MyPlans() {
           misInscripcionesIds.map((id) => {
             const act = actividades.find((a) => a.id === id);
             if (!act) return null;
+            const pendienteSync = inscripcionesPendientesIds.includes(id);
             return (
               <li
                 key={id}
@@ -39,6 +41,11 @@ export default function MyPlans() {
                   <p className="text-xs text-stone-600">
                     {act.pueblo} · {act.fecha}
                   </p>
+                  {pendienteSync && (
+                    <span className="inline-block mt-1 text-[11px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full">
+                      ⏳ Guardado sin red · Se confirmará al conectar
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"

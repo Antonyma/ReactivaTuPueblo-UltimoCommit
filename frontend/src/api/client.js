@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { isEffectivelyOffline } from '../services/offline/networkSimulation.js'
+
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3000/api'
 const TOKEN_STORAGE_KEY = 'pueblovivo_token'
 const USER_STORAGE_KEY = 'pueblovivo_user'
 
@@ -37,6 +39,10 @@ export function getStoredUser() {
 }
 
 export async function apiFetch(endpoint, options = {}) {
+  if (isEffectivelyOffline()) {
+    throw new TypeError('Sin conexión a internet. Esta acción requiere conexión.')
+  }
+
   const token = getAuthToken()
   const headers = {
     'Content-Type': 'application/json',
@@ -57,7 +63,10 @@ export async function apiFetch(endpoint, options = {}) {
       (typeof payload?.error === 'string' ? payload.error : null) ||
       payload?.message ||
       `HTTP error ${response.status}`
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    error.isHttpError = true
+    throw error
   }
 
   return payload

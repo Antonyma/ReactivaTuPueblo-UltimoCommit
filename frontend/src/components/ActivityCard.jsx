@@ -16,6 +16,7 @@ export default function ActivityCard({ act }) {
     usuario,
     cuentasNegocio,
     misInscripcionesIds,
+    inscripcionesPendientesIds,
     apuntarse,
     desapuntarse,
     eliminarEvento,
@@ -32,17 +33,21 @@ export default function ActivityCard({ act }) {
   const libres = Math.max(0, act.aforo - act.asistentes);
   const sinPlazas = libres === 0;
   const yaApuntado = misInscripcionesIds.includes(act.id);
+  const inscripcionPendienteSync = inscripcionesPendientesIds.includes(act.id);
 
-  const badgeEstado =
-    act.estadoModeracion === "pendiente" ? (
-      <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">
-        En revisión (Nivel 1)
-      </span>
-    ) : (
-      <span className="absolute top-3 right-3 bg-white/95 text-blue-950 text-xs font-black px-3 py-1 rounded-full">
-        {act.dePago ? "De pago" : "Gratis"}
-      </span>
-    );
+  const badgeEstado = act.pendienteSync ? (
+    <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full shadow">
+      ⏳ Guardado sin red
+    </span>
+  ) : act.estadoModeracion === "pendiente" ? (
+    <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">
+      En revisión (Nivel 1)
+    </span>
+  ) : (
+    <span className="absolute top-3 right-3 bg-white/95 text-blue-950 text-xs font-black px-3 py-1 rounded-full">
+      {act.dePago ? "De pago" : "Gratis"}
+    </span>
+  );
 
   return (
     <article className="tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between">
@@ -122,7 +127,9 @@ export default function ActivityCard({ act }) {
                 className="w-full inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3.5 px-4 rounded-2xl"
               >
                 <IconCheck className="w-5 h-5 shrink-0" />
-                <span>Apuntado (Quitar)</span>
+                <span>
+                  {inscripcionPendienteSync ? "⏳ Apuntado (Pendiente de red)" : "Apuntado (Quitar)"}
+                </span>
               </button>
             ) : (
               <button

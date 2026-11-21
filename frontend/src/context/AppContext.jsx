@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   authApi,
   eventosApi,
@@ -21,11 +21,29 @@ import {
   formatearTelefonoConPrefijo,
   municipiosMancomunidad,
 } from "../constants/comarca.js";
+import { useNetworkStatus } from "../hooks/useNetworkStatus.js";
+import { cacheRepository } from "../services/offline/cacheRepository.js";
+import { outboxRepository, OUTBOX_ACTION_TYPES } from "../services/offline/outboxRepository.js";
+import { defaultSyncEngine, isNetworkFailure } from "../services/offline/syncEngine.js";
+import { applyOutboxProjection } from "../services/offline/offlineProjection.js";
 
 const AppContext = createContext();
 
+const BASE_PREFIX = (import.meta.env?.BASE_URL || "/").replace(/\/+$/, "");
+
 function normalizarRuta(pathname) {
-  return pathname && pathname.startsWith("/admin") ? "/admin" : "/";
+  if (!pathname) return "/";
+  const sinBase =
+    BASE_PREFIX && pathname.startsWith(BASE_PREFIX)
+      ? pathname.slice(BASE_PREFIX.length) || "/"
+      : pathname;
+  return sinBase.startsWith("/admin") ? "/admin" : "/";
+}
+
+function construirRutaConBase(ruta) {
+  const normalizada = normalizarRuta(ruta);
+  if (!BASE_PREFIX) return normalizada;
+  return normalizada === "/" ? `${BASE_PREFIX}/` : `${BASE_PREFIX}${normalizada}`;
 }
 
 export function AppProvider({ children }) {
@@ -39,11 +57,30 @@ export function AppProvider({ children }) {
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
   const [misInscripcionesIds, setMisInscripcionesIds] = useState([]);
+  const [inscripcionesPendientesIds, setInscripcionesPendientesIds] = useState([]);
+  const [pendientesSyncCount, setPendientesSyncCount] = useState(() => outboxRepository.count());
+  const [sincronizando, setSincronizando] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(
+    () => cacheRepository.loadSnapshot().updatedAt
+  );
   const [muestrasAprendidasModelo, setMuestrasAprendidasModelo] = useState(4);
   const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(0);
   const [ultimoWhatsAppPublicador, setUltimoWhatsAppPublicador] = useState(
     "Listo para notificar aprobación o rechazo al publicador."
   );
+
+  const {
+    isOnline,
+    modoOfflineSimulado,
+    toggleModoOfflineSimulado,
+    puedeInstalarPwa,
+    appInstalada,
+    instalarPwa,
+  } = useNetworkStatus();
+  const isOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   // Modals state
   const [modalLogin, setModalLogin] = useState({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
@@ -66,8 +103,9 @@ export function AppProvider({ children }) {
 
   const navegarA = useCallback((ruta) => {
     const destino = normalizarRuta(ruta);
-    if (window.location.pathname !== destino) {
-      window.history.pushState({}, "", destino);
+    const urlDestino = construirRutaConBase(destino);
+    if (window.location.pathname !== urlDestino) {
+      window.history.pushState({}, "", urlDestino);
     }
     setRutaActual(destino);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -88,8 +126,39 @@ export function AppProvider({ children }) {
     }, 5500);
   }, []);
 
+  const aplicarEstadoConProyeccion = useCallback((baseState, usuarioActivo) => {
+    const ops = outboxRepository.getAll();
+    const projected = applyOutboxProjection(baseState, ops, usuarioActivo);
+    setActividades(projected.actividades);
+    setEventosAhorradosTokens(projected.actividades.filter((e) => e.ahorroTokens).length);
+    setCuentasNegocio(projected.cuentasNegocio);
+    setMisInscripcionesIds(projected.misInscripcionesIds);
+    setInscripcionesPendientesIds(projected.inscripcionesPendientesIds);
+    setPendientesSyncCount(ops.length);
+  }, []);
+
   const cargarDatosIniciales = useCallback(async (usuarioActivo) => {
-    setCargando(true);
+    const cachedSnapshot = cacheRepository.loadSnapshot();
+    const hayCache =
+      cachedSnapshot.actividades.length > 0 ||
+      Object.keys(cachedSnapshot.cuentasNegocio).length > 0;
+
+    if (hayCache) {
+      aplicarEstadoConProyeccion(cachedSnapshot, usuarioActivo);
+      setUltimaActualizacion(cachedSnapshot.updatedAt);
+      setCargando(false);
+    } else {
+      setCargando(true);
+    }
+
+    if (!isOnlineRef.current) {
+      if (!hayCache) {
+        aplicarEstadoConProyeccion(cachedSnapshot, usuarioActivo);
+      }
+      setCargando(false);
+      return;
+    }
+
     try {
       let usuarioActualizado = usuarioActivo;
       const token = getAuthToken();
@@ -116,39 +185,90 @@ export function AppProvider({ children }) {
       ]);
 
       const listaEventos = (eventosRes?.data || []).map(mapEventoFromApi);
-      setActividades(listaEventos);
-      setEventosAhorradosTokens(listaEventos.filter((e) => e.ahorroTokens).length);
 
       const mapNegocios = {};
       for (const neg of negociosRes?.data || []) {
         const mapped = mapNegocioFromApi(neg, usuarioActualizado);
-        mapNegocios[mapped.nombre] = mapped;
+        const resenasPrevias = cachedSnapshot.cuentasNegocio?.[mapped.nombre]?.resenas || [];
+        mapNegocios[mapped.nombre] = { ...mapped, resenas: resenasPrevias };
       }
-      setCuentasNegocio(mapNegocios);
 
+      let idsInscripciones = [];
       if (usuarioActualizado?.id && getAuthToken()) {
         try {
           const histRes = await usuariosApi.obtenerHistorial(usuarioActualizado.id);
-          const ids = (histRes?.data || [])
+          idsInscripciones = (histRes?.data || [])
             .filter((h) => h.estado !== "CANCELADA" && h.evento?.id)
             .map((h) => Number(h.evento.id));
-          setMisInscripcionesIds(ids);
         } catch {
-          setMisInscripcionesIds([]);
+          idsInscripciones = cachedSnapshot.misInscripcionesIds || [];
         }
-      } else {
-        setMisInscripcionesIds([]);
       }
+
+      const saved = cacheRepository.saveSnapshot({
+        actividades: listaEventos,
+        cuentasNegocio: mapNegocios,
+        misInscripcionesIds: idsInscripciones,
+      });
+      setUltimaActualizacion(saved.updatedAt);
+      aplicarEstadoConProyeccion(saved, usuarioActualizado);
     } catch (err) {
-      mostrarToast(`No se pudieron cargar los datos del servidor: ${err.message}`);
+      if (hayCache && isNetworkFailure(err)) {
+        mostrarToast("Sin conexión con el servidor. Mostrando los últimos eventos guardados.");
+      } else if (!hayCache) {
+        mostrarToast(`No se pudieron cargar los datos del servidor: ${err.message}`);
+      }
     } finally {
       setCargando(false);
     }
-  }, [mostrarToast]);
+  }, [aplicarEstadoConProyeccion, mostrarToast]);
+
+  const sincronizarPendientes = useCallback(async () => {
+    if (!isOnlineRef.current) {
+      mostrarToast("Sigues sin conexión. Los cambios se enviarán automáticamente al reconectar.");
+      return;
+    }
+    if (outboxRepository.count() === 0) return;
+
+    setSincronizando(true);
+    try {
+      const result = await defaultSyncEngine.processQueue();
+      setPendientesSyncCount(result.remaining);
+
+      if (result.syncedCount > 0) {
+        const resumen =
+          result.syncedCount === 1
+            ? `✅ ${result.syncedLabels[0]}`
+            : `✅ ${result.syncedCount} cambios offline sincronizados con el servidor.`;
+        mostrarToast(resumen);
+      }
+
+      if (result.conflicts.length > 0) {
+        const primerConflicto = result.conflicts[0];
+        mostrarToast(`Aviso al sincronizar: ${primerConflicto.reason}`);
+      }
+
+      if (result.syncedCount > 0 || result.conflicts.length > 0) {
+        await cargarDatosIniciales(usuario);
+      }
+    } finally {
+      setSincronizando(false);
+    }
+  }, [cargarDatosIniciales, mostrarToast, usuario]);
 
   useEffect(() => {
     cargarDatosIniciales(usuario);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (isOnline) {
+      if (outboxRepository.count() > 0) {
+        sincronizarPendientes();
+      } else {
+        cargarDatosIniciales(usuario);
+      }
+    }
+  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const finalizarAutenticacion = async (authPayload) => {
     const rawUser = authPayload?.data?.usuario;
@@ -284,6 +404,23 @@ export function AppProvider({ children }) {
     const act = actividades.find((a) => a.id === id);
     if (!act || act.asistentes >= act.aforo || misInscripcionesIds.includes(id)) return;
 
+    const encolarInscripcionOffline = () => {
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.INSCRIBIRSE_EVENTO,
+        payload: { eventoId: id },
+        meta: { eventoNombre: act.nombre },
+      });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast(
+        `⏳ Guardado sin conexión: tu inscripción a "${act.nombre}" se enviará al recuperar red.`
+      );
+    };
+
+    if (!isOnlineRef.current) {
+      encolarInscripcionOffline();
+      return;
+    }
+
     try {
       await eventosApi.inscribirse(id);
       setActividades((prev) =>
@@ -292,6 +429,10 @@ export function AppProvider({ children }) {
       setMisInscripcionesIds((prev) => [...prev, id]);
       mostrarToast(`Apuntado a "${act.nombre}". Te avisaremos por WhatsApp al ${usuario.telefono}.`);
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        encolarInscripcionOffline();
+        return;
+      }
       mostrarToast(err.message);
     }
   };
@@ -299,6 +440,21 @@ export function AppProvider({ children }) {
   const desapuntarse = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
+
+    const encolarBajaOffline = () => {
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.DESAPUNTARSE_EVENTO,
+        payload: { eventoId: id },
+        meta: { eventoNombre: act.nombre },
+      });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast(`⏳ Baja de "${act.nombre}" guardada sin conexión. Se sincronizará al reconectar.`);
+    };
+
+    if (!isOnlineRef.current) {
+      encolarBajaOffline();
+      return;
+    }
 
     try {
       await eventosApi.desapuntarse(id);
@@ -308,6 +464,10 @@ export function AppProvider({ children }) {
       setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
       mostrarToast(`Te has desapuntado de "${act.nombre}".`);
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        encolarBajaOffline();
+        return;
+      }
       mostrarToast(err.message);
     }
   };
@@ -368,6 +528,25 @@ export function AppProvider({ children }) {
       imagen: nuevoData.imagen || "",
     };
 
+    const encolarEventoOffline = () => {
+      const tempId = `temp_ev_${Date.now()}`;
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.PUBLICAR_EVENTO,
+        payload,
+        meta: { negocioNombre: nuevoData.negocio },
+        tempId,
+      });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast(
+        `⏳ Evento "${payload.nombre}" guardado sin conexión. Se enviará al recuperar cobertura.`
+      );
+    };
+
+    if (!isOnlineRef.current) {
+      encolarEventoOffline();
+      return;
+    }
+
     try {
       const res = await eventosApi.crear(payload);
       const nuevoEvento = mapEventoFromApi(res.data);
@@ -386,6 +565,10 @@ export function AppProvider({ children }) {
         mostrarToast(`Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
       }
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        encolarEventoOffline();
+        return;
+      }
       mostrarToast(`No se pudo publicar el evento: ${err.message}`);
     }
   };
@@ -396,17 +579,37 @@ export function AppProvider({ children }) {
       typeof coordenadas === "string" && coordenadas.trim()
         ? coordenadas.trim()
         : `${coords[0]}, ${coords[1]}`;
-    try {
-      const res = await negociosApi.crear({
-        nombre,
-        pueblo,
-        coordenadas: coordenadasStr,
-        instagramUrl,
-        twitterUrl,
-        facebookUrl,
-        webUrl,
-        fiabilidad: 0,
+    const payload = {
+      nombre,
+      pueblo,
+      coordenadas: coordenadasStr,
+      instagramUrl,
+      twitterUrl,
+      facebookUrl,
+      webUrl,
+      fiabilidad: 0,
+    };
+
+    const encolarNegocioOffline = () => {
+      const tempId = `temp_neg_${Date.now()}`;
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.CREAR_NEGOCIO,
+        payload,
+        tempId,
       });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast(
+        `⏳ Comercio "${nombre}" guardado en el dispositivo sin red. Se sincronizará automáticamente al reconectar.`
+      );
+    };
+
+    if (!isOnlineRef.current) {
+      encolarNegocioOffline();
+      return;
+    }
+
+    try {
+      const res = await negociosApi.crear(payload);
       const mapped = mapNegocioFromApi(res.data, usuario);
       setCuentasNegocio((prev) => ({
         ...prev,
@@ -414,6 +617,10 @@ export function AppProvider({ children }) {
       }));
       mostrarToast(`Comercio "${mapped.nombre}" enviado. Queda pendiente hasta que un moderador lo confirme.`);
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        encolarNegocioOffline();
+        return;
+      }
       mostrarToast(`Error al crear negocio: ${err.message}`);
     }
   };
@@ -461,16 +668,35 @@ export function AppProvider({ children }) {
       typeof coordenadas === "string" && coordenadas.trim()
         ? coordenadas.trim()
         : `${coords[0]}, ${coords[1]}`;
-    try {
-      const res = await negociosApi.actualizar(info.id, {
-        nombre,
-        pueblo,
-        coordenadas: coordenadasStr,
-        instagramUrl,
-        twitterUrl,
-        facebookUrl,
-        webUrl,
+    const body = {
+      nombre,
+      pueblo,
+      coordenadas: coordenadasStr,
+      instagramUrl,
+      twitterUrl,
+      facebookUrl,
+      webUrl,
+    };
+
+    const encolarEdicionOffline = () => {
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.ACTUALIZAR_NEGOCIO,
+        payload: { id: info.id, ...body },
+        meta: { nombreAnterior: nombreActual },
       });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast(
+        `⏳ Cambios en "${nombre}" guardados sin conexión. Se sincronizarán al recuperar red.`
+      );
+      return { ...info, ...body, pendienteSync: true };
+    };
+
+    if (!isOnlineRef.current) {
+      return encolarEdicionOffline();
+    }
+
+    try {
+      const res = await negociosApi.actualizar(info.id, body);
       const mapped = mapNegocioFromApi(res.data, usuario);
       setCuentasNegocio((prev) => {
         const next = { ...prev };
@@ -488,6 +714,9 @@ export function AppProvider({ children }) {
       mostrarToast(`Negocio "${mapped.nombre}" actualizado.`);
       return mapped;
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        return encolarEdicionOffline();
+      }
       mostrarToast(`Error al actualizar negocio: ${err.message}`);
       throw err;
     }
@@ -554,6 +783,9 @@ export function AppProvider({ children }) {
   const cargarResenasNegocio = useCallback(async (nombreNegocio) => {
     const info = cuentasNegocio[nombreNegocio];
     if (!info?.id) return [];
+    if (!isOnlineRef.current || String(info.id).startsWith("temp_")) {
+      return info.resenas || [];
+    }
     try {
       const res = await negociosApi.listarValoraciones(info.id);
       const lista = (res?.data?.valoraciones || []).map((v) => ({
@@ -562,6 +794,7 @@ export function AppProvider({ children }) {
         estrellas: v.estrellas,
         texto: v.texto,
       }));
+      cacheRepository.updateBusinessReviews(nombreNegocio, lista);
       setCuentasNegocio((prev) => ({
         ...prev,
         [nombreNegocio]: { ...prev[nombreNegocio], resenas: lista },
@@ -596,6 +829,21 @@ export function AppProvider({ children }) {
       return;
     }
 
+    const encolarResenaOffline = () => {
+      outboxRepository.enqueue({
+        type: OUTBOX_ACTION_TYPES.CREAR_VALORACION,
+        payload: { eventoId: eventoObjetivo.id, estrellas, texto },
+        meta: { nombreNegocio },
+      });
+      aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
+      mostrarToast("⏳ Opinión guardada sin conexión. Se enviará automáticamente al reconectar.");
+    };
+
+    if (!isOnlineRef.current) {
+      encolarResenaOffline();
+      return;
+    }
+
     try {
       const res = await eventosApi.crearValoracion(eventoObjetivo.id, { estrellas, texto });
       const nueva = {
@@ -617,6 +865,10 @@ export function AppProvider({ children }) {
       });
       mostrarToast("Gracias, tu opinión se ha guardado.");
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        encolarResenaOffline();
+        return;
+      }
       mostrarToast(err.message);
     }
   };
@@ -635,6 +887,17 @@ export function AppProvider({ children }) {
         puebloActivo,
         setPuebloActivo,
         misInscripcionesIds,
+        inscripcionesPendientesIds,
+        isOnline,
+        modoOfflineSimulado,
+        toggleModoOfflineSimulado,
+        pendientesSyncCount,
+        sincronizando,
+        ultimaActualizacion,
+        sincronizarPendientes,
+        puedeInstalarPwa,
+        appInstalada,
+        instalarPwa,
         muestrasAprendidasModelo,
         eventosAhorradosTokens,
         ultimoWhatsAppPublicador,

@@ -94,7 +94,14 @@ export default function ReviewsModal() {
               resenas.map((r, i) => (
                 <div key={i} className="p-2.5 bg-white rounded-xl border border-blue-200">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold">{r.usuario}</span>
+                    <span className="font-bold">
+                      {r.usuario}
+                      {r.pendienteSync && (
+                        <span className="ml-1.5 text-[10px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full">
+                          ⏳ Pendiente de red
+                        </span>
+                      )}
+                    </span>
                     <span
                       className="inline-flex items-center gap-0.5 text-amber-500"
                       aria-label={`${r.estrellas} de 5 estrellas`}

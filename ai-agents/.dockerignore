@@ -1,0 +1,11 @@
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+agents/.env
+agents/.env.*
+!.env.example
+.git
+
