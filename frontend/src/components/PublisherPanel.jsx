@@ -758,37 +758,41 @@ export default function PublisherPanel() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 shrink-0">
-                      {!(act.fechaFinISO && new Date(act.fechaFinISO).getTime() <= Date.now()) ? (
-                        <button
-                          type="button"
-                          onClick={() => terminarEvento(act.id)}
-                          className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-xs"
-                        >
-                          <IconCheck className="w-4 h-4" />
-                          <span>Terminar</span>
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 font-black px-3 py-2 rounded-xl text-xs">
-                          <IconCheck className="w-3.5 h-3.5" />
-                          <span>Finalizado</span>
-                        </span>
+                      {act.estadoModeracion !== "denegada" && (
+                        <>
+                          {!(act.fechaFinISO && new Date(act.fechaFinISO).getTime() <= Date.now()) ? (
+                            <button
+                              type="button"
+                              onClick={() => terminarEvento(act.id)}
+                              className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-xs"
+                            >
+                              <IconCheck className="w-4 h-4" />
+                              <span>Terminar</span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 font-black px-3 py-2 rounded-xl text-xs">
+                              <IconCheck className="w-3.5 h-3.5" />
+                              <span>Finalizado</span>
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setModalCambiarHora({ open: true, actividad: act })}
+                            className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold px-3 py-2 rounded-xl text-xs"
+                          >
+                            <IconClock className="w-4 h-4" />
+                            <span>Editar hora</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModalInscritos({ open: true, actividad: act })}
+                            className="inline-flex items-center gap-1.5 bg-blue-950 hover:bg-blue-900 text-white font-bold px-3 py-2 rounded-xl text-xs"
+                          >
+                            <IconUsers className="w-4 h-4" />
+                            <span>Apuntados ({act.asistentes})</span>
+                          </button>
+                        </>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setModalCambiarHora({ open: true, actividad: act })}
-                        className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold px-3 py-2 rounded-xl text-xs"
-                      >
-                        <IconClock className="w-4 h-4" />
-                        <span>Editar hora</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setModalInscritos({ open: true, actividad: act })}
-                        className="inline-flex items-center gap-1.5 bg-blue-950 hover:bg-blue-900 text-white font-bold px-3 py-2 rounded-xl text-xs"
-                      >
-                        <IconUsers className="w-4 h-4" />
-                        <span>Apuntados ({act.asistentes})</span>
-                      </button>
                       <button
                         type="button"
                         onClick={() => eliminarEvento(act.id)}
