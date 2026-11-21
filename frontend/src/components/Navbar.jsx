@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
 import {
   IconArrowLeft,
   IconClose,
@@ -61,6 +61,7 @@ export default function Navbar() {
           >
             <button
               type="button"
+              aria-pressed={!letraGrande}
               onClick={() => setLetraGrande(false)}
               className={`btn-letra inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${
                 !letraGrande
@@ -73,6 +74,7 @@ export default function Navbar() {
             </button>
             <button
               type="button"
+              aria-pressed={letraGrande}
               onClick={() => setLetraGrande(true)}
               className={`btn-letra inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${
                 letraGrande
@@ -210,24 +212,40 @@ export default function Navbar() {
               <IconArrowLeft className="w-5 h-5" />
               <span>Volver a la web pública</span>
             </button>
-          ) : usuario ? (
-            <button
-              type="button"
-              onClick={cerrarSesion}
-              className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 px-4 rounded-2xl text-base shadow"
-            >
-              <IconArrowLeft className="w-5 h-5" />
-              <span>Cerrar sesión</span>
-            </button>
           ) : (
-            <button
-              type="button"
-              onClick={abrirCuenta}
-              className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3.5 px-4 rounded-2xl text-base shadow"
-            >
-              <IconUser className="w-5 h-5" />
-              <span>Entrar o Registrarme</span>
-            </button>
+            <div className="space-y-2">
+              {esModerador && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAbierto(false);
+                    navegarA("/admin");
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3.5 px-4 rounded-2xl text-base shadow"
+                >
+                  <span>Panel Admin</span>
+                </button>
+              )}
+              {usuario ? (
+                <button
+                  type="button"
+                  onClick={cerrarSesion}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 px-4 rounded-2xl text-base shadow"
+                >
+                  <IconArrowLeft className="w-5 h-5" />
+                  <span>Cerrar sesión</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={abrirCuenta}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3.5 px-4 rounded-2xl text-base shadow"
+                >
+                  <IconUser className="w-5 h-5" />
+                  <span>Entrar o Registrarme</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

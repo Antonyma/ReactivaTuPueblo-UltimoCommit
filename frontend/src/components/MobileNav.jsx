@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
 import { IconCalendar, IconCheck, IconMap, IconUser } from "./Icons.jsx";
 
 export default function MobileNav() {
@@ -7,14 +7,16 @@ export default function MobileNav() {
   const [tabActivo, setTabActivo] = useState("planes");
 
   const handleTabClick = (tab) => {
-    setTabActivo(tab);
     if (tab === "cuenta") {
       setModalLogin({
         open: true,
         defaultTipo: usuario ? usuario.tipoUsuario : "REGISTRADO",
         motivo: "",
       });
-    } else if (tab === "mapa") {
+      return;
+    }
+    setTabActivo(tab);
+    if (tab === "mapa") {
       const el = document.getElementById("tab-contenido-mapa");
       if (el) el.scrollIntoView({ behavior: "smooth" });
     } else if (tab === "misplanes") {

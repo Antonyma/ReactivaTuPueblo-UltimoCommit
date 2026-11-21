@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
 import { IconClose, IconMessage } from "./Icons.jsx";
 
-const N8N_CHAT_WEBHOOK_URL =
-  import.meta.env?.VITE_N8N_CHAT_WEBHOOK_URL ||
-  "https://hktn.app.n8n.cloud/webhook-test/pueblos-events-chat";
+const N8N_CHAT_WEBHOOK_URL = (import.meta.env?.VITE_N8N_CHAT_WEBHOOK_URL || "").trim();
 
 function extractReply(rawText) {
   if (!rawText) return "No se recibió respuesta del asistente.";
@@ -29,8 +27,32 @@ function extractReply(rawText) {
   }
 }
 
+function respuestaLocalActividades(pregunta, actividades) {
+  const q = pregunta.toLowerCase();
+  const aprobadas = (actividades || []).filter((a) => a.estadoModeracion === "aprobada");
+  const coincidencias = aprobadas.filter((a) => {
+    const hay = `${a.nombre} ${a.pueblo} ${a.categoria} ${a.descripcion}`.toLowerCase();
+    return q.split(/\s+/).some((pal) => pal.length > 3 && hay.includes(pal));
+  });
+
+  if (coincidencias.length > 0) {
+    const lista = coincidencias
+      .slice(0, 3)
+      .map((a) => `• ${a.nombre} (${a.pueblo}, ${a.fecha}) — ${a.dePago ? "De pago" : "Gratis"}`)
+      .join("\n");
+    return `He encontrado estas actividades relacionadas:\n${lista}`;
+  }
+
+  if (aprobadas.length > 0) {
+    const pueblos = [...new Set(aprobadas.map((a) => a.pueblo).filter(Boolean))].slice(0, 4);
+    return `Ahora mismo hay ${aprobadas.length} actividades activas en la comarca (${pueblos.join(", ")}). Puedes usar el buscador o los filtros por pueblo y categoría para explorarlas.`;
+  }
+
+  return "Aún no hay actividades publicadas en este momento. Vuelve a comprobarlo pronto.";
+}
+
 export default function EventsChatWidget() {
-  const { usuario, isOnline } = useApp();
+  const { usuario, isOnline, actividades } = useApp();
   const [abierto, setAbierto] = useState(false);
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -42,7 +64,11 @@ export default function EventsChatWidget() {
     },
   ]);
 
-  const sessionIdRef = useRef(`web_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+  const msgSeqRef = useRef(0);
+  const nextMsgId = (prefix) => `${prefix}_${Date.now()}_${++msgSeqRef.current}`;
+  const [sessionId] = useState(
+    () => `web_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  );
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -65,7 +91,7 @@ export default function EventsChatWidget() {
     const texto = input.trim();
     if (!texto || enviando) return;
 
-    const userMsg = { id: `u_${Date.now()}`, autor: "user", texto };
+    const userMsg = { id: nextMsgId("u"), autor: "user", texto };
     setMensajes((prev) => [...prev, userMsg]);
     setInput("");
 
@@ -73,9 +99,21 @@ export default function EventsChatWidget() {
       setMensajes((prev) => [
         ...prev,
         {
-          id: `b_${Date.now()}`,
+          id: nextMsgId("b"),
           autor: "bot",
-          texto: "Estás sin conexión a internet. Vuelve a intentarlo cuando recuperes cobertura.",
+          texto: `Sin conexión a internet. ${respuestaLocalActividades(texto, actividades)}`,
+        },
+      ]);
+      return;
+    }
+
+    if (!N8N_CHAT_WEBHOOK_URL) {
+      setMensajes((prev) => [
+        ...prev,
+        {
+          id: nextMsgId("b"),
+          autor: "bot",
+          texto: respuestaLocalActividades(texto, actividades),
         },
       ]);
       return;
@@ -86,11 +124,12 @@ export default function EventsChatWidget() {
       const res = await fetch(N8N_CHAT_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           message: texto,
           chatInput: texto,
           pregunta: texto,
-          sessionId: usuario?.id ? `user_${usuario.id}` : sessionIdRef.current,
+          sessionId: usuario?.id ? `user_${usuario.id}` : sessionId,
           usuarioId: usuario?.id ?? null,
           usuarioNombre: usuario?.nombre || "Visitante",
         }),
@@ -98,21 +137,21 @@ export default function EventsChatWidget() {
 
       const rawText = await res.text();
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${rawText || "Error en el webhook"}`);
+        throw new Error(`HTTP ${res.status}`);
       }
 
       const respuesta = extractReply(rawText);
       setMensajes((prev) => [
         ...prev,
-        { id: `b_${Date.now()}`, autor: "bot", texto: respuesta },
+        { id: nextMsgId("b"), autor: "bot", texto: respuesta },
       ]);
-    } catch (err) {
+    } catch {
       setMensajes((prev) => [
         ...prev,
         {
-          id: `err_${Date.now()}`,
+          id: nextMsgId("b"),
           autor: "bot",
-          texto: `No se pudo conectar con el asistente (${err.message}).`,
+          texto: respuestaLocalActividades(texto, actividades),
         },
       ]);
     } finally {
@@ -177,7 +216,11 @@ export default function EventsChatWidget() {
             onSubmit={enviarPregunta}
             className="p-2.5 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
           >
+            <label htmlFor="chat-widget-input" className="sr-only">
+              Escribe tu pregunta
+            </label>
             <input
+              id="chat-widget-input"
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -199,8 +242,9 @@ export default function EventsChatWidget() {
       <button
         type="button"
         onClick={() => setAbierto((prev) => !prev)}
+        aria-expanded={abierto}
+        aria-label={abierto ? "Cerrar asistente de eventos" : "Abrir asistente de eventos"}
         className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3.5 rounded-full shadow-lg border-2 border-white transition"
-        aria-label="Abrir asistente de eventos"
       >
         <IconMessage className="w-5 h-5 shrink-0" />
         <span className="text-sm">{abierto ? "Cerrar" : "Preguntar"}</span>
@@ -208,4 +252,3 @@ export default function EventsChatWidget() {
     </div>
   );
 }
-

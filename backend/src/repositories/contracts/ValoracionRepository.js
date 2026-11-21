@@ -5,6 +5,10 @@ export class ValoracionRepository extends BaseRepository {
     throw new Error('Método findByEventoId() no implementado')
   }
 
+  async findByEventoIds(_eventoIds) {
+    throw new Error('Método findByEventoIds() no implementado')
+  }
+
   async findByUsuarioAndEvento(_usuarioId, _eventoId) {
     throw new Error('Método findByUsuarioAndEvento() no implementado')
   }

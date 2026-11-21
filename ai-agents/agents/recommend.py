@@ -37,6 +37,7 @@ mostrando primero las recomendadas con explicación personalizada por IA.
 import os
 import re
 import json
+import time
 import logging
 import urllib.request
 import urllib.parse
@@ -80,6 +81,25 @@ class RecommendActividades:
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
 
         self.modelo_principal = "nvidia/llama-3.1-nemotron-70b-instruct"
+        self._inscripciones_cache: Optional[list[dict]] = None
+        self._inscripciones_cache_ts: float = 0.0
+        self._inscripciones_cache_ttl: float = 60.0
+
+    def _obtener_todas_inscripciones_activas(self) -> list[dict]:
+        ahora = time.monotonic()
+        if (
+            self._inscripciones_cache is not None
+            and (ahora - self._inscripciones_cache_ts) < self._inscripciones_cache_ttl
+        ):
+            return self._inscripciones_cache
+        activas = [
+            ins
+            for ins in self._consultar_supabase("inscripcion", "select=usuario,evento,estado")
+            if self._es_inscripcion_activa(ins)
+        ]
+        self._inscripciones_cache = activas
+        self._inscripciones_cache_ts = ahora
+        return activas
 
     @staticmethod
     def _get_inscripcion_evento_id(ins: dict) -> str:
@@ -275,7 +295,7 @@ class RecommendActividades:
         # 3. Fallback a Gemini directo si NIM y OpenRouter fallaron
         if self.gemini_api_key:
             try:
-                url_gem = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_api_key}"
+                url_gem = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
                 payload_gem = {
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
@@ -283,7 +303,10 @@ class RecommendActividades:
                 req = urllib.request.Request(
                     url_gem,
                     data=json.dumps(payload_gem).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": self.gemini_api_key,
+                    },
                     method="POST"
                 )
                 with urllib.request.urlopen(req, timeout=15) as resp:
@@ -344,11 +367,7 @@ class RecommendActividades:
         # Para cada actividad a la que asistió el usuario, buscamos otros
         # usuarios que también se inscribieron a esa misma actividad y recopilamos
         # las actividades a las que esos usuarios asistieron (y el usuario actual no).
-        todas_inscripciones = [
-            ins
-            for ins in self._consultar_supabase("inscripcion", "select=*")
-            if self._es_inscripcion_activa(ins)
-        ]
+        todas_inscripciones = self._obtener_todas_inscripciones_activas()
         actividad_a_usuarios: dict[str, set] = {}
         for ins in todas_inscripciones:
             act_id_cf = self._get_inscripcion_evento_id(ins)

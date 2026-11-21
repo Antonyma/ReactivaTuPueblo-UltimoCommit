@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+_AGENTS_DIR = Path(__file__).resolve().parent
+load_dotenv(_AGENTS_DIR.parent / ".env")
+load_dotenv(_AGENTS_DIR / ".env")
 
 from google import genai
 from google.genai import types
@@ -41,7 +44,10 @@ def generar_json_con_imagen(
     Usa el modelo preentrenado de visión multimodal de Gemini para analizar imágenes
     directamente desde bytes con el schema Pydantic especificado.
     """
-    modelos = [modelo_preferido, "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    modelos = [modelo_preferido] if modelo_preferido else []
+    for m in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+        if m not in modelos:
+            modelos.append(m)
     partes = [prompt]
     if imagen_bytes:
         partes.append(types.Part.from_bytes(data=imagen_bytes, mime_type=mime_type or "image/jpeg"))

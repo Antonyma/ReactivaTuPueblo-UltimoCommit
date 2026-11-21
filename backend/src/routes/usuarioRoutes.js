@@ -15,6 +15,7 @@ export function createUsuarioRoutes(usuarioController, { requireAuth }) {
 
   router.post(
     '/:id/solicitar-publicador',
+    requireAuth,
     validateIntParam('id'),
     usuarioController.solicitarPublicador
   )
@@ -22,7 +23,7 @@ export function createUsuarioRoutes(usuarioController, { requireAuth }) {
   router.get(
     '/:id/historial',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     usuarioController.obtenerHistorial
   )

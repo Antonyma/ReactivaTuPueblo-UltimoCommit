@@ -28,7 +28,7 @@ export class ValoracionController {
     const result = await this.valoracionService.eliminarValoracion(
       req.params.id,
       req.params.valoracionId,
-      req.user.id
+      req.user
     )
     res.status(200).json({
       ok: true,

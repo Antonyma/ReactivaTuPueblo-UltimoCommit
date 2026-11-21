@@ -9,7 +9,7 @@ export function createIaRoutes(iaController, { requireAuth }) {
   router.post(
     '/dudas',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     requireBodyFields(['eventoId', 'pregunta']),
     iaController.resolverDuda
   )
@@ -17,7 +17,7 @@ export function createIaRoutes(iaController, { requireAuth }) {
   router.post(
     '/recomendaciones',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     iaController.obtenerRecomendaciones
   )
 

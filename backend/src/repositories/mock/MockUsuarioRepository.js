@@ -36,6 +36,10 @@ export class MockUsuarioRepository extends UsuarioRepository {
     )
   }
 
+  async findByTipoUsuario(tipoUsuario) {
+    return this.store.usuarios.filter((u) => u.tipoUsuario === tipoUsuario)
+  }
+
   async create(data) {
     const nextId =
       this.store.usuarios.length > 0
@@ -88,7 +92,11 @@ export class MockUsuarioRepository extends UsuarioRepository {
   }
 
   async loginWithNombre(nombre, password) {
-    const usuario = await this.findByNombre(nombre)
+    const cleanInput = String(nombre || '').trim()
+    let usuario = await this.findByNombre(cleanInput)
+    if (!usuario && cleanInput.includes('@')) {
+      usuario = await this.findByEmail(cleanInput)
+    }
     if (!usuario) return null
     const storedPassword = this.store.credenciales.get(usuario.email.toLowerCase())
     if (!storedPassword || storedPassword !== password) return null
@@ -96,15 +104,6 @@ export class MockUsuarioRepository extends UsuarioRepository {
       usuario,
       token: `mock_token:${usuario.id}:${usuario.tipoUsuario}`,
     }
-  }
-
-  async verifyCredentials(email, password) {
-    const normalized = String(email).toLowerCase().trim()
-    const storedPassword = this.store.credenciales.get(normalized)
-    if (!storedPassword || storedPassword !== password) {
-      return null
-    }
-    return this.findByEmail(normalized)
   }
 
   async solicitarPublicador(usuarioId, motivo) {

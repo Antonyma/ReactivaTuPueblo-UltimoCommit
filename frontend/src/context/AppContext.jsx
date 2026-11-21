@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   authApi,
   eventosApi,
@@ -26,8 +26,8 @@ import { cacheRepository } from "../services/offline/cacheRepository.js";
 import { outboxRepository, OUTBOX_ACTION_TYPES } from "../services/offline/outboxRepository.js";
 import { defaultSyncEngine, isNetworkFailure } from "../services/offline/syncEngine.js";
 import { applyOutboxProjection } from "../services/offline/offlineProjection.js";
-
-const AppContext = createContext();
+import { esEventoFinalizado } from "../utils/eventUtils.js";
+import { AppContext } from "./useApp.js";
 
 const BASE_PREFIX = (import.meta.env?.BASE_URL || "/").replace(/\/+$/, "");
 
@@ -121,11 +121,41 @@ export function AppProvider({ children }) {
     }
   }, [letraGrande]);
 
+  const toastTimerRef = useRef(null);
+  const resenasPorEventoRef = useRef(resenasPorEvento);
+  const cuentasNegocioRef = useRef(cuentasNegocio);
+  const usuarioRef = useRef(usuario);
+  const initialLoadDoneRef = useRef(false);
+
+  useEffect(() => {
+    resenasPorEventoRef.current = resenasPorEvento;
+  }, [resenasPorEvento]);
+
+  useEffect(() => {
+    cuentasNegocioRef.current = cuentasNegocio;
+  }, [cuentasNegocio]);
+
+  useEffect(() => {
+    usuarioRef.current = usuario;
+  }, [usuario]);
+
   const mostrarToast = useCallback((mensaje) => {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
     setToast({ open: true, mensaje });
-    setTimeout(() => {
+    toastTimerRef.current = window.setTimeout(() => {
       setToast({ open: false, mensaje: "" });
+      toastTimerRef.current = null;
     }, 5500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   const aplicarEstadoConProyeccion = useCallback((baseState, usuarioActivo) => {
@@ -176,8 +206,12 @@ export function AppProvider({ children }) {
             setAuthSession(token, usuarioActualizado);
             setUsuario(usuarioActualizado);
           }
-        } catch {
-          // Si el token expiró o no es válido, mantenemos el estado o limpiamos
+        } catch (meErr) {
+          if (meErr?.status === 401) {
+            setAuthSession(null, null);
+            setUsuario(null);
+            usuarioActualizado = null;
+          }
         }
       }
 
@@ -187,70 +221,6 @@ export function AppProvider({ children }) {
       ]);
 
       const listaEventosBase = (eventosRes?.data || []).map(mapEventoFromApi);
-
-       // Marcar actividades recomendadas para el usuario (recomendador colaborativo + categorías)
-       let listaEventos = listaEventosBase;
-       if (usuarioActualizado?.id && getAuthToken() && isOnlineRef.current) {
-         try {
-           const AI_AGENTS_URL =
-             import.meta.env?.VITE_AI_AGENTS_URL || "http://localhost:8000";
-           const recRes = await fetch(`${AI_AGENTS_URL}/agents/recommend-activities`, {
-             method: "POST",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify({
-               usuario_id: String(usuarioActualizado.id),
-               actividades_disponibles: listaEventosBase,
-               excluir_ya_inscritas: true,
-             }),
-           });
-            if (recRes.ok) {
-              const recData = await recRes.json();
-              const ordenadas = Array.isArray(recData?.actividades_ordenadas)
-                ? recData.actividades_ordenadas
-                : [];
-              const mapaRecomendadas = new Map();
-              const ordenRank = new Map();
-              ordenadas.forEach((a, idx) => {
-                if (!a || a.id === undefined || a.id === null) return;
-                const key = String(a.id);
-                ordenRank.set(key, idx);
-                if (a.es_recomendada || a.esRecomendada) {
-                  mapaRecomendadas.set(
-                    key,
-                    a.motivo_recommend || a.motivoRecomendacion || ""
-                  );
-                }
-              });
-
-              if (mapaRecomendadas.size > 0) {
-                listaEventos = listaEventosBase
-                  .map((e) => {
-                    const key = String(e.id);
-                    if (!mapaRecomendadas.has(key)) return e;
-                    return {
-                      ...e,
-                      esRecomendada: true,
-                      motivoRecomendacion: mapaRecomendadas.get(key) || e.motivoRecomendacion,
-                    };
-                  })
-                  .sort((a, b) => {
-                    if (a.esRecomendada !== b.esRecomendada) {
-                      return a.esRecomendada ? -1 : 1;
-                    }
-                    const rankA = ordenRank.has(String(a.id))
-                      ? ordenRank.get(String(a.id))
-                      : Number.MAX_SAFE_INTEGER;
-                    const rankB = ordenRank.has(String(b.id))
-                      ? ordenRank.get(String(b.id))
-                      : Number.MAX_SAFE_INTEGER;
-                    return rankA - rankB;
-                  });
-              }
-            }
-         } catch {
-           // Si el servicio de recomendación no está disponible, seguimos sin marcas
-         }
-       }
 
       const mapNegocios = {};
       for (const neg of negociosRes?.data || []) {
@@ -282,12 +252,76 @@ export function AppProvider({ children }) {
       setMisValoracionesEventoIds(idsValorados);
 
       const saved = cacheRepository.saveSnapshot({
-        actividades: listaEventos,
+        actividades: listaEventosBase,
         cuentasNegocio: mapNegocios,
         misInscripcionesIds: idsInscripciones,
       });
       setUltimaActualizacion(saved.updatedAt);
       aplicarEstadoConProyeccion(saved, usuarioActualizado);
+      setCargando(false);
+
+      // Enriquecer con recomendaciones IA en segundo plano (no bloquea el render inicial)
+      if (usuarioActualizado?.id && getAuthToken() && isOnlineRef.current && listaEventosBase.length > 0) {
+        const AI_AGENTS_URL =
+          (import.meta.env?.VITE_AI_AGENTS_URL || "http://localhost:8000").replace(/\/+$/, "");
+        fetch(`${AI_AGENTS_URL}/agents/recommend-activities`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(8000),
+          body: JSON.stringify({
+            usuario_id: String(usuarioActualizado.id),
+            actividades_disponibles: listaEventosBase,
+            excluir_ya_inscritas: true,
+          }),
+        })
+          .then((recRes) => (recRes.ok ? recRes.json() : null))
+          .then((recData) => {
+            if (!recData) return;
+            const ordenadas = Array.isArray(recData?.actividades_ordenadas)
+              ? recData.actividades_ordenadas
+              : [];
+            const mapaRecomendadas = new Map();
+            const ordenRank = new Map();
+            ordenadas.forEach((a, idx) => {
+              if (!a || a.id === undefined || a.id === null) return;
+              const key = String(a.id);
+              ordenRank.set(key, idx);
+              if (a.es_recomendada || a.esRecomendada) {
+                mapaRecomendadas.set(key, a.motivo_recommend || a.motivoRecomendacion || "");
+              }
+            });
+
+            if (mapaRecomendadas.size === 0) return;
+
+            setActividades((prev) =>
+              prev
+                .map((e) => {
+                  const key = String(e.id);
+                  if (!mapaRecomendadas.has(key)) return e;
+                  return {
+                    ...e,
+                    esRecomendada: true,
+                    motivoRecomendacion: mapaRecomendadas.get(key) || e.motivoRecomendacion,
+                  };
+                })
+                .sort((a, b) => {
+                  if (Boolean(a.esRecomendada) !== Boolean(b.esRecomendada)) {
+                    return a.esRecomendada ? -1 : 1;
+                  }
+                  const rankA = ordenRank.has(String(a.id))
+                    ? ordenRank.get(String(a.id))
+                    : Number.MAX_SAFE_INTEGER;
+                  const rankB = ordenRank.has(String(b.id))
+                    ? ordenRank.get(String(b.id))
+                    : Number.MAX_SAFE_INTEGER;
+                  return rankA - rankB;
+                })
+            );
+          })
+          .catch(() => {
+            // Recomendaciones opcionales: si falla el servicio IA, la app sigue con el listado base
+          });
+      }
     } catch (err) {
       if (hayCache && isNetworkFailure(err)) {
         mostrarToast("Sin conexión con el servidor. Mostrando los últimos eventos guardados.");
@@ -333,18 +367,32 @@ export function AppProvider({ children }) {
   }, [cargarDatosIniciales, mostrarToast, usuario]);
 
   useEffect(() => {
-    cargarDatosIniciales(usuario);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (isOnline) {
-      if (outboxRepository.count() > 0) {
-        sincronizarPendientes();
-      } else {
-        cargarDatosIniciales(usuario);
+    let cancelled = false;
+    const ejecutar = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!initialLoadDoneRef.current) {
+        initialLoadDoneRef.current = true;
+        if (isOnline && outboxRepository.count() > 0) {
+          await sincronizarPendientes();
+        } else {
+          await cargarDatosIniciales(usuarioRef.current);
+        }
+        return;
       }
-    }
-  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
+      if (isOnline) {
+        if (outboxRepository.count() > 0) {
+          await sincronizarPendientes();
+        } else {
+          await cargarDatosIniciales(usuarioRef.current);
+        }
+      }
+    };
+    ejecutar();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline, cargarDatosIniciales, sincronizarPendientes]);
 
   const finalizarAutenticacion = async (authPayload) => {
     const rawUser = authPayload?.data?.usuario;
@@ -357,7 +405,6 @@ export function AppProvider({ children }) {
       ...rawUser,
       tipoUsuario: normalizeRoleForUi(rawUser.tipoUsuario),
     };
-    console.log("[DEBUG Auth] usuario:", u);
     setAuthSession(token, u);
     setUsuario(u);
     setModalLogin({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
@@ -443,9 +490,13 @@ export function AppProvider({ children }) {
 
   const logoutUsuario = () => {
     setAuthSession(null, null);
+    outboxRepository.clear();
+    cacheRepository.clear();
     setUsuario(null);
     setMisInscripcionesIds([]);
     setMisValoracionesEventoIds([]);
+    setInscripcionesPendientesIds([]);
+    setPendientesSyncCount(0);
     setCuentasNegocio((prev) => {
       const next = {};
       for (const [k, v] of Object.entries(prev)) {
@@ -460,11 +511,8 @@ export function AppProvider({ children }) {
     if (usuario && usuario.tipoUsuario === nuevoRol) return;
     setModalLogin({
       open: true,
-      defaultTipo: nuevoRol,
-      motivo:
-        nuevoRol === "MODERADOR"
-          ? "Esta zona es exclusiva para el Moderador. Inicia sesión o regístrate con rol Moderador."
-          : `Inicia sesión o regístrate con rol ${nuevoRol}`
+      defaultTipo: nuevoRol === "PUBLICADOR" ? "PUBLICADOR" : "REGISTRADO",
+      motivo: `Inicia sesión o regístrate con rol ${nuevoRol}`,
     });
   };
 
@@ -556,9 +604,20 @@ export function AppProvider({ children }) {
     try {
       await eventosApi.actualizar(id, { fechaInicio: inicio, fechaFin: fin });
       const fechaBonita = formatearFechaBonita(inicio);
+      const fechaInicioMs = new Date(inicio).getTime();
+      const fechaFinMs = new Date(fin).getTime();
       setActividades((prev) =>
         prev.map((a) =>
-          a.id === id ? { ...a, fechaInicioISO: inicio, fechaFinISO: fin, fecha: fechaBonita } : a
+          a.id === id
+            ? {
+                ...a,
+                fechaInicioISO: inicio,
+                fechaFinISO: fin,
+                fechaInicioMs: Number.isNaN(fechaInicioMs) ? a.fechaInicioMs : fechaInicioMs,
+                fechaFinMs: Number.isNaN(fechaFinMs) ? a.fechaFinMs : fechaFinMs,
+                fecha: fechaBonita,
+              }
+            : a
         )
       );
       setModalCambiarHora({ open: false, actividad: null });
@@ -886,7 +945,7 @@ export function AppProvider({ children }) {
 
   const cargarResenasEvento = useCallback(async (eventoId) => {
     if (!eventoId || !isOnlineRef.current || String(eventoId).startsWith("temp_")) {
-      return resenasPorEvento[eventoId] || [];
+      return resenasPorEventoRef.current[eventoId] || [];
     }
     try {
       const res = await eventosApi.listarValoraciones(eventoId);
@@ -903,12 +962,12 @@ export function AppProvider({ children }) {
       }));
       return lista;
     } catch {
-      return resenasPorEvento[eventoId] || [];
+      return resenasPorEventoRef.current[eventoId] || [];
     }
-  }, [resenasPorEvento]);
+  }, []);
 
   const cargarResenasNegocio = useCallback(async (nombreNegocio) => {
-    const info = cuentasNegocio[nombreNegocio];
+    const info = cuentasNegocioRef.current[nombreNegocio];
     if (!info?.id) return [];
     if (!isOnlineRef.current || String(info.id).startsWith("temp_")) {
       return info.resenas || [];
@@ -930,28 +989,18 @@ export function AppProvider({ children }) {
     } catch {
       return info.resenas || [];
     }
-  }, [cuentasNegocio]);
+  }, []);
 
   const agregarResena = async (nombreNegocio, estrellas, texto, eventoIdPreferido = null) => {
     if (!usuario || !getAuthToken()) {
       mostrarToast("Inicia sesión para poder dejar una reseña.");
-      return;
+      return false;
     }
 
     const ahora = Date.now();
-    const haTerminado = (a) => {
-      const finMs =
-        typeof a.fechaFinMs === "number"
-          ? a.fechaFinMs
-          : a.fechaFinISO
-            ? new Date(a.fechaFinISO).getTime()
-            : NaN;
-      return !Number.isNaN(finMs) && finMs <= ahora;
-    };
-
     const eventosDelNegocio = actividades.filter((a) => a.negocio === nombreNegocio);
     const eventosAsistidos = eventosDelNegocio.filter((a) => misInscripcionesIds.includes(a.id));
-    const eventosFinalizados = eventosAsistidos.filter(haTerminado);
+    const eventosFinalizados = eventosAsistidos.filter((a) => esEventoFinalizado(a, ahora));
     const eventosPendientesValorar = eventosFinalizados.filter(
       (a) => !misValoracionesEventoIds.includes(a.id)
     );
@@ -969,7 +1018,7 @@ export function AppProvider({ children }) {
       } else {
         mostrarToast("Solo puedes reseñar si has asistido a un evento de este negocio y ya ha acabado.");
       }
-      return;
+      return false;
     }
 
     const encolarResenaOffline = () => {
@@ -1031,91 +1080,120 @@ export function AppProvider({ children }) {
         };
       });
       mostrarToast("Gracias, tu opinión se ha guardado.");
+      return true;
     } catch (err) {
       if (isNetworkFailure(err)) {
         encolarResenaOffline();
-        return;
+        return true;
       }
       mostrarToast(err.message);
+      return false;
     }
   };
 
-  return (
-    <AppContext.Provider
-      value={{
-        rutaActual,
-        navegarA,
-        actividades,
-        cuentasNegocio,
-        usuario,
-        cargando,
-        letraGrande,
-        setLetraGrande,
-        puebloActivo,
-        setPuebloActivo,
-        misInscripcionesIds,
-        misValoracionesEventoIds,
-        inscripcionesPendientesIds,
-        isOnline,
-        modoOfflineSimulado,
-        toggleModoOfflineSimulado,
-        pendientesSyncCount,
-        sincronizando,
-        ultimaActualizacion,
-        sincronizarPendientes,
-        puedeInstalarPwa,
-        appInstalada,
-        instalarPwa,
-        muestrasAprendidasModelo,
-        eventosAhorradosTokens,
-        ultimoWhatsAppPublicador,
-        toast,
-        mostrarToast,
-        modalLogin,
-        setModalLogin,
-        modalCambiarHora,
-        setModalCambiarHora,
-        modalDudas,
-        setModalDudas,
-        modalResenas,
-        setModalResenas,
-        modalInscritos,
-        setModalInscritos,
-        loginUsuario,
-        loginAdmin,
-        crearAdmin,
-        listarAdmins,
-        registerUsuario,
-        logoutUsuario,
-        cambiarRol,
-        apuntarse,
-        desapuntarse,
-        guardarNuevaHora,
-        eliminarEvento,
-        terminarEvento,
-        publicarEvento,
-        crearNegocio,
-        actualizarNegocio,
-        eliminarNegocio,
-        aprobarNegocio,
-        denegarNegocio,
-        aprobarActividad,
-        denegarActividad,
-        resenasPorEvento,
-        cargarResenasEvento,
-        cargarResenasNegocio,
-        agregarResena,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      rutaActual,
+      navegarA,
+      actividades,
+      cuentasNegocio,
+      usuario,
+      cargando,
+      letraGrande,
+      setLetraGrande,
+      puebloActivo,
+      setPuebloActivo,
+      misInscripcionesIds,
+      misValoracionesEventoIds,
+      inscripcionesPendientesIds,
+      isOnline,
+      modoOfflineSimulado,
+      toggleModoOfflineSimulado,
+      pendientesSyncCount,
+      sincronizando,
+      ultimaActualizacion,
+      sincronizarPendientes,
+      puedeInstalarPwa,
+      appInstalada,
+      instalarPwa,
+      muestrasAprendidasModelo,
+      eventosAhorradosTokens,
+      ultimoWhatsAppPublicador,
+      toast,
+      mostrarToast,
+      modalLogin,
+      setModalLogin,
+      modalCambiarHora,
+      setModalCambiarHora,
+      modalDudas,
+      setModalDudas,
+      modalResenas,
+      setModalResenas,
+      modalInscritos,
+      setModalInscritos,
+      loginUsuario,
+      loginAdmin,
+      crearAdmin,
+      listarAdmins,
+      registerUsuario,
+      logoutUsuario,
+      cambiarRol,
+      apuntarse,
+      desapuntarse,
+      guardarNuevaHora,
+      eliminarEvento,
+      terminarEvento,
+      publicarEvento,
+      crearNegocio,
+      actualizarNegocio,
+      eliminarNegocio,
+      aprobarNegocio,
+      denegarNegocio,
+      aprobarActividad,
+      denegarActividad,
+      resenasPorEvento,
+      cargarResenasEvento,
+      cargarResenasNegocio,
+      agregarResena,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      rutaActual,
+      navegarA,
+      actividades,
+      cuentasNegocio,
+      usuario,
+      cargando,
+      letraGrande,
+      puebloActivo,
+      misInscripcionesIds,
+      misValoracionesEventoIds,
+      inscripcionesPendientesIds,
+      isOnline,
+      modoOfflineSimulado,
+      toggleModoOfflineSimulado,
+      pendientesSyncCount,
+      sincronizando,
+      ultimaActualizacion,
+      sincronizarPendientes,
+      puedeInstalarPwa,
+      appInstalada,
+      instalarPwa,
+      muestrasAprendidasModelo,
+      eventosAhorradosTokens,
+      ultimoWhatsAppPublicador,
+      toast,
+      mostrarToast,
+      modalLogin,
+      modalCambiarHora,
+      modalDudas,
+      modalResenas,
+      modalInscritos,
+      resenasPorEvento,
+      cargarResenasEvento,
+      cargarResenasNegocio,
+    ]
   );
-}
 
-export function useApp() {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useApp debe usarse dentro de un AppProvider");
-  }
-  return context;
+  return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
 }

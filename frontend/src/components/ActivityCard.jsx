@@ -1,5 +1,7 @@
 import React from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
+import { useNow } from "../hooks/useNow.js";
+import { DEFAULT_IMAGE, esEventoFinalizado } from "../utils/eventUtils.js";
 import {
   IconCheck,
   IconClock,
@@ -10,7 +12,7 @@ import {
   IconUsers,
 } from "./Icons.jsx";
 
-export default function ActivityCard({ act }) {
+const ActivityCard = React.memo(function ActivityCard({ act }) {
   const {
     usuario,
     cuentasNegocio,
@@ -36,14 +38,21 @@ export default function ActivityCard({ act }) {
   const yaApuntado = misInscripcionesIds.includes(act.id);
   const yaValorado = misValoracionesEventoIds.includes(act.id);
   const inscripcionPendienteSync = inscripcionesPendientesIds.includes(act.id);
-  const finMs =
-    typeof act.fechaFinMs === "number"
-      ? act.fechaFinMs
-      : act.fechaFinISO
-        ? new Date(act.fechaFinISO).getTime()
-        : NaN;
-  const estaTerminado = !Number.isNaN(finMs) && finMs <= Date.now();
+  const ahoraMs = useNow(60000);
+  const estaTerminado = esEventoFinalizado(act, ahoraMs);
   const esRecomendada = Boolean(act.esRecomendada || act.es_recomendada);
+
+  const handleTerminar = () => {
+    if (window.confirm(`¿Marcar "${act.nombre}" como finalizado? Se habilitarán las reseñas.`)) {
+      terminarEvento(act.id);
+    }
+  };
+
+  const handleEliminar = () => {
+    if (window.confirm(`¿Eliminar permanentemente la actividad "${act.nombre}"?`)) {
+      eliminarEvento(act.id);
+    }
+  };
 
   const badgeEstado = act.pendienteSync ? (
     <span className="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full shadow-sm">
@@ -70,7 +79,18 @@ export default function ActivityCard({ act }) {
     >
       <div>
         <div className="relative">
-          <img src={act.imagen} alt={act.nombre} className="w-full h-44 sm:h-48 object-cover" />
+          <img
+            src={act.imagen || DEFAULT_IMAGE}
+            alt={act.nombre}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => {
+              if (e.currentTarget.src !== DEFAULT_IMAGE) {
+                e.currentTarget.src = DEFAULT_IMAGE;
+              }
+            }}
+            className="w-full h-44 sm:h-48 object-cover bg-slate-100"
+          />
           <span className="absolute top-3 left-3 bg-blue-950/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
             {act.categoria}
           </span>
@@ -160,7 +180,7 @@ export default function ActivityCard({ act }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => terminarEvento(act.id)}
+                  onClick={handleTerminar}
                   className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 px-3 rounded-2xl text-xs sm:text-sm"
                 >
                   <IconCheck className="w-4 h-4 shrink-0" />
@@ -179,7 +199,7 @@ export default function ActivityCard({ act }) {
               </button>
               <button
                 type="button"
-                onClick={() => eliminarEvento(act.id)}
+                onClick={handleEliminar}
                 className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
               >
                 <IconTrash className="w-4 h-4 shrink-0" />
@@ -258,4 +278,6 @@ export default function ActivityCard({ act }) {
       </div>
     </article>
   );
-}
+});
+
+export default ActivityCard;

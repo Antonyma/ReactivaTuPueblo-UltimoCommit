@@ -1,5 +1,6 @@
 import React from "react";
-import { AppProvider, useApp } from "./context/AppContext.jsx";
+import { AppProvider } from "./context/AppContext.jsx";
+import { useApp } from "./context/useApp.js";
 import Navbar from "./components/Navbar.jsx";
 import OfflineStatusBar from "./components/OfflineStatusBar.jsx";
 import Home from "./pages/Home.jsx";

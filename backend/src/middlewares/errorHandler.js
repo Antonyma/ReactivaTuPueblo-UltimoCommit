@@ -1,3 +1,5 @@
+import { env } from '../config/env.js'
+
 export class AppError extends Error {
   constructor(message, status = 500, code = 'INTERNAL_ERROR', details = null) {
     super(message)
@@ -34,19 +36,22 @@ export function notFoundHandler(req, _res, next) {
 
 export function errorHandler(err, _req, res, _next) {
   const status = err.status || 500
+  const isProd = env.nodeEnv === 'production'
+  const isServerError = status >= 500
+
   const response = {
     ok: false,
     error: {
-      message: err.message || 'Internal Server Error',
+      message: isServerError && isProd ? 'Error interno del servidor' : err.message || 'Internal Server Error',
       code: err.code || (status === 500 ? 'INTERNAL_ERROR' : 'ERROR'),
     },
   }
 
-  if (err.details) {
+  if (err.details && !(isServerError && isProd)) {
     response.error.details = err.details
   }
 
-  if (status >= 500) {
+  if (isServerError) {
     console.error('[ErrorHandler]', err)
   }
 

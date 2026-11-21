@@ -37,6 +37,16 @@ export class MockEventoRepository extends EventoRepository {
       result = result.filter((e) => e.negocio?.id === Number(filters.negocioId))
     }
 
+    if (filters.pueblo !== undefined && filters.pueblo !== '') {
+      const puebloLower = String(filters.pueblo).trim().toLowerCase()
+      result = result.filter((e) => String(e.pueblo || '').toLowerCase() === puebloLower)
+    }
+
+    if (filters.estado !== undefined && filters.estado !== '') {
+      const estadoLower = String(filters.estado).trim().toLowerCase()
+      result = result.filter((e) => String(e.estado || '').toLowerCase() === estadoLower)
+    }
+
     return result
   }
 

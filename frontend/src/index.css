@@ -10,7 +10,6 @@ body {
   font-size: 18px;
   line-height: 1.6;
   margin: 0;
-  padding: 0;
 }
 
 @media (min-width: 640px) {
@@ -77,7 +76,7 @@ body.letra-grande #grid-actividades {
   grid-template-columns: 1fr !important;
 }
 
-body.letra-grande button:not(.btn-cerrar-modal),
+body.letra-grande button:not(.btn-cerrar-modal):not(.btn-movil-nav),
 body.letra-grande input,
 body.letra-grande select,
 body.letra-grande textarea,

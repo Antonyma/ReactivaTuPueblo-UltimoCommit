@@ -1,5 +1,5 @@
 import React from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
 
 function formatearHoraCache(iso) {
   if (!iso) return null;

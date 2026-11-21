@@ -91,8 +91,15 @@ BOJA_POR_ANIO = {
     ],
 }
 
-# Categorías del proyecto (tipoEvento)
-CATEGORIAS = {1: "Fiestas/Cultura", 2: "Turismo/Rutas", 3: "Gastronomía", 4: "Deporte", 5: "Comercio"}
+# Categorías oficiales del proyecto (tipoEvento, alineadas con Backend y Frontend)
+CATEGORIAS = {
+    1: "Turismo",
+    2: "Fiesta Patronal",
+    3: "Gastronomía",
+    4: "Comercio",
+    5: "Deportes",
+    6: "Cultura",
+}
 
 CAMPOS = ["titulo", "fecha_hora", "municipio", "categoria", "precio", "plazas", "salida"]
 CAMPOS_OBLIGATORIOS = ["titulo", "fecha_hora", "municipio"]

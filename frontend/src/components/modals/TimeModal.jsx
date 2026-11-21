@@ -1,105 +1,104 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useApp } from "../../context/AppContext.jsx";
-import { IconCheck, IconClock, IconClose } from "../Icons.jsx";
+import React, { useState, useCallback } from "react";
+import { useApp } from "../../context/useApp.js";
+import { getDefaultEventDateRange } from "../../utils/eventUtils.js";
+import { IconCheck, IconClock } from "../Icons.jsx";
+import BaseModal from "./BaseModal.jsx";
+
+function TimeModalForm({ act, onSave }) {
+  const defaults = getDefaultEventDateRange();
+  const [inicio, setInicio] = useState(act.fechaInicioISO || defaults.fechaInicio);
+  const [fin, setFin] = useState(act.fechaFinISO || defaults.fechaFin);
+  const [errorFecha, setErrorFecha] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (new Date(fin) <= new Date(inicio)) {
+      setErrorFecha("La fecha y hora de fin debe ser posterior a la de inicio.");
+      return;
+    }
+    setErrorFecha("");
+    setGuardando(true);
+    try {
+      await onSave(act.id, inicio, fin);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div>
+        <label htmlFor="time-modal-inicio" className="block text-sm font-bold mb-1">
+          Nueva fecha y hora de inicio *
+        </label>
+        <input
+          id="time-modal-inicio"
+          type="datetime-local"
+          required
+          value={inicio}
+          onChange={(e) => setInicio(e.target.value)}
+          className="w-full border-2 border-blue-300 rounded-xl p-2.5 bg-white font-bold text-base"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="time-modal-fin" className="block text-sm font-bold mb-1">
+          Nueva fecha y hora de fin *
+        </label>
+        <input
+          id="time-modal-fin"
+          type="datetime-local"
+          required
+          value={fin}
+          onChange={(e) => setFin(e.target.value)}
+          className="w-full border-2 border-blue-300 rounded-xl p-2.5 bg-white font-bold text-base"
+        />
+      </div>
+
+      {errorFecha && (
+        <p role="alert" className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl p-2.5">
+          {errorFecha}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={guardando}
+        className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-500 disabled:opacity-60 text-stone-950 font-black py-3 rounded-2xl shadow"
+      >
+        <IconCheck className="w-5 h-5" />
+        <span>{guardando ? "Guardando..." : "Guardar Nueva Hora"}</span>
+      </button>
+    </form>
+  );
+}
 
 export default function TimeModal() {
   const { modalCambiarHora, setModalCambiarHora, guardarNuevaHora } = useApp();
-  const [inicio, setInicio] = useState("");
-  const [fin, setFin] = useState("");
-
   const act = modalCambiarHora.actividad;
 
   const cerrarModal = useCallback(() => {
     setModalCambiarHora({ open: false, actividad: null });
   }, [setModalCambiarHora]);
 
-  useEffect(() => {
-    if (act) {
-      setInicio(act.fechaInicioISO || "2026-11-29T12:00");
-      setFin(act.fechaFinISO || "2026-11-29T14:00");
-    }
-  }, [act]);
-
-  useEffect(() => {
-    if (!modalCambiarHora.open) return;
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") cerrarModal();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modalCambiarHora.open, cerrarModal]);
-
-  if (!modalCambiarHora.open || !act) return null;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    guardarNuevaHora(act.id, inicio, fin);
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-3 sm:p-4"
-      onClick={cerrarModal}
+    <BaseModal
+      open={Boolean(modalCambiarHora.open && act)}
+      onClose={cerrarModal}
+      title="Cambiar Fecha y Hora"
+      icon={<IconClock className="w-5 h-5 text-blue-700 shrink-0" />}
+      maxWidthClass="max-w-md"
+      containerClassName="bg-white text-stone-900 rounded-3xl w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl border-2 border-blue-700 space-y-4"
     >
-      <div
-        className="bg-white text-stone-900 rounded-3xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border-2 border-blue-700"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="shrink-0 flex justify-between items-center px-5 py-3.5 border-b border-blue-100 bg-white">
-          <h3 className="font-black text-lg sm:text-xl inline-flex items-center gap-2">
-            <IconClock className="w-5 h-5 text-blue-700" />
-            <span>Cambiar Fecha y Hora</span>
-          </h3>
-          <button
-            type="button"
-            onClick={cerrarModal}
-            aria-label="Cerrar ventana"
-            className="btn-cerrar-modal w-11 h-11 rounded-full bg-blue-100 text-blue-950 hover:bg-blue-200 flex items-center justify-center shrink-0"
-          >
-            <IconClose className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-5 py-4 space-y-3">
+      {act && (
+        <>
           <p className="text-sm font-black text-blue-900 bg-blue-50 p-3 rounded-2xl border border-blue-200">
             {act.nombre} ({act.pueblo})
           </p>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm font-bold mb-1">Nueva fecha y hora de inicio *</label>
-              <input
-                type="datetime-local"
-                required
-                value={inicio}
-                onChange={(e) => setInicio(e.target.value)}
-                className="w-full border-2 border-blue-300 rounded-xl p-2.5 bg-white font-bold text-base"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold mb-1">Nueva fecha y hora de fin *</label>
-              <input
-                type="datetime-local"
-                required
-                value={fin}
-                onChange={(e) => setFin(e.target.value)}
-                className="w-full border-2 border-blue-300 rounded-xl p-2.5 bg-white font-bold text-base"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full inline-flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-500 text-stone-950 font-black py-3 rounded-2xl shadow"
-            >
-              <IconCheck className="w-5 h-5" />
-              <span>Guardar Nueva Hora</span>
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+          <TimeModalForm key={act.id} act={act} onSave={guardarNuevaHora} />
+        </>
+      )}
+    </BaseModal>
   );
 }

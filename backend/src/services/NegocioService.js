@@ -1,5 +1,38 @@
 import { AppError } from '../middlewares/errorHandler.js'
 
+const CAMPOS_EDITABLES_NEGOCIO = [
+  'nombre',
+  'descripcion',
+  'pueblo',
+  'coordenadas',
+  'instagram',
+  'facebook',
+  'twitter',
+  'web',
+  'redesSociales',
+]
+
+function filtrarCamposNegocio(data = {}) {
+  const limpio = {}
+  for (const campo of CAMPOS_EDITABLES_NEGOCIO) {
+    if (data[campo] !== undefined) {
+      limpio[campo] = data[campo]
+    }
+  }
+  return limpio
+}
+
+function validarUrlsSeguras(obj = {}) {
+  for (const campo of ['instagram', 'facebook', 'twitter', 'web']) {
+    const val = obj[campo]
+    if (!val) continue
+    const s = String(val).trim()
+    if (/^\s*(javascript|data|vbscript):/i.test(s)) {
+      throw AppError.badRequest(`La URL de ${campo} no tiene un esquema permitido`)
+    }
+  }
+}
+
 export class NegocioService {
   constructor({ negocioRepository }) {
     this.negocioRepository = negocioRepository
@@ -21,8 +54,10 @@ export class NegocioService {
   }
 
   async crearNegocio(data, propietarioId) {
+    const camposLimpios = filtrarCamposNegocio(data)
+    validarUrlsSeguras(camposLimpios)
     return this.negocioRepository.create({
-      ...data,
+      ...camposLimpios,
       fiabilidad: 0,
       propietarioId: Number(propietarioId),
       propietario: { id: Number(propietarioId) },
@@ -47,7 +82,9 @@ export class NegocioService {
       throw AppError.forbidden('Solo el propietario del negocio puede modificarlo')
     }
 
-    return this.negocioRepository.update(negocioId, data)
+    const camposLimpios = filtrarCamposNegocio(data)
+    validarUrlsSeguras(camposLimpios)
+    return this.negocioRepository.update(negocioId, camposLimpios)
   }
 
   async eliminarNegocio(negocioId, propietarioId) {
@@ -66,6 +103,7 @@ export class NegocioService {
       throw AppError.forbidden('Solo el propietario del negocio puede actualizar sus redes sociales')
     }
 
+    validarUrlsSeguras(redes)
     return this.negocioRepository.updateRedesSociales(negocioId, redes)
   }
 }

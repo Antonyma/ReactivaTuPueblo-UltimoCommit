@@ -1,16 +1,8 @@
-import React from "react";
-import { useApp } from "../context/AppContext.jsx";
+import React, { useMemo } from "react";
+import { useApp } from "../context/useApp.js";
+import { useNow } from "../hooks/useNow.js";
+import { esEventoFinalizado } from "../utils/eventUtils.js";
 import { IconCalendar, IconCheck, IconStar } from "./Icons.jsx";
-
-function esEventoFinalizado(act, ahoraMs) {
-  const finMs =
-    typeof act.fechaFinMs === "number"
-      ? act.fechaFinMs
-      : act.fechaFinISO
-        ? new Date(act.fechaFinISO).getTime()
-        : NaN;
-  return !Number.isNaN(finMs) && finMs <= ahoraMs;
-}
 
 export default function MyPlans() {
   const {
@@ -22,13 +14,23 @@ export default function MyPlans() {
     setModalResenas,
   } = useApp();
 
-  const ahoraMs = Date.now();
-  const misActividades = misInscripcionesIds
-    .map((id) => actividades.find((a) => Number(a.id) === Number(id)))
-    .filter(Boolean);
+  const ahoraMs = useNow(60000);
 
-  const planesActivos = misActividades.filter((act) => !esEventoFinalizado(act, ahoraMs));
-  const actividadesHechas = misActividades.filter((act) => esEventoFinalizado(act, ahoraMs));
+  const { planesActivos, actividadesHechas } = useMemo(() => {
+    const porId = new Map(actividades.map((a) => [Number(a.id), a]));
+    const activos = [];
+    const hechas = [];
+    for (const id of misInscripcionesIds) {
+      const act = porId.get(Number(id));
+      if (!act) continue;
+      if (esEventoFinalizado(act, ahoraMs)) {
+        hechas.push(act);
+      } else {
+        activos.push(act);
+      }
+    }
+    return { planesActivos: activos, actividadesHechas: hechas };
+  }, [actividades, misInscripcionesIds, ahoraMs]);
 
   return (
     <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">

@@ -21,11 +21,13 @@ export const CENTRO_MANCOMUNIDAD = [37.145, -2.315];
 export const ZOOM_MANCOMUNIDAD = 10;
 
 export const coordsPueblos = {
-  "Todos": { center: CENTRO_MANCOMUNIDAD, zoom: ZOOM_MANCOMUNIDAD },
-  "Lucainena de las Torres": { center: [37.0412, -2.2015], zoom: 14 },
-  "Velefique": { center: [37.1941, -2.4032], zoom: 14 },
-  "Senés": { center: [37.2045, -2.3468], zoom: 14 },
-  "Uleila del Campo": { center: [37.1852, -2.2041], zoom: 14 }
+  Todos: { center: CENTRO_MANCOMUNIDAD, zoom: ZOOM_MANCOMUNIDAD },
+  ...Object.fromEntries(
+    Object.entries(municipiosMancomunidad).map(([nombre, center]) => [
+      nombre,
+      { center, zoom: 14 },
+    ])
+  ),
 };
 
 export const TIPO_EVENTO_A_CATEGORIA = {

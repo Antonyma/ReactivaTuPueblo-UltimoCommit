@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import React, { useEffect, useMemo, useRef } from "react";
+import { useApp } from "../context/useApp.js";
 import {
   municipiosMancomunidad,
   CENTRO_MANCOMUNIDAD,
   ZOOM_MANCOMUNIDAD,
   coordsPueblos,
 } from "../constants/comarca.js";
+import { DEFAULT_IMAGE, escapeHtml, esUrlImagenSegura } from "../utils/eventUtils.js";
 import { IconMap, IconTarget } from "./Icons.jsx";
 
 export default function MapView() {
@@ -83,7 +84,15 @@ export default function MapView() {
     }
   }, [letraGrande]);
 
-  // Actualizar pines cuando cambien las actividades o el pueblo activo
+  const marcadoresVisibles = useMemo(
+    () =>
+      actividades
+        .filter((a) => a.estadoModeracion === "aprobada")
+        .filter((a) => puebloActivo === "Todos" || a.pueblo === puebloActivo),
+    [actividades, puebloActivo]
+  );
+
+  // Actualizar pines cuando cambien las actividades aprobadas o el pueblo activo
   useEffect(() => {
     if (!mapInstanceRef.current || !capaMarcadoresRef.current || typeof window.L === "undefined")
       return;
@@ -92,43 +101,36 @@ export default function MapView() {
     const capa = capaMarcadoresRef.current;
     capa.clearLayers();
 
-    actividades
-      .filter((a) => a.estadoModeracion === "aprobada")
-      .forEach((act) => {
-        if (puebloActivo !== "Todos" && act.pueblo !== puebloActivo) return;
-        const icon = L.divIcon({
-          className: "",
-          html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24],
-        });
-        L.marker(act.coords, { icon })
-          .addTo(capa)
-          .bindPopup(`<b>${act.nombre}</b><br/>${act.pueblo}<br/>${act.fecha}`)
-          .on("click", () => {
-            const cardEl = document.getElementById(`actividad-card-${act.id}`);
-            if (!cardEl) return;
-            cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-            // Resaltado notable y por encima de otras tarjetas
-            cardEl.style.outline = "6px solid #facc15";
-            cardEl.style.outlineOffset = "4px";
-            cardEl.style.boxShadow = "0 0 0 6px #facc15, 0 25px 50px rgba(0,0,0,0.35)";
-            cardEl.style.transform = "scale(1.03)";
-            cardEl.style.zIndex = "9999";
-            cardEl.style.position = "relative";
-            cardEl.style.backgroundColor = "#fefce8";
-            window.setTimeout(() => {
-              cardEl.style.outline = "";
-              cardEl.style.outlineOffset = "";
-              cardEl.style.boxShadow = "";
-              cardEl.style.transform = "";
-              cardEl.style.zIndex = "";
-              cardEl.style.position = "";
-              cardEl.style.backgroundColor = "";
-            }, 4000);
-          });
+    marcadoresVisibles.forEach((act) => {
+      const imgSrc = esUrlImagenSegura(act.imagen) ? escapeHtml(act.imagen) : DEFAULT_IMAGE;
+      const nombreSafe = escapeHtml(act.nombre);
+      const puebloSafe = escapeHtml(act.pueblo);
+      const fechaSafe = escapeHtml(act.fecha);
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="pin-actividad-foto"><img src="${imgSrc}" alt="${nombreSafe}" loading="lazy" /></div>`,
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
       });
-  }, [actividades, puebloActivo]);
+      L.marker(act.coords, { icon })
+        .addTo(capa)
+        .bindPopup(`<b>${nombreSafe}</b><br/>${puebloSafe}<br/>${fechaSafe}`)
+        .on("click", () => {
+          const cardEl =
+            document.getElementById(`actividad-card-${act.id}`) ||
+            document.getElementById("grid-actividades");
+          if (!cardEl) return;
+          cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (cardEl.id === `actividad-card-${act.id}`) {
+            cardEl.classList.add("ring-4", "ring-amber-400", "bg-amber-50");
+            window.setTimeout(() => {
+              cardEl.classList.remove("ring-4", "ring-amber-400", "bg-amber-50");
+            }, 3500);
+          }
+        });
+    });
+  }, [marcadoresVisibles]);
 
   // Actualizar vista según el pueblo seleccionado
   useEffect(() => {

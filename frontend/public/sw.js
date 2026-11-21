@@ -64,6 +64,17 @@ async function staleWhileRevalidate(request, cacheName) {
   return new Response("Sin conexión", { status: 503, statusText: "Offline" });
 }
 
+const MAX_MEDIA_ENTRIES = 150;
+
+async function trimCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxEntries) {
+    const excess = keys.length - maxEntries;
+    await Promise.all(keys.slice(0, excess).map((k) => cache.delete(k)));
+  }
+}
+
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
@@ -74,7 +85,15 @@ async function cacheFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (response && (response.ok || response.type === "opaque")) {
-      cache.put(request, response.clone()).catch(() => {});
+      cache
+        .put(request, response.clone())
+        .then(() => {
+          if (cacheName === MEDIA_CACHE) {
+            return trimCache(MEDIA_CACHE, MAX_MEDIA_ENTRIES);
+          }
+          return undefined;
+        })
+        .catch(() => {});
     }
     return response;
   } catch {

@@ -1,8 +1,12 @@
-import React, { useState } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import React, { useCallback, useMemo, useState } from "react";
+import { useApp } from "../context/useApp.js";
 import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../constants/comarca.js";
 import { parseCoords } from "../api/mappers.js";
+import { useNow } from "../hooks/useNow.js";
+import { esEventoFinalizado, getDefaultEventDateRange } from "../utils/eventUtils.js";
+import { comprimirImagenArchivo } from "../utils/imageCompressor.js";
 import LocationPickerModal from "./modals/LocationPickerModal.jsx";
+import BusinessStatsChart from "./publisher/BusinessStatsChart.jsx";
 import {
   IconArrowLeft,
   IconCheck,
@@ -72,18 +76,23 @@ export default function PublisherPanel() {
   const [negocioDetalleNombre, setNegocioDetalleNombre] = useState(null);
 
   // Form Evento state
+  const [defaultDates] = useState(() => getDefaultEventDateRange());
   const [titulo, setTitulo] = useState("");
   const [categoria, setCategoria] = useState("Fiesta Patronal");
   const [negocioSelect, setNegocioSelect] = useState("");
   const [pueblo, setPueblo] = useState("Lucainena de las Torres");
   const [aforo, setAforo] = useState(40);
   const [dePago, setDePago] = useState(false);
-  const [fechaInicio, setFechaInicio] = useState("2026-11-29T12:00");
-  const [fechaFin, setFechaFin] = useState("2026-11-29T14:00");
+  const [fechaInicio, setFechaInicio] = useState(defaultDates.fechaInicio);
+  const [fechaFin, setFechaFin] = useState(defaultDates.fechaFin);
   const [descripcion, setDescripcion] = useState("");
   const [imagenBase64, setImagenBase64] = useState("");
   const [previewName, setPreviewName] = useState("");
   const [eventoCoords, setEventoCoords] = useState(null);
+  const [enviandoEvento, setEnviandoEvento] = useState(false);
+  const [enviandoNegocio, setEnviandoNegocio] = useState(false);
+
+  const ahoraMs = useNow(60000);
 
   // Form Negocio state
   const [negNombre, setNegNombre] = useState("");
@@ -137,81 +146,76 @@ export default function PublisherPanel() {
     );
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result;
-      const img = new Image();
-      img.onload = () => {
-        const maxWidth = 1000;
-        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          setImagenBase64(canvas.toDataURL("image/jpeg", 0.8));
-        } else {
-          setImagenBase64(dataUrl);
-        }
-        setPreviewName(file.name);
-      };
-      img.onerror = () => {
-        setImagenBase64(dataUrl);
-        setPreviewName(file.name);
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await comprimirImagenArchivo(file, { maxSide: 1000, quality: 0.8 });
+      setImagenBase64(compressed);
+      setPreviewName(file.name);
+    } catch {
+      setPreviewName("");
+    }
   };
 
-  const handleCrearEvento = (e) => {
+  const handleCrearEvento = async (e) => {
     e.preventDefault();
-    if (!defaultBusiness) return;
-    publicarEvento({
-      titulo,
-      categoria,
-      negocio: defaultBusiness,
-      pueblo,
-      coordenadas: eventoCoords ? `${eventoCoords[0]}, ${eventoCoords[1]}` : undefined,
-      aforo,
-      dePago,
-      fechaInicio,
-      fechaFin,
-      descripcion,
-      imagen: imagenBase64,
-    });
+    if (!defaultBusiness || enviandoEvento) return;
+    if (new Date(fechaFin) <= new Date(fechaInicio)) {
+      window.alert("La fecha y hora de fin debe ser posterior a la de inicio.");
+      return;
+    }
+    setEnviandoEvento(true);
+    try {
+      await publicarEvento({
+        titulo,
+        categoria,
+        negocio: defaultBusiness,
+        pueblo,
+        coordenadas: eventoCoords ? `${eventoCoords[0]}, ${eventoCoords[1]}` : undefined,
+        aforo,
+        dePago,
+        fechaInicio,
+        fechaFin,
+        descripcion,
+        imagen: imagenBase64,
+      });
 
-    setTitulo("");
-    setDescripcion("");
-    setImagenBase64("");
-    setPreviewName("");
-    setEventoCoords(null);
-    setMostrarFormEvento(false);
+      setTitulo("");
+      setDescripcion("");
+      setImagenBase64("");
+      setPreviewName("");
+      setEventoCoords(null);
+      setMostrarFormEvento(false);
+    } finally {
+      setEnviandoEvento(false);
+    }
   };
 
-  const handleCrearNegocio = (e) => {
+  const handleCrearNegocio = async (e) => {
     e.preventDefault();
-    if (!negNombre.trim()) return;
-    crearNegocio({
-      nombre: negNombre.trim(),
-      pueblo: negPueblo,
-      coordenadas: negCoords ? `${negCoords[0]}, ${negCoords[1]}` : undefined,
-      instagramUrl: negInstagram.trim(),
-      twitterUrl: negTwitter.trim(),
-      facebookUrl: negFacebook.trim(),
-      webUrl: negWeb.trim(),
-    });
-    setNegNombre("");
-    setNegInstagram("");
-    setNegTwitter("");
-    setNegFacebook("");
-    setNegWeb("");
-    setNegCoords(null);
-    setMostrarFormNegocio(false);
+    if (!negNombre.trim() || enviandoNegocio) return;
+    setEnviandoNegocio(true);
+    try {
+      await crearNegocio({
+        nombre: negNombre.trim(),
+        pueblo: negPueblo,
+        coordenadas: negCoords ? `${negCoords[0]}, ${negCoords[1]}` : undefined,
+        instagramUrl: negInstagram.trim(),
+        twitterUrl: negTwitter.trim(),
+        facebookUrl: negFacebook.trim(),
+        webUrl: negWeb.trim(),
+      });
+      setNegNombre("");
+      setNegInstagram("");
+      setNegTwitter("");
+      setNegFacebook("");
+      setNegWeb("");
+      setNegCoords(null);
+      setMostrarFormNegocio(false);
+    } finally {
+      setEnviandoNegocio(false);
+    }
   };
 
   const handleGuardarEdicionNegocio = async (e) => {
@@ -246,10 +250,28 @@ export default function PublisherPanel() {
     setNegocioDetalleNombre(null);
   };
 
-  const pueblosArray = Object.keys(municipiosMancomunidad).sort();
-  const eventosDelNegocio = negocioDetalle
-    ? actividades.filter((a) => a.negocio === negocioDetalle.nombre)
-    : [];
+  const pueblosArray = useMemo(() => Object.keys(municipiosMancomunidad).sort(), []);
+  const eventosDelNegocio = useMemo(
+    () => (negocioDetalle ? actividades.filter((a) => a.negocio === negocioDetalle.nombre) : []),
+    [negocioDetalle, actividades]
+  );
+
+  const cerrarLocationModal = useCallback(() => {
+    setLocationModal({ open: false, target: null });
+  }, []);
+
+  const confirmarLocationModal = useCallback((coords) => {
+    setLocationModal((prev) => {
+      if (prev.target === "evento") {
+        setEventoCoords(coords);
+      } else if (prev.target === "negocio") {
+        setNegCoords(coords);
+      } else if (prev.target === "editarNegocio") {
+        setEditCoords(coords);
+      }
+      return prev;
+    });
+  }, []);
 
   return (
     <section id="panel-publicador" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">
@@ -707,88 +729,7 @@ export default function PublisherPanel() {
           </form>
 
           {/* Estadísticas de inscripciones por categoría */}
-          {(() => {
-            const colores = {
-              "Fiesta Patronal": "#f59e0b",
-              "Deportes": "#10b981",
-              "Deporte": "#10b981",
-              "Gastronomía": "#f97316",
-              "Turismo": "#3b82f6",
-              "Comercio": "#8b5cf6",
-              "Cultura": "#ec4899",
-            };
-            const stats = eventosDelNegocio.reduce((acc, act) => {
-              const cat = act.categoria || "Otros";
-              acc[cat] = (acc[cat] || 0) + (act.asistentes || 0);
-              return acc;
-            }, {});
-            const entries = Object.entries(stats).filter(([, v]) => v > 0);
-            const total = entries.reduce((s, [, v]) => s + v, 0);
-
-            const polar = (cx, cy, r, deg) => {
-              const rad = ((deg - 90) * Math.PI) / 180;
-              return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-            };
-            const slicePath = (cx, cy, r, start, end) => {
-              if (end - start >= 359.99) {
-                return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 -${2 * r} 0`;
-              }
-              const s = polar(cx, cy, r, start);
-              const e = polar(cx, cy, r, end);
-              const large = end - start > 180 ? 1 : 0;
-              return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y} Z`;
-            };
-
-            let acum = 0;
-            const slices = entries.map(([cat, val]) => {
-              const start = (acum / total) * 360;
-              acum += val;
-              const end = (acum / total) * 360;
-              return { cat, val, start, end };
-            });
-
-            return (
-              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-3 space-y-2">
-                <p className="text-sm font-black text-blue-950">
-                  Inscripciones por categoría
-                </p>
-                {total === 0 ? (
-                  <p className="text-xs text-stone-600">
-                    Aún no hay inscripciones en las actividades de este negocio.
-                  </p>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <svg viewBox="0 0 120 120" className="w-24 h-24 shrink-0">
-                      {slices.map((sl, i) => (
-                        <path
-                          key={i}
-                          d={slicePath(60, 60, 50, sl.start, sl.end)}
-                          fill={colores[sl.cat] || "#94a3b8"}
-                        />
-                      ))}
-                    </svg>
-                    <ul className="text-xs space-y-1 min-w-0">
-                      {entries.map(([cat, val]) => (
-                        <li key={cat} className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-sm shrink-0"
-                            style={{ background: colores[cat] || "#94a3b8" }}
-                          />
-                          <span className="truncate">{cat}</span>
-                          <span className="font-bold shrink-0">
-                            {val} ({Math.round((val / total) * 100)}%)
-                          </span>
-                        </li>
-                      ))}
-                      <li className="font-black text-stone-700 pt-1">
-                        Total: {total}
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          <BusinessStatsChart eventos={eventosDelNegocio} />
 
           {/* Historial de eventos del negocio */}
           <div className="space-y-3">
@@ -844,10 +785,14 @@ export default function PublisherPanel() {
                     <div className="flex flex-wrap gap-2 shrink-0">
                       {act.estadoModeracion !== "denegada" && (
                         <>
-                          {!(act.fechaFinISO && new Date(act.fechaFinISO).getTime() <= Date.now()) ? (
+                          {!esEventoFinalizado(act, ahoraMs) ? (
                             <button
                               type="button"
-                              onClick={() => terminarEvento(act.id)}
+                              onClick={() => {
+                                if (window.confirm(`¿Marcar "${act.nombre}" como finalizado?`)) {
+                                  terminarEvento(act.id);
+                                }
+                              }}
                               className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-xs"
                             >
                               <IconCheck className="w-4 h-4" />
@@ -879,7 +824,11 @@ export default function PublisherPanel() {
                       )}
                       <button
                         type="button"
-                        onClick={() => eliminarEvento(act.id)}
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar permanentemente "${act.nombre}"?`)) {
+                            eliminarEvento(act.id);
+                          }
+                        }}
                         className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-xl text-xs"
                       >
                         <IconTrash className="w-4 h-4" />
@@ -951,7 +900,7 @@ export default function PublisherPanel() {
 
       <LocationPickerModal
         isOpen={locationModal.open}
-        onClose={() => setLocationModal({ open: false, target: null })}
+        onClose={cerrarLocationModal}
         pueblo={
           locationModal.target === "evento"
             ? pueblo
@@ -966,15 +915,7 @@ export default function PublisherPanel() {
               ? negCoords
               : editCoords
         }
-        onConfirm={(coords) => {
-          if (locationModal.target === "evento") {
-            setEventoCoords(coords);
-          } else if (locationModal.target === "negocio") {
-            setNegCoords(coords);
-          } else if (locationModal.target === "editarNegocio") {
-            setEditCoords(coords);
-          }
-        }}
+        onConfirm={confirmarLocationModal}
       />
     </section>
   );

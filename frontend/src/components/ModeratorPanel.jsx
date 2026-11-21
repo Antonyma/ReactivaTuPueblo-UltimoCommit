@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useApp } from "../context/AppContext.jsx";
+import { useApp } from "../context/useApp.js";
 import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
 import {
   IconArrowLeft,

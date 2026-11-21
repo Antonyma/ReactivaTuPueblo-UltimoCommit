@@ -65,14 +65,30 @@ function buildRepositories() {
 export function createContainer() {
   const { supabaseClient, ...repositories } = buildRepositories()
 
-  const authService = new AuthService(repositories)
-  const usuarioService = new UsuarioService(repositories)
-  const negocioService = new NegocioService(repositories)
-  const eventoService = new EventoService(repositories)
-  const valoracionService = new ValoracionService(repositories)
-  const imagenService = new ImagenService(repositories)
-  const iaService = new IaService(repositories)
-  const whatsappService = new WhatsappService({ ...repositories, iaService })
+  const {
+    usuarioRepository,
+    negocioRepository,
+    eventoRepository,
+    valoracionRepository,
+    imagenRepository,
+  } = repositories
+
+  const authService = new AuthService({ usuarioRepository })
+  const usuarioService = new UsuarioService({ usuarioRepository, eventoRepository })
+  const negocioService = new NegocioService({ negocioRepository })
+  const eventoService = new EventoService({
+    eventoRepository,
+    negocioRepository,
+    valoracionRepository,
+  })
+  const valoracionService = new ValoracionService({ valoracionRepository, eventoRepository })
+  const imagenService = new ImagenService({ imagenRepository, eventoRepository })
+  const iaService = new IaService({ eventoRepository, usuarioRepository })
+  const whatsappService = new WhatsappService({
+    usuarioRepository,
+    eventoRepository,
+    iaService,
+  })
 
   const controllers = {
     authController: new AuthController({ authService }),

@@ -5,14 +5,50 @@ Especializado en las 5 categorías oficiales de PuebloVivo:
 """
 
 import io
+import ipaddress
 import os
 import re
 import json
 import base64
 import logging
+import socket
+import urllib.parse
 import urllib.request
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
+
+MAX_IMAGE_DOWNLOAD_BYTES = 8 * 1024 * 1024  # 8 MB
+
+CATEGORIA_ALIASES = {
+    "deporte": "Deportes",
+    "deportes": "Deportes",
+    "fiesta": "Fiesta Patronal",
+    "fiesta patronal": "Fiesta Patronal",
+    "gastronomía": "Gastronomía",
+    "gastronomia": "Gastronomía",
+    "turismo": "Turismo",
+    "comercio": "Comercio",
+    "cultura": "Cultura",
+}
+
+
+def _es_url_externa_segura(url: str) -> bool:
+    """Protección SSRF: solo permite HTTP/HTTPS hacia IPs públicas."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        hostname = parsed.hostname.lower()
+        if hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+            return False
+        infos = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+        for info in infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        return True
+    except Exception:
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +159,26 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
                 "url": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=800&q=80"
             }
         ]
+    },
+    "Cultura": {
+        "descripcion": "Teatro, conciertos acústicos, exposiciones, cine de verano, lecturas, talleres artísticos y patrimonio cultural.",
+        "prohibido_visualmente": "Contenido violento, armas, anuncios comerciales sin relación cultural o comida aislada sin contexto cultural.",
+        "patrones_visuales_obligatorios": [
+            "teatro", "escenario", "exposición", "cuadros", "música", "libros", "cine",
+            "auditorio", "museo", "pintura", "escultura", "instrumentos", "taller artístico",
+            "biblioteca", "concierto", "cartel cultural"
+        ],
+        "terminos_texto_cartel_permitidos": [
+            "cultura", "teatro", "exposición", "concierto", "cine", "música", "libro",
+            "charla", "conferencia", "taller", "arte", "museo", "poesía", "espectáculo"
+        ],
+        "ejemplos_canonicos": [
+            {
+                "titulo": "Cine de Verano y Teatro en la Plaza",
+                "descripcion": "Proyección cultural al aire libre y actuaciones artísticas para vecinos.",
+                "url": "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80"
+            }
+        ]
     }
 }
 
@@ -170,6 +226,9 @@ def _obtener_bytes_y_mime(imagen_str: str) -> tuple[Optional[bytes], str]:
             return None, "image/jpeg"
 
     if img_clean.startswith("http://") or img_clean.startswith("https://"):
+        if not _es_url_externa_segura(img_clean):
+            logger.warning(f"URL de imagen bloqueada por política SSRF: {img_clean}")
+            return None, "image/jpeg"
         try:
             req = urllib.request.Request(
                 img_clean,
@@ -177,7 +236,11 @@ def _obtener_bytes_y_mime(imagen_str: str) -> tuple[Optional[bytes], str]:
             )
             with urllib.request.urlopen(req, timeout=8) as resp:
                 mime = resp.headers.get_content_type() or "image/jpeg"
-                return resp.read(), mime
+                data = resp.read(MAX_IMAGE_DOWNLOAD_BYTES + 1)
+                if len(data) > MAX_IMAGE_DOWNLOAD_BYTES:
+                    logger.warning(f"Imagen excede el tamaño máximo permitido ({MAX_IMAGE_DOWNLOAD_BYTES} bytes)")
+                    return None, "image/jpeg"
+                return data, mime
         except Exception as e:
             logger.warning(f"No se pudo descargar la imagen desde URL ({img_clean}): {e}")
             return None, "image/jpeg"
@@ -420,7 +483,10 @@ class NemotronVisionClassifier:
         titulo_evento: str = "",
         fiabilidad_negocio: int = 1
     ) -> ResultadoNemotronParse:
-        cat_info = self.dataset.get(categoria_esperada)
+        categoria_normalizada = CATEGORIA_ALIASES.get(
+            (categoria_esperada or "").strip().lower(), categoria_esperada
+        )
+        cat_info = self.dataset.get(categoria_normalizada)
         if not cat_info:
             return ResultadoNemotronParse(
                 modelo=self.modelo_nombre,

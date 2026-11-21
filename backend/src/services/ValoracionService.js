@@ -1,17 +1,26 @@
 import { AppError } from '../middlewares/errorHandler.js'
 import { env } from '../config/env.js'
+import { USUARIOS } from '../models/index.js'
 
 async function moderarResenaConIa(texto) {
   try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (env.aiAgentsApiKey) {
+      headers['X-API-Key'] = env.aiAgentsApiKey
+    }
     const res = await fetch(`${env.aiAgentsUrl}/agents/moderate/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      headers,
+      signal: AbortSignal.timeout(10000),
       body: JSON.stringify({ texto }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn(`[ValoracionService] Moderación IA de reseña respondió HTTP ${res.status}`)
+      return null
+    }
     return await res.json()
-  } catch {
+  } catch (err) {
+    console.warn('[ValoracionService] Error al invocar moderación IA de reseña:', err?.message || err)
     return null
   }
 }
@@ -43,12 +52,14 @@ export class ValoracionService {
 
   async listarPorNegocio(negocioId) {
     const eventos = await this.eventoRepository.findAll({ negocioId: Number(negocioId) })
-    const listas = await Promise.all(
-      eventos.map((ev) => this.valoracionRepository.findByEventoId(ev.id))
+    const eventoIds = eventos.map((ev) => ev.id)
+    const rawValoraciones =
+      eventoIds.length > 0 && this.valoracionRepository.findByEventoIds
+        ? await this.valoracionRepository.findByEventoIds(eventoIds)
+        : (await Promise.all(eventos.map((ev) => this.valoracionRepository.findByEventoId(ev.id)))).flat()
+    const valoraciones = rawValoraciones.sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
     )
-    const valoraciones = listas
-      .flat()
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
     const total = valoraciones.length
     const suma = valoraciones.reduce((acc, v) => acc + v.estrellas, 0)
@@ -110,13 +121,17 @@ export class ValoracionService {
     })
   }
 
-  async eliminarValoracion(eventoId, valoracionId, usuarioId) {
+  async eliminarValoracion(eventoId, valoracionId, usuario) {
     const valoracion = await this.valoracionRepository.findById(valoracionId)
     if (!valoracion || valoracion.evento?.id !== Number(eventoId)) {
       throw AppError.notFound('Valoración no encontrada para este evento')
     }
 
-    if (valoracion.usuario?.id !== Number(usuarioId)) {
+    const usuarioId = typeof usuario === 'object' && usuario !== null ? usuario.id : usuario
+    const esModerador =
+      typeof usuario === 'object' && usuario !== null && usuario.tipoUsuario === USUARIOS.MODERADOR
+
+    if (!esModerador && valoracion.usuario?.id !== Number(usuarioId)) {
       throw AppError.forbidden('Solo puedes eliminar tus propias valoraciones')
     }
 

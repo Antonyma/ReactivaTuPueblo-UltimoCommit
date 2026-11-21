@@ -10,13 +10,54 @@ const TIPO_EVENTO_CATEGORIA = {
   6: 'Cultura',
 }
 
-async function moderarEventoConIa(data) {
+const CAMPOS_EDITABLES_EVENTO = [
+  'nombre',
+  'descripcion',
+  'tipoEvento',
+  'aforo',
+  'dePago',
+  'fechaInicio',
+  'fechaFin',
+  'pueblo',
+  'coordenadas',
+  'imagen',
+]
+
+function filtrarCamposEvento(data = {}) {
+  const limpio = {}
+  for (const campo of CAMPOS_EDITABLES_EVENTO) {
+    if (data[campo] !== undefined) {
+      limpio[campo] = data[campo]
+    }
+  }
+  return limpio
+}
+
+function esUrlImagenSegura(url) {
+  if (!url) return true
+  const s = String(url).trim()
+  return (
+    s.startsWith('https://') ||
+    s.startsWith('http://') ||
+    s.startsWith('data:image/') ||
+    s.startsWith('/')
+  )
+}
+
+async function moderarEventoConIa(data, fiabilidadNegocio = 0) {
   try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (env.aiAgentsApiKey) {
+      headers['X-API-Key'] = env.aiAgentsApiKey
+    }
+    // Escala de fiabilidad para ai-agents (0-5) derivada de la escala 0-100 del negocio
+    const fiabilidadEscala = Math.round((Number(fiabilidadNegocio || 0) / 20) * 10) / 10
     const res = await fetch(`${env.aiAgentsUrl}/agents/moderate/autonomous`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(12000),
+      headers,
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
+        fiabilidad_negocio: fiabilidadEscala,
         evento: {
           titulo: data.nombre,
           nombre: data.nombre,
@@ -26,9 +67,13 @@ async function moderarEventoConIa(data) {
         },
       }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn(`[EventoService] Moderación IA respondió HTTP ${res.status}`)
+      return null
+    }
     return await res.json()
-  } catch {
+  } catch (err) {
+    console.warn('[EventoService] Error al invocar moderación IA:', err?.message || err)
     return null
   }
 }
@@ -41,10 +86,16 @@ export class EventoService {
   }
 
   async listarEventos(filters = {}) {
-    const [eventos, valoraciones] = await Promise.all([
-      this.eventoRepository.findAll(filters),
-      this.valoracionRepository ? this.valoracionRepository.findAll().catch(() => []) : Promise.resolve([]),
-    ])
+    const eventos = await this.eventoRepository.findAll(filters)
+    const eventoIds = eventos.map((ev) => Number(ev.id)).filter((id) => Number.isInteger(id) && id > 0)
+
+    let valoraciones = []
+    if (this.valoracionRepository && eventoIds.length > 0) {
+      const fetchVal = this.valoracionRepository.findByEventoIds
+        ? this.valoracionRepository.findByEventoIds(eventoIds)
+        : this.valoracionRepository.findAll()
+      valoraciones = await fetchVal.catch(() => [])
+    }
 
     const statsPorEvento = new Map()
     for (const v of valoraciones || []) {
@@ -92,8 +143,13 @@ export class EventoService {
   }
 
   async crearEvento(data, propietarioId) {
-    const { creadoOffline, ...eventoData } = data
-    const esCreadoOffline = Boolean(creadoOffline)
+    const esCreadoOffline = Boolean(data.creadoOffline)
+    const eventoData = filtrarCamposEvento(data)
+    eventoData.negocioId = data.negocioId
+
+    if (!esUrlImagenSegura(eventoData.imagen)) {
+      throw AppError.badRequest('La URL de la imagen no tiene un esquema permitido')
+    }
 
     const negocio = await this.negocioRepository.findById(eventoData.negocioId)
     if (!negocio) {
@@ -120,16 +176,25 @@ export class EventoService {
       motivoInicial = 'Creada sin conexión · Pendiente de revisión por Moderador'
     } else {
       const esDeConfianza = Number(negocio.fiabilidad ?? 0) >= 60
-      estadoInicial = eventoData.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
-      motivoInicial =
-        eventoData.motivo ||
-        (esDeConfianza
-          ? 'Pase directo por fiabilidad del negocio'
-          : 'Pendiente de revisión por Moderador')
+      estadoInicial = esDeConfianza ? 'aprobada' : 'pendiente'
+      motivoInicial = esDeConfianza
+        ? 'Pase directo por fiabilidad del negocio'
+        : 'Pendiente de revisión por Moderador'
 
-      if (!eventoData.estado) {
-        const resultadoIa = await moderarEventoConIa(eventoData)
-        if (resultadoIa && typeof resultadoIa.aprobada === 'boolean') {
+      const resultadoIa = await moderarEventoConIa(eventoData, negocio.fiabilidad)
+      if (resultadoIa) {
+        const decision = String(resultadoIa.decision || '').toLowerCase()
+        const estadoIa = String(resultadoIa.estado_moderacion || '').toUpperCase()
+        const requiereRevision =
+          Boolean(resultadoIa.requiere_revision_humana) ||
+          decision === 'pendiente' ||
+          estadoIa === 'PENDIENTE_MODERADOR'
+
+        if (requiereRevision) {
+          estadoInicial = 'pendiente'
+          motivoInicial =
+            resultadoIa.motivo || 'Requiere revisión manual por el Moderador'
+        } else if (typeof resultadoIa.aprobada === 'boolean') {
           estadoInicial = resultadoIa.aprobada ? 'aprobada' : 'denegada'
           motivoInicial =
             resultadoIa.motivo ||
@@ -156,11 +221,18 @@ export class EventoService {
       throw AppError.forbidden('Solo el publicador propietario puede modificar este evento')
     }
 
-    if (data.fechaInicio && data.fechaFin && new Date(data.fechaFin) <= new Date(data.fechaInicio)) {
+    const camposLimpios = filtrarCamposEvento(data)
+    if (!esUrlImagenSegura(camposLimpios.imagen)) {
+      throw AppError.badRequest('La URL de la imagen no tiene un esquema permitido')
+    }
+
+    const inicioEfectivo = camposLimpios.fechaInicio ?? evento.fechaInicio
+    const finEfectivo = camposLimpios.fechaFin ?? evento.fechaFin
+    if (inicioEfectivo && finEfectivo && new Date(finEfectivo) <= new Date(inicioEfectivo)) {
       throw AppError.badRequest('fechaFin debe ser posterior a fechaInicio')
     }
 
-    return this.eventoRepository.update(eventoId, data)
+    return this.eventoRepository.update(eventoId, camposLimpios)
   }
 
   async eliminarEvento(eventoId, propietarioId) {
@@ -193,6 +265,17 @@ export class EventoService {
   async inscribirse(eventoId, usuarioId) {
     const evento = await this.obtenerEventoPorId(eventoId)
 
+    if (evento.estado && String(evento.estado).toLowerCase() !== 'aprobada') {
+      throw AppError.badRequest('Solo puedes inscribirte en eventos aprobados')
+    }
+
+    if (evento.fechaFin) {
+      const finMs = new Date(evento.fechaFin).getTime()
+      if (!Number.isNaN(finMs) && finMs <= Date.now()) {
+        throw AppError.badRequest('No puedes inscribirte en un evento que ya ha finalizado')
+      }
+    }
+
     const yaInscrito = await this.eventoRepository.isUsuarioInscrito(eventoId, usuarioId)
     if (yaInscrito) {
       throw AppError.conflict('El usuario ya está inscrito en este evento')
@@ -202,11 +285,13 @@ export class EventoService {
       throw AppError.conflict('El evento ha alcanzado el aforo máximo')
     }
 
+    const asistentesAntes = Number(evento.asistentes || 0)
     const inscripcion = await this.eventoRepository.inscribirUsuario(eventoId, usuarioId)
+    const eventoActualizado = await this.eventoRepository.findById(eventoId)
     return {
       eventoId: evento.id,
       nombreEvento: evento.nombre,
-      asistentesActuales: evento.asistentes,
+      asistentesActuales: eventoActualizado ? eventoActualizado.asistentes : asistentesAntes + 1,
       aforo: evento.aforo,
       inscripcion,
     }
@@ -262,7 +347,7 @@ export class EventoService {
 
   async compartirEvento(eventoId) {
     const evento = await this.obtenerEventoPorId(eventoId)
-    const urlPublica = `https://reactivatuPueblo.es/eventos/${evento.id}`
+    const urlPublica = `${env.frontendUrl}/eventos/${evento.id}`
     const textoCompartir = `¡Apúntate a "${evento.nombre}" organizado por ${evento.negocio?.nombre}! ${urlPublica}`
 
     return {

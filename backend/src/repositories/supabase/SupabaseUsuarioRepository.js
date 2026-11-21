@@ -2,7 +2,7 @@ import { AppError } from '../../middlewares/errorHandler.js'
 import { createSupabaseAuthClient } from '../../config/supabaseClient.js'
 import { USUARIOS, Usuario } from '../../models/index.js'
 import { UsuarioRepository } from '../contracts/UsuarioRepository.js'
-import { unwrapSupabaseResult } from './supabaseHelpers.js'
+import { assertPositiveInt, escapeIlike, unwrapSupabaseResult } from './supabaseHelpers.js'
 
 /**
  * Mapeo centralizado de tabla y columnas en Supabase para `public.usuario`.
@@ -99,10 +99,7 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
   }
 
   async findById(id) {
-    const numericId = Number(id)
-    if (!Number.isInteger(numericId) || numericId <= 0) {
-      throw AppError.badRequest('El id de usuario debe ser un entero positivo')
-    }
+    const numericId = assertPositiveInt(id, 'usuario')
 
     const result = await this.client
       .from(USUARIO_SCHEMA.table)
@@ -121,7 +118,7 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     const result = await this.client
       .from(USUARIO_SCHEMA.table)
       .select('*')
-      .ilike(USUARIO_SCHEMA.columns.email, normalized)
+      .ilike(USUARIO_SCHEMA.columns.email, escapeIlike(normalized))
       .maybeSingle()
 
     const row = unwrapSupabaseResult(result, 'Error al buscar usuario por email')
@@ -135,7 +132,7 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     const result = await this.client
       .from(USUARIO_SCHEMA.table)
       .select('*')
-      .ilike(USUARIO_SCHEMA.columns.nombre, normalized)
+      .ilike(USUARIO_SCHEMA.columns.nombre, escapeIlike(normalized))
       .maybeSingle()
 
     const row = unwrapSupabaseResult(result, 'Error al buscar usuario por nombre')
@@ -167,6 +164,20 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
 
     const row = unwrapSupabaseResult(result, 'Error al buscar usuario por teléfono')
     return mapUsuarioFromRow(row)
+  }
+
+  async findByTipoUsuario(tipoUsuario) {
+    const dbRole = JS_ROLE_TO_DB[tipoUsuario]
+    if (!dbRole) return []
+
+    const result = await this.client
+      .from(USUARIO_SCHEMA.table)
+      .select('*')
+      .eq(USUARIO_SCHEMA.columns.tipoUsuario, dbRole)
+      .order(USUARIO_SCHEMA.columns.id, { ascending: true })
+
+    const rows = unwrapSupabaseResult(result, 'Error al listar usuarios por rol') || []
+    return rows.map(mapUsuarioFromRow)
   }
 
   async create(data) {
@@ -251,13 +262,23 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
       authId = signUpData?.user?.id || null
     }
 
-    const usuario = await this.create({
-      authId,
-      nombre: cleanNombre,
-      email: normalizedEmail,
-      telefono,
-      tipoUsuario,
-    })
+    let usuario
+    try {
+      usuario = await this.create({
+        authId,
+        nombre: cleanNombre,
+        email: normalizedEmail,
+        telefono,
+        tipoUsuario,
+      })
+    } catch (err) {
+      if (authId && this.client.auth?.admin?.deleteUser) {
+        await this.client.auth.admin.deleteUser(authId).catch((rollbackErr) => {
+          console.error('[SupabaseUsuarioRepository] Error al hacer rollback en Auth:', rollbackErr)
+        })
+      }
+      throw err
+    }
 
     let token = null
     if (authClient?.auth?.signInWithPassword) {
@@ -302,28 +323,6 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     }
 
     return null
-  }
-
-  async verifyCredentials(email, password) {
-    const normalized = String(email || '').toLowerCase().trim()
-    if (!normalized || !password) return null
-
-    // La tabla public.usuario no almacena contraseña; delegamos en Supabase Auth si está configurado
-    if (this.client.auth?.signInWithPassword) {
-      const { data, error } = await this.client.auth.signInWithPassword({
-        email: normalized,
-        password: String(password),
-      })
-
-      if (error || !data?.user) {
-        return null
-      }
-
-      const rowUsuario = await this.findByAuthId(data.user.id)
-      if (rowUsuario) return rowUsuario
-    }
-
-    return this.findByEmail(normalized)
   }
 
   async solicitarPublicador(usuarioId, motivo) {

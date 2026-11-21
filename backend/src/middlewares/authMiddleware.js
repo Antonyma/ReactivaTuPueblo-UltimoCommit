@@ -1,3 +1,4 @@
+import { env } from '../config/env.js'
 import { AppError } from './errorHandler.js'
 
 function extractBearerToken(authHeader) {
@@ -8,13 +9,16 @@ function extractBearerToken(authHeader) {
 }
 
 function parseMockToken(token) {
+  if (env.dataSource !== 'mock') {
+    return null
+  }
   if (!token || !token.startsWith('mock_token:')) {
     return null
   }
 
   const [, idRaw, tipoUsuario] = token.split(':')
   const id = Number(idRaw)
-  if (!Number.isInteger(id) || !tipoUsuario) {
+  if (!Number.isInteger(id) || id <= 0 || !tipoUsuario) {
     return null
   }
 
@@ -24,9 +28,12 @@ function parseMockToken(token) {
 async function resolveUserFromToken(token, usuarioRepository, supabaseClient) {
   if (!token) return null
 
-  const mockParsed = parseMockToken(token)
-  if (mockParsed) {
-    return usuarioRepository.findById(mockParsed.id)
+  if (env.dataSource === 'mock') {
+    const mockParsed = parseMockToken(token)
+    if (mockParsed) {
+      return usuarioRepository.findById(mockParsed.id)
+    }
+    return null
   }
 
   if (supabaseClient?.auth?.getUser) {

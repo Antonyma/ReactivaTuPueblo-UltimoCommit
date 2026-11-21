@@ -1,3 +1,4 @@
+import { env } from '../config/env.js'
 import { AppError } from '../middlewares/errorHandler.js'
 import { USUARIOS } from '../models/index.js'
 
@@ -7,6 +8,9 @@ export class AuthService {
   }
 
   #buildToken(usuario) {
+    if (env.dataSource !== 'mock') {
+      throw AppError.unauthorized('No se pudo emitir un token de sesión válido')
+    }
     return `mock_token:${usuario.id}:${usuario.tipoUsuario}`
   }
 

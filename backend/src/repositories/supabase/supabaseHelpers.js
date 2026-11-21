@@ -57,6 +57,29 @@ export function unwrapSupabaseResult(result, context) {
 }
 
 /**
+ * Valida y convierte un ID a entero positivo.
+ * @param {unknown} id
+ * @param {string} label
+ * @returns {number}
+ */
+export function assertPositiveInt(id, label = 'recurso') {
+  const numericId = Number(id)
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw AppError.badRequest(`El id de ${label} debe ser un entero positivo`)
+  }
+  return numericId
+}
+
+/**
+ * Escapa comodines de PostgreSQL ILIKE (`%`, `_`, `\`).
+ * @param {string} value
+ * @returns {string}
+ */
+export function escapeIlike(value) {
+  return String(value ?? '').replace(/[\\%_]/g, '\\$&')
+}
+
+/**
  * Convierte un valor de fecha a Date válido o null si no aplica.
  * @param {Date|string|null|undefined} value
  * @returns {Date|null}

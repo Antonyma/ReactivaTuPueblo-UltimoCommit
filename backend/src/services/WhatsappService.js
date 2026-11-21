@@ -119,7 +119,23 @@ export class WhatsappService {
       }
 
       case 'modificar_evento': {
-        const actualizado = await this.eventoRepository.update(eventoId, datos)
+        const camposPermitidos = [
+          'nombre',
+          'descripcion',
+          'aforo',
+          'dePago',
+          'fechaInicio',
+          'fechaFin',
+          'pueblo',
+          'coordenadas',
+        ]
+        const datosLimpios = {}
+        for (const campo of camposPermitidos) {
+          if (datos && datos[campo] !== undefined) {
+            datosLimpios[campo] = datos[campo]
+          }
+        }
+        const actualizado = await this.eventoRepository.update(eventoId, datosLimpios)
         return {
           canal: 'whatsapp',
           rol: USUARIOS.PUBLICADOR,

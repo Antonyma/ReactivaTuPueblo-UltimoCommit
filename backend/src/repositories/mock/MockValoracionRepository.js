@@ -23,6 +23,12 @@ export class MockValoracionRepository extends ValoracionRepository {
     return this.store.valoraciones.filter((v) => v.evento?.id === eId)
   }
 
+  async findByEventoIds(eventoIds) {
+    const ids = new Set((eventoIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))
+    if (ids.size === 0) return []
+    return this.store.valoraciones.filter((v) => ids.has(Number(v.evento?.id)))
+  }
+
   async findByUsuarioAndEvento(usuarioId, eventoId) {
     const uId = Number(usuarioId)
     const eId = Number(eventoId)
