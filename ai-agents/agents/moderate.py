@@ -20,7 +20,7 @@ PALABRAS_MALSONANTES = [
 PALABRAS_SPAM_INCOHERENTES = [
     "casino", "apuestas", "cripto", "crypto", "bitcoin", "viagra", "prestamos", "crédito rápido",
     "calderas en madrid", "reparaciones fontanero urgente", "vendo zapatillas", "asdasd", "qwerty",
-    "test test", "xxx", "porn", "xxx", "prueba sin sentido", "anuncio externo ajeno"
+    "test test", "xxx", "porn", "prueba sin sentido", "anuncio externo ajeno"
 ]
 
 CATEGORIAS_VALIDACION = {
@@ -76,12 +76,12 @@ class DecisionModeracionImagen(BaseModel):
     categoria_esperada: str
     categoria_detectada: str
     elementos_visuales: list[str] = Field(default_factory=list)
-    modelo_preentrenado: str = "nemotron-3.5-parse"
+    modelo_preentrenado: str = "nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
     motivo: str
     es_llamada_ligera: bool = False
 
 class DecisionModeradorAutonomo(BaseModel):
-    decision: str = Field(description="'aprobar' o 'denegar'")
+    decision: str = Field(description="'aprobar', 'denegar' o 'pendiente'")
     aprobada: bool
     coherente_titulo: bool
     coherente_imagen: bool
@@ -156,15 +156,8 @@ def moderar_resena(texto: str, negocio: dict = None) -> dict:
 # =============================================================================
 
 def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "Fiesta Patronal") -> dict:
-    """
-    Evalúa estrictamente el título de una actividad:
-    1. Penalización estricta por palabras malsonantes o insultos.
-    2. Coherencia temática estricta con la CATEGORÍA de la actividad.
-    3. Detección de títulos sin sentido ('asdf', 'prueba', spam publicitario ajeno).
-    """
     texto_analizar = f"{titulo} {descripcion}".lower().strip()
 
-    # 1. Palabras malsonantes
     palabras_encontradas = [
         p for p in PALABRAS_MALSONANTES
         if re.search(rf"\b{re.escape(p)}\b", texto_analizar) or p in texto_analizar
@@ -179,7 +172,6 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
             "motivo": f"🚫 Actividad bloqueada por Gemini: El título contiene palabras malsonantes ({', '.join(palabras_encontradas)})."
         }
 
-    # 2. Detección de spam o texto incoherente sin sentido
     if any(p in texto_analizar for p in PALABRAS_SPAM_INCOHERENTES):
         return {
             "aprobada": False,
@@ -187,7 +179,7 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
             "contiene_palabras_malsonantes": False,
             "palabras_detectadas": [],
             "modelo_utilizado": "gemini-2.5-flash",
-            "motivo": f"🚨 Rechazada por Moderador IA: El título contiene spam comercial ajeno o términos sin coherencia con la actividad municipal."
+            "motivo": "🚨 Rechazada por Moderador IA: El título contiene spam comercial ajeno o términos sin coherencia con la actividad municipal."
         }
 
     if len(titulo.strip()) < 5 or bool(re.match(r"^[a-zA-Z]{1,3}$", titulo.strip())):
@@ -200,7 +192,6 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
             "motivo": "🚨 Rechazada por Moderador IA: Título demasiado corto o carente de significado para un evento."
         }
 
-    # 3. Verificación de coherencia con la categoría
     info_cat = CATEGORIAS_VALIDACION.get(categoria, CATEGORIAS_VALIDACION["Fiesta Patronal"])
     conceptos = info_cat["conceptos_esperados"]
     tiene_afinidad_lexica = any(c in texto_analizar for c in conceptos)
@@ -222,7 +213,6 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
         )
         return res
     except Exception:
-        # Heurística determinante si no hay conexión a API
         es_valido = tiene_afinidad_lexica or len(texto_analizar) > 15
         return {
             "aprobada": es_valido,
@@ -234,83 +224,115 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
         }
 
 # =============================================================================
-# MODERACIÓN DE IMÁGENES CON nemotron-3.5-parse (ENTRENADO CON CATEGORÍAS)
+# MODERACIÓN DE IMÁGENES CON NVIDIA NIM (NEMOTRON VISION)
 # =============================================================================
 
 def moderar_imagen_evento(imagen_str: str, fiabilidad_negocio: int = 1, datos_evento: dict = None) -> dict:
     """
-    MODERACIÓN DE IMAGEN CON MODELO PREENTRENADO nemotron-3.5-parse.
-    Entrenado específicamente con el dataset canónico de las 5 categorías oficiales de PuebloVivo:
-    'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
+    MODERACIÓN DE IMAGEN CON MODELO NVIDIA NIM (Nemotron Vision-Language).
+    - fiabilidad_negocio == 1: Estricto (ref 1).
+    - fiabilidad_negocio >= 3: Excepción flexible para negocios verificados (ref 3).
     """
     datos = datos_evento or {}
     categoria = datos.get("categoria", "Fiesta Patronal")
-    titulo = datos.get("titulo", "")
+    titulo = datos.get("titulo") or datos.get("nombre") or ""
 
-    res_nemotron = nemotron_classifier.clasificar_y_parsear(imagen_str, categoria, titulo)
+    res_nemotron = nemotron_classifier.clasificar_y_parsear(
+        imagen_str=imagen_str,
+        categoria_esperada=categoria,
+        titulo_evento=titulo,
+        fiabilidad_negocio=fiabilidad_negocio
+    )
     resultado_dict = res_nemotron.model_dump()
-    resultado_dict["modelo_preentrenado"] = "nemotron-3.5-parse"
+    resultado_dict["modelo_preentrenado"] = res_nemotron.modelo
     resultado_dict["es_llamada_ligera"] = False
     return resultado_dict
 
 # =============================================================================
-# MODERADOR IA AUTÓNOMO (NO ESPERA ACCIÓN HUMANA: TRABAJA Y DECIDE ÉL)
+# MODERADOR IA HÍBRIDO (APRUEBA, DENIEGA O ENVÍA A PENDIENTES DEL MODERADOR)
 # =============================================================================
 
-def moderar_actividad_autonoma(datos_evento: dict) -> dict:
-    """
-    MODERADOR AUTÓNOMO:
-    Evalúa integralmente una actividad (título, descripción, imagen y categoría).
-    DECIDE Y RESUELVE ÉL SIN ESPERAR A ACCIÓN HUMANA:
-    - Si el título no tiene coherencia con la categoría -> DENEGADA.
-    - Si la imagen no tiene relación con la categoría -> DENEGADA.
-    - Si contiene palabras malsonantes -> DENEGADA.
-    - Si todo es coherente y legítimo -> APROBADA.
-    """
+def moderar_actividad_autonoma(datos_evento: dict, fiabilidad_negocio: int = 1) -> dict:
     titulo = datos_evento.get("titulo") or datos_evento.get("nombre") or ""
     descripcion = datos_evento.get("descripcion") or ""
     categoria = datos_evento.get("categoria") or "Fiesta Patronal"
     imagen = datos_evento.get("imagen") or ""
 
-    # 1. Moderación del título y coherencia con la categoría
+    fiabilidad = int(datos_evento.get("fiabilidad_negocio", fiabilidad_negocio))
+
+    # 1. Moderación del título (siempre estricto contra insultos/spam)
     res_titulo = moderar_titulo_evento(titulo, descripcion, categoria)
     if not res_titulo.get("aprobada") or not res_titulo.get("coherente_con_categoria"):
-        return {
-            "decision": "denegar",
-            "aprobada": False,
-            "coherente_titulo": False,
-            "coherente_imagen": True,
-            "contiene_palabras_malsonantes": res_titulo.get("contiene_palabras_malsonantes", False),
-            "categoria_evaluada": categoria,
-            "motivo": res_titulo.get("motivo"),
-            "modelo_utilizado": "gemini-2.5-flash-autonomo"
-        }
+        # Excepción Ref. 3: si NO tiene insultos ni spam, pero el título era algo ambiguo, dejamos que evalúe la imagen
+        if fiabilidad >= 3 and not res_titulo.get("contiene_palabras_malsonantes") and len(titulo.strip()) >= 5:
+            pass
+        else:
+            return {
+                "decision": "denegar",
+                "estado_moderacion": "RECHAZADO",
+                "aprobada": False,
+                "requiere_revision_humana": False,
+                "coherente_titulo": False,
+                "coherente_imagen": True,
+                "contiene_palabras_malsonantes": res_titulo.get("contiene_palabras_malsonantes", False),
+                "categoria_evaluada": categoria,
+                "motivo": res_titulo.get("motivo"),
+                "modelo_utilizado": "gemini-2.5-flash"
+            }
 
-    # 2. Moderación de la imagen con modelo preentrenado
-    res_imagen = moderar_imagen_evento(imagen, 1, datos_evento)
-    if not res_imagen.get("aprobada") or not res_imagen.get("coherente_con_categoria"):
+    # 2. Moderación de la imagen con NVIDIA NIM pasando la fiabilidad (1 vs 3)
+    res_imagen = moderar_imagen_evento(imagen, fiabilidad, datos_evento)
+    estado_img = res_imagen.get("estado_moderacion", "RECHAZADO")
+
+    # 2A. Zona de duda -> Panel del moderador (Pendientes)
+    if estado_img == "PENDIENTE_MODERADOR" or res_imagen.get("requiere_revision_humana"):
         return {
-            "decision": "denegar",
+            "decision": "pendiente",
+            "estado_moderacion": "PENDIENTE_MODERADOR",
             "aprobada": False,
+            "requiere_revision_humana": True,
             "coherente_titulo": True,
             "coherente_imagen": False,
             "contiene_palabras_malsonantes": False,
             "categoria_evaluada": categoria,
+            "sugerencia_categoria": res_imagen.get("sugerencia_categoria_alternativa"),
             "motivo": res_imagen.get("motivo"),
-            "modelo_utilizado": "gemini-2.5-flash-autonomo"
+            "modelo_utilizado": res_imagen.get("modelo", "nvidia-nim-vision")
         }
 
-    # 3. Todo coherente -> Aprobación directa autónoma del Moderador IA
+    # 2B. Rechazo claro
+    if not res_imagen.get("aprobada") or not res_imagen.get("coherente_con_categoria"):
+        return {
+            "decision": "denegar",
+            "estado_moderacion": "RECHAZADO",
+            "aprobada": False,
+            "requiere_revision_humana": False,
+            "coherente_titulo": True,
+            "coherente_imagen": False,
+            "contiene_palabras_malsonantes": False,
+            "categoria_evaluada": categoria,
+            "sugerencia_categoria": res_imagen.get("sugerencia_categoria_alternativa"),
+            "motivo": res_imagen.get("motivo"),
+            "modelo_utilizado": res_imagen.get("modelo", "nvidia-nim-vision")
+        }
+
+    # 3. Aprobación directa
     return {
         "decision": "aprobar",
+        "estado_moderacion": "APROBADO",
         "aprobada": True,
+        "requiere_revision_humana": False,
         "coherente_titulo": True,
         "coherente_imagen": True,
         "contiene_palabras_malsonantes": False,
         "categoria_evaluada": categoria,
-        "motivo": f"✅ Aprobada por Moderador IA Autónomo: Título e imagen verificados con coherencia total para la categoría '{categoria}'.",
-        "modelo_utilizado": "gemini-2.5-flash-autonomo"
+        "motivo": res_imagen.get("motivo"),
+        "modelo_utilizado": f"gemini-2.5-flash + {res_imagen.get('modelo', 'nvidia-nim')}"
     }
 
+
 def evaluar_evento(evento: dict, negocio: dict, historial_aprobados: list[dict]) -> dict:
-    return moderar_actividad_autonoma(evento)
+    fiabilidad = 1
+    if isinstance(negocio, dict):
+        fiabilidad = int(negocio.get("fiabilidad", negocio.get("nivel_fiabilidad", 1)))
+    return moderar_actividad_autonoma(evento, fiabilidad_negocio=fiabilidad)
