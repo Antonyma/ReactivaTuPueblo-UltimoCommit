@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+google-genai
+pydantic
+python-dotenv
+requests
+beautifulsoup4
+lxml
+edge-tts
