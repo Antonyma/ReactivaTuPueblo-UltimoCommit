@@ -93,7 +93,7 @@ export function applyOutboxProjection(baseState, operations, usuarioActual) {
           fecha: formatearFechaBonita(p.fechaInicio),
           estadoModeracion: "pendiente",
           ahorroTokens: false,
-          motivoIA: "Pendiente de sincronizar con el servidor",
+          motivoIA: "Pendiente de sincronizar · Pasará a revisión del Moderador",
           imagen: p.imagen || DEFAULT_IMAGE,
           pendienteSync: true,
         };

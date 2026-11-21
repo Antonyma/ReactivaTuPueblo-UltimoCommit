@@ -39,9 +39,10 @@ export function createSyncHandlers({
       const res = await eventos.crear({
         ...operation.payload,
         negocioId: resolvedNegocioId,
+        creadoOffline: true,
       });
       return {
-        label: `Evento "${operation.payload.nombre}" enviado`,
+        label: `Evento "${operation.payload.nombre}" enviado a revisión del moderador`,
         data: res?.data,
       };
     },

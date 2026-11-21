@@ -532,13 +532,16 @@ export function AppProvider({ children }) {
       const tempId = `temp_ev_${Date.now()}`;
       outboxRepository.enqueue({
         type: OUTBOX_ACTION_TYPES.PUBLICAR_EVENTO,
-        payload,
+        payload: {
+          ...payload,
+          creadoOffline: true,
+        },
         meta: { negocioNombre: nuevoData.negocio },
         tempId,
       });
       aplicarEstadoConProyeccion(cacheRepository.loadSnapshot(), usuario);
       mostrarToast(
-        `⏳ Evento "${payload.nombre}" guardado sin conexión. Se enviará al recuperar cobertura.`
+        `⏳ Evento "${payload.nombre}" guardado sin conexión. Al recuperar cobertura pasará directamente a revisión del moderador.`
       );
     };
 

@@ -69,7 +69,10 @@ export class EventoService {
   }
 
   async crearEvento(data, propietarioId) {
-    const negocio = await this.negocioRepository.findById(data.negocioId)
+    const { creadoOffline, ...eventoData } = data
+    const esCreadoOffline = Boolean(creadoOffline)
+
+    const negocio = await this.negocioRepository.findById(eventoData.negocioId)
     if (!negocio) {
       throw AppError.notFound('Negocio asociado no encontrado')
     }
@@ -82,35 +85,43 @@ export class EventoService {
       throw AppError.forbidden('Este comercio está pendiente de confirmación por un moderador')
     }
 
-    if (new Date(data.fechaFin) <= new Date(data.fechaInicio)) {
+    if (new Date(eventoData.fechaFin) <= new Date(eventoData.fechaInicio)) {
       throw AppError.badRequest('fechaFin debe ser posterior a fechaInicio')
     }
 
-    const esDeConfianza = Number(negocio.fiabilidad ?? 0) >= 60
-    let estadoInicial = data.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
-    let motivoInicial =
-      data.motivo ||
-      (esDeConfianza
-        ? 'Pase directo por fiabilidad del negocio'
-        : 'Pendiente de revisión por Moderador')
+    let estadoInicial
+    let motivoInicial
 
-    if (!data.estado) {
-      const resultadoIa = await moderarEventoConIa(data)
-      if (resultadoIa && typeof resultadoIa.aprobada === 'boolean') {
-        estadoInicial = resultadoIa.aprobada ? 'aprobada' : 'denegada'
-        motivoInicial =
-          resultadoIa.motivo ||
-          (resultadoIa.aprobada
-            ? 'Aprobada por Moderador IA'
-            : 'Rechazada por Moderador IA')
+    if (esCreadoOffline) {
+      estadoInicial = 'pendiente'
+      motivoInicial = 'Creada sin conexión · Pendiente de revisión por Moderador'
+    } else {
+      const esDeConfianza = Number(negocio.fiabilidad ?? 0) >= 60
+      estadoInicial = eventoData.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
+      motivoInicial =
+        eventoData.motivo ||
+        (esDeConfianza
+          ? 'Pase directo por fiabilidad del negocio'
+          : 'Pendiente de revisión por Moderador')
+
+      if (!eventoData.estado) {
+        const resultadoIa = await moderarEventoConIa(eventoData)
+        if (resultadoIa && typeof resultadoIa.aprobada === 'boolean') {
+          estadoInicial = resultadoIa.aprobada ? 'aprobada' : 'denegada'
+          motivoInicial =
+            resultadoIa.motivo ||
+            (resultadoIa.aprobada
+              ? 'Aprobada por Moderador IA'
+              : 'Rechazada por Moderador IA')
+        }
       }
     }
 
     return this.eventoRepository.create({
-      ...data,
+      ...eventoData,
       negocio,
-      pueblo: data.pueblo || negocio.pueblo || '',
-      coordenadas: data.coordenadas || negocio.coordenadas,
+      pueblo: eventoData.pueblo || negocio.pueblo || '',
+      coordenadas: eventoData.coordenadas || negocio.coordenadas,
       estado: estadoInicial,
       motivo: motivoInicial,
     })
