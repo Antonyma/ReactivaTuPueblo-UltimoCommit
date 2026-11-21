@@ -57,6 +57,12 @@ export default function ActivityCard({ act }) {
           <span className="absolute top-3 left-3 bg-blue-950/90 text-white text-xs font-bold px-3 py-1 rounded-full">
             {act.categoria}
           </span>
+          {(act.esRecomendada || act.es_recomendada) && (
+            <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 bg-amber-400 text-stone-950 text-xs font-black px-2.5 py-1 rounded-full shadow">
+              <IconStar className="w-3.5 h-3.5" filled />
+              Recomendado
+            </span>
+          )}
           {badgeEstado}
         </div>
 

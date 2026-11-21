@@ -70,6 +70,11 @@ class ReqRecommend(BaseModel):
     evento: dict
     vecinos: list[dict]
 
+class ReqRecommendActivities(BaseModel):
+    usuario_id: str
+    actividades_disponibles: Optional[list[dict]] = None
+    excluir_ya_inscritas: bool = True
+
 class ReqEventChat(BaseModel):
     pregunta: str = ""
     ficha_evento: dict
@@ -132,6 +137,14 @@ def endpoint_train_nemotron():
 @app.post("/agents/recommend")
 def endpoint_recommend(req: ReqRecommend):
     return recomendar_a_vecinos(req.evento, req.vecinos)
+
+@app.post("/agents/recommend-activities")
+def endpoint_recommend_activities(req: ReqRecommendActivities):
+    return recommend_actividades.recommend_actividades_usuario(
+        req.usuario_id,
+        req.actividades_disponibles,
+        req.excluir_ya_inscritas,
+    )
 
 @app.post("/agents/event-chat")
 async def endpoint_event_chat(req: ReqEventChat):
