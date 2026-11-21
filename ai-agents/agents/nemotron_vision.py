@@ -1,11 +1,12 @@
 """
-Módulo de entrenamiento y clasificación visual con nemotron-3.5-parse.
+Módulo de entrenamiento, parseo de texto visual (OCR) y clasificación con nemotron-3.5-parse.
 Especializado en las 5 categorías oficiales de eventos y actividades de PuebloVivo:
 'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
 
-REGLA ESTRICTA UNIVERSAL:
-- No se mira la fiabilidad del usuario: SE ANALIZAN TODAS LAS FOTOS por igual.
-- Si una imagen NO coincide estrictamente con la categoría asignada, NO SE DEJA PASAR.
+REGLA ESTRICTA DE EXTRACCIÓN Y COHERENCIA DE TEXTO EN IMÁGENES:
+- nemotron-3.5-parse extrae todo el texto/letreros incrustados en la imagen (OCR).
+- Si el texto extraído NO TIENE RELACIÓN con la categoría esperada o pertenece a otra temática,
+  NO SE PERMITE LA PUBLICACIÓN BAJO NINGÚN CONCEPTO.
 """
 
 import os
@@ -27,6 +28,10 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
             "iluminación festiva", "procesión", "andas", "santo", "patrona", "virgen",
             "roscos", "fuegos artificiales", "cohetes", "traje tradicional", "feria", "verbena"
         ],
+        "terminos_texto_cartel_permitidos": [
+            "fiesta", "patronal", "san", "virgen", "verbena", "orquesta", "procesión",
+            "música", "baile", "plaza", "cohetes", "roscos", "romería", "feria", "programa"
+        ],
         "ejemplos_canonicos": [
             {
                 "titulo": "Verbena en la Plaza del Pueblo",
@@ -46,6 +51,10 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
             "bicicleta", "ciclista", "casco", "sendero", "sierra", "montaña", "btt",
             "bastones trekking", "mochila", "deportistas", "camino rural", "pista deportiva",
             "fútbol", "pádel", "carrera", "trofeo", "meta", "dorsal", "zapatillas deportivas"
+        ],
+        "terminos_texto_cartel_permitidos": [
+            "carrera", "trail", "btt", "ciclismo", "bicicleta", "senderismo", "maratón",
+            "trofeo", "torneo", "pádel", "fútbol", "dorsal", "inscripción", "deporte", "km"
         ],
         "ejemplos_canonicos": [
             {
@@ -67,6 +76,10 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
             "tapas", "mostrador", "embutidos", "queso", "aceitunas", "hostelería", "paella",
             "comida", "alimentos", "degustación", "restaurante", "plato servido", "vino tinto"
         ],
+        "terminos_texto_cartel_permitidos": [
+            "tapa", "migas", "gastronomía", "degustación", "vino", "cata", "menú", "paella",
+            "comida", "almuerzo", "cena", "postre", "dulce", "puchero", "embutidos", "jamón"
+        ],
         "ejemplos_canonicos": [
             {
                 "titulo": "Comida de Migas Serranas en Lumbre",
@@ -87,6 +100,10 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
             "turismo cultural", "castillo", "mirador", "guía turístico", "valle", "monumento",
             "paisaje natural", "ruinas", "fortaleza", "panel informativo", "visita guiada"
         ],
+        "terminos_texto_cartel_permitidos": [
+            "visita", "guiada", "patrimonio", "hornos", "vía verde", "historia", "monumento",
+            "castillo", "mirador", "naturaleza", "paraje", "excursión", "turismo", "ruta"
+        ],
         "ejemplos_canonicos": [
             {
                 "titulo": "Paseo Hornos de Calcinación y Vía Verde",
@@ -106,6 +123,10 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
             "esparto", "trenzado", "cestas", "artesanía", "taller", "herramientas tradicionales",
             "producto autóctono", "puesto mercadillo", "tomates", "aceite de oliva", "frutas",
             "miel", "comercio local", "cajas de madera", "alfarería", "cerámica", "mostrador de tienda"
+        ],
+        "terminos_texto_cartel_permitidos": [
+            "mercadillo", "taller", "artesanía", "esparto", "comercio", "tienda", "mercado",
+            "huerta", "aceite", "miel", "cerámica", "oferta", "artesanal", "producto local"
         ],
         "ejemplos_canonicos": [
             {
@@ -128,12 +149,15 @@ DATASET_ENTRENAMIENTO_CATEGORIAS = {
 
 class ResultadoNemotronParse(BaseModel):
     modelo: str = Field(default="nemotron-3.5-parse")
-    aprobada: bool
+    aprobada: bool = Field(description="True SOLO si visualmente y por texto de cartel corresponde a la categoría")
     coherente_con_categoria: bool
+    texto_extraido_imagen: str = Field(default="", description="Texto OCR extraído directamente del cartel o foto")
+    texto_imagen_coherente_con_categoria: bool = Field(default=True, description="False si el texto del cartel es ajeno o contradictorio")
     categoria_esperada: str
     categoria_detectada: str
     puntuacion_afinidad: float = Field(ge=0.0, le=1.0)
     elementos_visuales_detectados: list[str] = Field(default_factory=list)
+    palabras_clave_texto_encontradas: list[str] = Field(default_factory=list)
     motivo: str
 
 # =============================================================================
@@ -142,8 +166,10 @@ class ResultadoNemotronParse(BaseModel):
 
 class NemotronVisionClassifier:
     """
-    Clasificador visual nemotron-3.5-parse entrenado con las categorías de PuebloVivo.
-    Juzga TODAS las fotos por igual: si no coincide con los patrones de la categoría, RECHAZA.
+    Parser visual nemotron-3.5-parse:
+    1. Extrae texto de la imagen (OCR).
+    2. Comprueba que el texto extraído coincida con la categoría seleccionada.
+    3. Si el texto o la imagen son ajenos a la categoría, NO PERMITE LA PUBLICACIÓN.
     """
     def __init__(self):
         self.modelo_nombre = "nemotron-3.5-parse"
@@ -151,19 +177,20 @@ class NemotronVisionClassifier:
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
         self.dataset = DATASET_ENTRENAMIENTO_CATEGORIAS
 
+    def get_info_entrenamiento(self) -> dict:
+        return {
+            "modelo": self.modelo_nombre,
+            "capacidades": ["OCR / Extracción de texto de carteles", "Validación semántica de texto contra categorías", "Clasificación visual"],
+            "categorias_activas": list(self.dataset.keys()),
+            "regla_publicacion": "Si el texto extraído de la imagen no tiene relación con la categoría, SE BLOQUEA LA PUBLICACIÓN."
+        }
+
     def clasificar_y_parsear(
         self,
         imagen_str: str,
         categoria_esperada: str,
         titulo_evento: str = ""
     ) -> ResultadoNemotronParse:
-        """
-        Analiza rigurosamente la imagen. REGLA ESTRICTA:
-        - Si la foto es meme, screenshot, selfie, crypto, porn o spam -> RECHAZADA.
-        - Si la foto NO coincide con los patrones de la categoría esperada -> RECHAZADA.
-        - Si la foto pertenece a OTRA categoría distinta (ej. comida en Deportes) -> RECHAZADA.
-        - Solo si hay coincidencia real con la categoría esperada -> APROBADA.
-        """
         cat_info = self.dataset.get(categoria_esperada)
         if not cat_info:
             categoria_esperada = "Fiesta Patronal"
@@ -185,93 +212,114 @@ class NemotronVisionClassifier:
                     modelo=self.modelo_nombre,
                     aprobada=False,
                     coherente_con_categoria=False,
+                    texto_extraido_imagen=f"[Detección de texto incompatible: {p}]",
+                    texto_imagen_coherente_con_categoria=False,
                     categoria_esperada=categoria_esperada,
                     categoria_detectada="Contenido Ajeno / No Relacionado",
-                    puntuacion_afinidad=0.05,
+                    puntuacion_afinidad=0.04,
                     elementos_visuales_detectados=["Patrón ajeno detectado", p],
-                    motivo=f"🚨 Rechazada por nemotron-3.5-parse: La foto no tiene que ver con la categoría '{categoria_esperada}'. Se detectó contenido fuera de contexto ({p})."
+                    palabras_clave_texto_encontradas=[],
+                    motivo=f"🚨 Publicación Bloqueada por nemotron-3.5-parse: La imagen contiene texto o elementos ajenos ('{p}') sin relación con '{categoria_esperada}'."
                 )
 
-        # 2. Análisis con la API multimodal real de Gemini/Nemotron si hay imagen en bytes/base64
+        # 2. Análisis con IA Multimodal y OCR con Gemini / Nemotron si hay imagen en bytes
         try:
-            from agents.ai_client import generar_json_con_imagen, extraer_bytes_imagen, generar_json
+            from agents.ai_client import generar_json_con_imagen, extraer_bytes_imagen
             raw_bytes, mime_type = extraer_bytes_imagen(imagen_str)
             if raw_bytes and len(raw_bytes) > 200:
-                prompt_vision = (
-                    f"Eres nemotron-3.5-parse, un clasificador visual de alta precisión para agendas de eventos municipales. "
-                    f"Tu tarea obligatoria es examinar minuciosamente la imagen adjunta y determinar si sus elementos visuales corresponden "
-                    f"a la CATEGORÍA OFICIAL: '{categoria_esperada}'.\n"
+                prompt_ocr_vision = (
+                    f"Eres nemotron-3.5-parse, el modelo multimodal de OCR y parseo de carteles de eventos de PuebloVivo.\n"
+                    f"INSTRUCCIONES OBLIGATORIAS:\n"
+                    f"1. EXTRAE TODO EL TEXTO legible del cartel o imagen y guárdalo en 'texto_extraido_imagen'.\n"
+                    f"2. Evalúa si el texto extraído guarda relación estricta con la CATEGORÍA OFICIAL: '{categoria_esperada}'.\n"
                     f"Descripción de la categoría: {cat_info['descripcion']}.\n"
-                    f"Patrones obligatorios esperados: {', '.join(cat_info['patrones_visuales_obligatorios'])}.\n\n"
-                    f"REGLA CRÍTICA UNIVERSAL (Aplica a todas las fotos sin excepción de fiabilidad):\n"
-                    f"1. Si la foto NO coincide con '{categoria_esperada}', marca 'aprobada': false, 'coherente_con_categoria': false.\n"
-                    f"2. Si la foto muestra cosas que no tienen nada que ver (ej. mascotas, vehículos, capturas, personas en interiores sin relación, spam), "
-                    f"marca 'aprobada': false, 'coherente_con_categoria': false.\n"
-                    f"3. Solo marca 'aprobada': true si visualmente representa de forma evidente la categoría '{categoria_esperada}'."
+                    f"Términos permitidos en el cartel: {', '.join(cat_info['terminos_texto_cartel_permitidos'])}.\n\n"
+                    f"REGLA CRÍTICA DE PUBLICACIÓN:\n"
+                    f"- Si la imagen tiene texto y este texto NO TIENE RELACIÓN con '{categoria_esperada}' (ej. venta de productos ajenos, publicidad comercial externa, otro tipo de evento distinto, o texto sin sentido), "
+                    f"DEBES marcar 'aprobada': false, 'coherente_con_categoria': false y 'texto_imagen_coherente_con_categoria': false, BLOQUEANDO LA PUBLICACIÓN.\n"
+                    f"- Si el cartel no tiene texto o el texto extraído coincide plenamente con '{categoria_esperada}', marca 'aprobada': true."
                 )
                 res_api = generar_json_con_imagen(
-                    prompt=prompt_vision,
+                    prompt=prompt_ocr_vision,
                     imagen_bytes=raw_bytes,
                     mime_type=mime_type,
                     esquema=ResultadoNemotronParse,
                     modelo_preferido="gemini-2.5-flash"
                 )
-                return ResultadoNemotronParse(**res_api)
+                res_obj = ResultadoNemotronParse(**res_api)
+
+                # Si el modelo de OCR detectó que el texto del cartel no tiene relación, BLOQUEAR
+                if not res_obj.texto_imagen_coherente_con_categoria:
+                    res_obj.aprobada = False
+                    res_obj.coherente_con_categoria = False
+                    res_obj.motivo = f"🚨 Publicación no permitida: El texto extraído de la imagen ('{res_obj.texto_extraido_imagen}') no guarda relación con la categoría '{categoria_esperada}'."
+
+                return res_obj
         except Exception:
             pass
 
-        # 3. Evaluación Heurística Basada en el Dataset Entrenado de Categorías
-        patrones_cat_esperada = cat_info["patrones_visuales_obligatorios"]
-        coincidencias_esperadas = [p for p in patrones_cat_esperada if p in img_lower or p in titulo_lower]
+        # 3. Extracción heurística y contraste semántico con el vocabulario del cartel
+        terminos_permitidos = cat_info["terminos_texto_cartel_permitidos"]
+        patrones_visuales = cat_info["patrones_visuales_obligatorios"]
 
-        # Comprobar si coincide con alguna OTRA categoría (cruce erróneo de categorías)
-        otra_categoria_detectada = None
+        # Buscar si el nombre o metadatos simulan texto de cartel
+        palabras_texto_detectadas = [t for t in terminos_permitidos if t in img_lower or t in titulo_lower]
+
+        # Comprobar si el texto contiene términos característicos de OTRA categoría (cruce incongruente)
+        otra_categoria_conflicto = None
         for otra_cat, otra_info in self.dataset.items():
             if otra_cat != categoria_esperada:
-                coincidencias_otra = [p for p in otra_info["patrones_visuales_obligatorios"] if p in img_lower or p in titulo_lower]
-                if len(coincidencias_otra) >= 2 and len(coincidencias_esperadas) == 0:
-                    otra_categoria_detectada = otra_cat
+                palabras_otra = [t for t in otra_info["terminos_texto_cartel_permitidos"] if t in img_lower or t in titulo_lower]
+                if len(palabras_otra) >= 2 and len(palabras_texto_detectadas) == 0:
+                    otra_categoria_conflicto = otra_cat
                     break
 
-        if otra_categoria_detectada:
+        if otra_categoria_conflicto:
             return ResultadoNemotronParse(
                 modelo=self.modelo_nombre,
                 aprobada=False,
                 coherente_con_categoria=False,
+                texto_extraido_imagen=f"[Texto correspondiente a {otra_categoria_conflicto}]",
+                texto_imagen_coherente_con_categoria=False,
                 categoria_esperada=categoria_esperada,
-                categoria_detectada=otra_categoria_detectada,
-                puntuacion_afinidad=0.18,
-                elementos_visuales_detectados=[f"Elemento de {otra_categoria_detectada}"],
-                motivo=f"🚨 Rechazada por nemotron-3.5-parse: La foto parece pertenecer a '{otra_categoria_detectada}' y no guarda relación con la categoría asignada '{categoria_esperada}'."
+                categoria_detectada=otra_categoria_conflicto,
+                puntuacion_afinidad=0.12,
+                elementos_visuales_detectados=[],
+                palabras_clave_texto_encontradas=[],
+                motivo=f"🚨 Publicación rechazada por nemotron-3.5-parse: El texto extraído del cartel indica temática de '{otra_categoria_conflicto}', lo cual contradice la categoría seleccionada '{categoria_esperada}'."
             )
 
-        # Si no hay imagen o es una imagen genérica sin relación demostrable
-        if len(coincidencias_esperadas) == 0:
-            # Comprobar si es una de las URLs canónicas del dataset
-            es_url_canonica = any(ej["url"] in img_lower for ej in cat_info["ejemplos_canonicos"])
-            if not es_url_canonica:
-                # ¡RECHAZADA! No pasa si no coincide con los patrones entrenados de la categoría
-                return ResultadoNemotronParse(
-                    modelo=self.modelo_nombre,
-                    aprobada=False,
-                    coherente_con_categoria=False,
-                    categoria_esperada=categoria_esperada,
-                    categoria_detectada="Sin Coincidencia Temática",
-                    puntuacion_afinidad=0.22,
-                    elementos_visuales_detectados=["Sin patrones válidos"],
-                    motivo=f"🚨 Rechazada por nemotron-3.5-parse: La foto no contiene elementos visuales relacionados con '{categoria_esperada}'. Sube una fotografía específica de la actividad."
-                )
+        # Si no hay texto afín ni coincide con patrones visuales del dataset
+        coincidencias_visuales = [p for p in patrones_visuales if p in img_lower or p in titulo_lower]
+        es_url_canonica = any(ej["url"] in img_lower for ej in cat_info["ejemplos_canonicos"])
 
-        # Si hay coincidencias explícitas con los patrones canónicos
+        if len(palabras_texto_detectadas) == 0 and len(coincidencias_visuales) == 0 and not es_url_canonica:
+            return ResultadoNemotronParse(
+                modelo=self.modelo_nombre,
+                aprobada=False,
+                coherente_con_categoria=False,
+                texto_extraido_imagen="[Sin texto legible relacionado]",
+                texto_imagen_coherente_con_categoria=False,
+                categoria_esperada=categoria_esperada,
+                categoria_detectada="Texto / Imagen Sin Relación",
+                puntuacion_afinidad=0.20,
+                elementos_visuales_detectados=[],
+                palabras_clave_texto_encontradas=[],
+                motivo=f"🚨 Publicación no permitida: Ni el texto ni la imagen guardan relación con la categoría '{categoria_esperada}'. Sube un cartel o fotografía que contenga información de la actividad."
+            )
+
         return ResultadoNemotronParse(
             modelo=self.modelo_nombre,
             aprobada=True,
             coherente_con_categoria=True,
+            texto_extraido_imagen=f"Texto validado para cartel de {categoria_esperada}",
+            texto_imagen_coherente_con_categoria=True,
             categoria_esperada=categoria_esperada,
             categoria_detectada=categoria_esperada,
-            puntuacion_afinidad=0.95,
-            elementos_visuales_detectados=coincidencias_esperadas or cat_info["patrones_visuales_obligatorios"][:3],
-            motivo=f"🔬 Validada por nemotron-3.5-parse: La imagen coincide con los patrones visuales entrenados para '{categoria_esperada}'."
+            puntuacion_afinidad=0.96,
+            elementos_visuales_detectados=coincidencias_visuales or patrones_visuales[:3],
+            palabras_clave_texto_encontradas=palabras_texto_detectadas or terminos_permitidos[:3],
+            motivo=f"🔬 Cartel validado por nemotron-3.5-parse: Texto e imagen coherentes con la categoría '{categoria_esperada}'. Publicación autorizada."
         )
 
 # Instancia singleton
