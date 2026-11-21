@@ -20,6 +20,7 @@ export default function PublisherPanel() {
   const [descripcion, setDescripcion] = useState("");
   const [imagenBase64, setImagenBase64] = useState("");
   const [previewName, setPreviewName] = useState("");
+  const [alertaErrorEvento, setAlertaErrorEvento] = useState("");
 
   // Form Negocio state
   const [negNombre, setNegNombre] = useState("");
@@ -43,10 +44,12 @@ export default function PublisherPanel() {
     reader.readAsDataURL(file);
   };
 
-  const handleCrearEvento = (e) => {
+  const handleCrearEvento = async (e) => {
     e.preventDefault();
     if (!defaultBusiness) return;
-    publicarEvento({
+    setAlertaErrorEvento("");
+
+    const res = await publicarEvento({
       titulo,
       categoria,
       negocio: defaultBusiness,
@@ -59,10 +62,16 @@ export default function PublisherPanel() {
       imagen: imagenBase64
     });
 
+    if (res && res.exito === false) {
+      setAlertaErrorEvento(res.motivo);
+      return;
+    }
+
     setTitulo("");
     setDescripcion("");
     setImagenBase64("");
     setPreviewName("");
+    setAlertaErrorEvento("");
     setMostrarFormEvento(false);
   };
 
@@ -132,6 +141,12 @@ export default function PublisherPanel() {
           onSubmit={handleCrearEvento}
           className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-2xl border border-blue-200"
         >
+          {alertaErrorEvento && (
+            <div className="md:col-span-2 bg-red-100 border-2 border-red-400 text-red-950 p-3 rounded-2xl text-xs font-bold space-y-1">
+              <p className="font-black text-sm text-red-700">⚠️ Error de Moderación Gemini</p>
+              <p>{alertaErrorEvento}</p>
+            </div>
+          )}
           <div className="md:col-span-2">
             <label className="block text-sm font-bold mb-1">Nombre del evento *</label>
             <input

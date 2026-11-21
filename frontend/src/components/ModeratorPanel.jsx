@@ -44,10 +44,11 @@ export default function ModeratorPanel() {
               🛡️ Panel de Moderación Total con Modelos Gemini
             </h1>
             <p className="text-sm text-blue-100 mt-1 max-w-3xl">
-              Moderas todo el contenido comarcal: <strong>Imágenes de eventos</strong> (con llamada ligera{" "}
-              <code>gemini-2.5-flash-lite</code> para negocios de fidelidad 3 como ayuntamientos) y{" "}
-              <strong>Reseñas vecinales</strong> (filtro estricto <code>gemini-2.5-flash</code> donde las palabras
-              malsonantes se van de raíz).
+              Moderas todo el contenido comarcal: <strong>Imágenes de eventos</strong> (llamada ligera{" "}
+              <code>gemini-2.5-flash-lite</code> para entidades de fidelidad 3 como el ayuntamiento; y para el resto,{" "}
+              <strong>llamada fuerte <code>gemini-2.5-flash</code> basada estrictamente en categorías</strong> para rechazar
+              fotos que no tienen nada que ver mientras el modelo aprende). Además, <strong>penalización estricta</strong>{" "}
+              por palabras malsonantes tanto en <strong>reseñas</strong> como en los <strong>títulos de actividades</strong>.
             </p>
           </div>
           <button
@@ -163,17 +164,23 @@ export default function ModeratorPanel() {
                           </span>
                         </div>
                         <div className="p-4 space-y-2">
-                          <span className="bg-amber-200 text-amber-950 text-xs font-black px-2.5 py-0.5 rounded-full">
-                            ⏳ Nivel Referencia {evalRef.nivel}/3
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="bg-amber-200 text-amber-950 text-xs font-black px-2.5 py-0.5 rounded-full">
+                              ⏳ Nivel {evalRef.nivel}/3
+                            </span>
+                            <span className="bg-blue-100 text-blue-900 text-xs font-black px-2.5 py-0.5 rounded-full">
+                              🏷️ {act.categoria}
+                            </span>
+                          </div>
                           <h3 className="font-black text-base text-stone-900">{act.nombre}</h3>
                           <p className="text-xs font-bold text-stone-600">
                             📍 {act.pueblo} · 🕒 {act.fecha}
                           </p>
                           <p className="text-xs text-stone-700">{act.descripcion}</p>
 
-                          <div className="bg-white p-2.5 rounded-xl border border-amber-300 text-[11px] text-blue-950">
-                            <strong>Dictamen Gemini Imagen:</strong> {modImg.motivo}
+                          <div className="bg-white p-2.5 rounded-xl border border-amber-300 text-[11px] text-blue-950 space-y-1">
+                            <p><strong>Llamada Fuerte Gemini (Categoría {act.categoria}):</strong></p>
+                            <p>{modImg.motivo}</p>
                           </div>
                         </div>
                       </div>

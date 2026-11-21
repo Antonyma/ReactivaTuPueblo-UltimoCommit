@@ -3,7 +3,7 @@ import { useApp } from "../../context/AppContext.jsx";
 import { evaluarFiabilidadNegocio } from "../../data/mockData.js";
 
 export default function ReviewsModal() {
-  const { modalResenas, setModalResenas, cuentasNegocio, agregarResena } = useApp();
+  const { modalResenas, setModalResenas, cuentasNegocio, resenas, agregarResena } = useApp();
   const [estrellas, setEstrellas] = useState(5);
   const [texto, setTexto] = useState("");
   const [alertaRechazo, setAlertaRechazo] = useState("");
@@ -13,6 +13,12 @@ export default function ReviewsModal() {
 
   const info = cuentasNegocio[nombreNegocio] || { resenas: [] };
   const evalRef = evaluarFiabilidadNegocio(nombreNegocio, cuentasNegocio);
+
+  // Filtra las opiniones aprobadas (libres de palabras malsonantes) para este negocio
+  const opinionesAprobadas = (resenas || []).filter(
+    (r) => r.negocio === nombreNegocio && r.estado === "aprobada"
+  );
+  const listaMostrar = opinionesAprobadas.length > 0 ? opinionesAprobadas : (info.resenas || []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,10 +56,10 @@ export default function ReviewsModal() {
         </div>
 
         <div className="max-h-44 overflow-y-auto space-y-2 text-sm bg-blue-50 p-3 rounded-2xl border">
-          {(!info.resenas || info.resenas.length === 0) ? (
+          {(!listaMostrar || listaMostrar.length === 0) ? (
             <p className="text-stone-500 text-center py-2">Sin opiniones todavía.</p>
           ) : (
-            info.resenas.map((r, i) => (
+            listaMostrar.map((r, i) => (
               <div key={i} className="p-2.5 bg-white rounded-xl border border-blue-200">
                 <p className="font-bold">
                   {r.usuario} <span className="text-amber-500">{"⭐".repeat(r.estrellas)}</span>

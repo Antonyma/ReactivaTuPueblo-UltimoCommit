@@ -11,9 +11,17 @@ class DecisionModeracionResena(BaseModel):
     palabras_detectadas: list[str] = Field(default_factory=list)
     motivo: str
 
+class DecisionModeracionTitulo(BaseModel):
+    aprobada: bool = Field(description="True si el título es respetuoso y no contiene malas palabras")
+    contiene_palabras_malsonantes: bool
+    palabras_detectadas: list[str] = Field(default_factory=list)
+    motivo: str
+
 class DecisionModeracionImagen(BaseModel):
     aprobada: bool
     es_llamada_ligera: bool
+    coherente_con_categoria: bool
+    categoria_evaluada: str
     modelo_utilizado: str
     motivo: str
 
@@ -53,25 +61,55 @@ def moderar_resena(texto: str, negocio: dict = None) -> dict:
     )
     return generar_json(prompt, [f"Texto de la reseña: {texto}"], DecisionModeracionResena, modelo_preferido="gemini-2.5-flash")
 
+def moderar_titulo_evento(titulo: str, descripcion: str = "") -> dict:
+    """
+    Moderación de títulos de eventos publicados por negocios:
+    REGLA: "Penaliza como con las reseñas las palabras en los títulos de las actividades que ponen los negocios"
+    """
+    prompt = (
+        "Eres el moderador de eventos de PuebloVivo. "
+        "Verifica estrictamente que el título y descripción del evento no contengan palabras malsonantes, "
+        "insultos, descalificaciones o lenguaje inapropiado. "
+        "Si contiene cualquier palabra malsonante, marca 'aprobada': false, 'contiene_palabras_malsonantes': true "
+        "y enumera las palabras detectadas. Solo aprueba si el título es respetuoso."
+    )
+    return generar_json(
+        prompt,
+        [f"Título: {titulo}\nDescripción: {descripcion}"],
+        DecisionModeracionTitulo,
+        modelo_preferido="gemini-2.5-flash"
+    )
+
 def moderar_imagen_evento(imagen_b64: str, fiabilidad_negocio: int = 1, datos_evento: dict = None) -> dict:
     """
     Moderación de imágenes con Gemini:
-    - Negocios con fiabilidad 3 (Ayuntamientos): llamada ligera con gemini-2.5-flash-lite.
-    - Negocios con fiabilidad < 3: llamada completa con gemini-2.5-flash.
+    - Negocios con fiabilidad 3 (Ayuntamientos): llamada ligera con gemini-2.5-flash-lite (pase directo).
+    - Negocios con fiabilidad < 3: llamada fuerte con gemini-2.5-flash basada estrictamente en la CATEGORÍA del evento.
+      Detecta y rechaza fotos que no tienen nada que ver con la actividad propuesta.
     """
+    datos = datos_evento or {}
+    categoria = datos.get("categoria", "General")
+    titulo = datos.get("titulo", "")
     es_fiabilidad_3 = fiabilidad_negocio >= 3
 
     if es_fiabilidad_3:
         # LLAMADA LIGERA (gemini-2.5-flash-lite)
         prompt = (
-            "Verificación rápida y ligera de imagen para entidad oficial de fiabilidad 3 (como Ayuntamiento). "
-            "Comprueba únicamente que no contenga material explícito, ofensivo o peligroso evidente."
+            "Verificación rápida y ligera de imagen para entidad oficial de fiabilidad 3 (Ayuntamiento). "
+            "Comprueba únicamente que no contenga material explícito, peligroso u ofensivo flagrante."
         )
         try:
-            res = generar_json(prompt, [f"Datos del evento: {datos_evento}"], DecisionModeracion, modelo_preferido="gemini-2.5-flash-lite")
+            res = generar_json(
+                prompt,
+                [f"Categoría: {categoria}, Título: {titulo}"],
+                DecisionModeracion,
+                modelo_preferido="gemini-2.5-flash-lite"
+            )
             return {
                 "aprobada": res.get("decision") == "aprobar",
                 "es_llamada_ligera": True,
+                "coherente_con_categoria": True,
+                "categoria_evaluada": categoria,
                 "modelo_utilizado": "gemini-2.5-flash-lite",
                 "motivo": f"⚡ Llamada ligera (gemini-2.5-flash-lite) para Fiabilidad 3: {res.get('motivo')}"
             }
@@ -79,19 +117,32 @@ def moderar_imagen_evento(imagen_b64: str, fiabilidad_negocio: int = 1, datos_ev
             return {
                 "aprobada": True,
                 "es_llamada_ligera": True,
+                "coherente_con_categoria": True,
+                "categoria_evaluada": categoria,
                 "modelo_utilizado": "gemini-2.5-flash-lite",
-                "motivo": "⚡ Llamada ligera completada: Entidad verificada Nivel 3."
+                "motivo": "⚡ Llamada ligera completada: Entidad verificada Nivel 3 (Pase directo)."
             }
 
-    # LLAMADA COMPLETA (gemini-2.5-flash)
+    # LLAMADA FUERTE (gemini-2.5-flash) BASADA EN CATEGORÍAS
     prompt = (
-        "Analiza detalladamente la imagen/cartel de este evento para una comarca rural. "
-        "Comprueba que sea un cartel legítimo, apto para todos los públicos y no sea publicidad no deseada o engañosa."
+        f"Eres el sistema de moderación visual estricto de PuebloVivo usando gemini-2.5-flash. "
+        f"Evalúa detalladamente si la imagen/cartel tiene relación directa y coherencia con la CATEGORÍA '{categoria}' "
+        f"y el evento '{titulo}'. Si la foto no tiene nada que ver (memes, imágenes aleatorias, spam, temas ajenos), "
+        f"recházala con 'decision': 'revision_humana' indicando que la foto es incoherente con la categoría. "
+        f"Si la foto representa adecuadamente la actividad y es apta para todos los públicos, devuélvelo en el motivo."
     )
-    res = generar_json(prompt, [f"Evento: {datos_evento}"], DecisionModeracion, modelo_preferido="gemini-2.5-flash")
+    res = generar_json(
+        prompt,
+        [f"Evento: {datos}\nCategoría obligatoria: {categoria}"],
+        DecisionModeracion,
+        modelo_preferido="gemini-2.5-flash"
+    )
+    es_aprobada = res.get("decision") == "aprobar"
     return {
-        "aprobada": res.get("decision") == "aprobar",
+        "aprobada": es_aprobada,
         "es_llamada_ligera": False,
+        "coherente_con_categoria": es_aprobada,
+        "categoria_evaluada": categoria,
         "modelo_utilizado": "gemini-2.5-flash",
-        "motivo": f"🔬 Llamada completa (gemini-2.5-flash): {res.get('motivo')}"
+        "motivo": f"🔬 Llamada fuerte (gemini-2.5-flash): {res.get('motivo')}"
     }
