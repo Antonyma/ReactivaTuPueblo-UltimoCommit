@@ -15,11 +15,14 @@ export class EventoService {
     return eventos.map((evento) => ({
       id: evento.id,
       nombre: evento.nombre,
+      pueblo: evento.pueblo,
       coordenadas: evento.coordenadas,
       tipoEvento: evento.tipoEvento,
       dePago: evento.dePago,
       fechaInicio: evento.fechaInicio,
       fechaFin: evento.fechaFin,
+      estado: evento.estado,
+      motivo: evento.motivo,
       negocio: evento.negocio?.nombre || null,
     }))
   }
@@ -46,10 +49,21 @@ export class EventoService {
       throw AppError.badRequest('fechaFin debe ser posterior a fechaInicio')
     }
 
+    const esDeConfianza = Number(negocio.fiabilidad ?? 0) >= 60
+    const estadoInicial = data.estado || (esDeConfianza ? 'aprobada' : 'pendiente')
+    const motivoInicial =
+      data.motivo ||
+      (esDeConfianza
+        ? 'Pase directo por fiabilidad del negocio'
+        : 'Pendiente de revisión por Moderador')
+
     return this.eventoRepository.create({
       ...data,
       negocio,
+      pueblo: data.pueblo || negocio.pueblo || '',
       coordenadas: data.coordenadas || negocio.coordenadas,
+      estado: estadoInicial,
+      motivo: motivoInicial,
     })
   }
 
@@ -96,6 +110,38 @@ export class EventoService {
       aforo: evento.aforo,
       inscripcion,
     }
+  }
+
+  async desapuntarse(eventoId, usuarioId) {
+    const evento = await this.obtenerEventoPorId(eventoId)
+
+    const yaInscrito = await this.eventoRepository.isUsuarioInscrito(eventoId, usuarioId)
+    if (!yaInscrito) {
+      throw AppError.notFound('El usuario no está inscrito en este evento')
+    }
+
+    await this.eventoRepository.desinscribirUsuario(eventoId, usuarioId)
+    return {
+      eventoId: evento.id,
+      nombreEvento: evento.nombre,
+      desinscrito: true,
+    }
+  }
+
+  async aprobarEvento(eventoId, motivo = 'Aprobada por Moderador') {
+    await this.obtenerEventoPorId(eventoId)
+    return this.eventoRepository.update(eventoId, {
+      estado: 'aprobada',
+      motivo: String(motivo || 'Aprobada por Moderador').trim(),
+    })
+  }
+
+  async denegarEvento(eventoId, motivo = 'Denegada por Moderador') {
+    await this.obtenerEventoPorId(eventoId)
+    return this.eventoRepository.update(eventoId, {
+      estado: 'denegada',
+      motivo: String(motivo || 'Denegada por Moderador').trim(),
+    })
   }
 
   async obtenerInscritos(eventoId, propietarioId) {

@@ -1,15 +1,14 @@
 import { AppError } from './errorHandler.js'
 
-/**
- * Decodifica el token mock emitido por AuthService (`mock_token:<id>:<tipoUsuario>`).
- * En producción se sustituirá por verificación JWT / Supabase Auth sin tocar rutas ni controladores.
- */
-function parseAuthToken(authHeader) {
+function extractBearerToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null
   }
-  const token = authHeader.slice('Bearer '.length).trim()
-  if (!token.startsWith('mock_token:')) {
+  return authHeader.slice('Bearer '.length).trim() || null
+}
+
+function parseMockToken(token) {
+  if (!token || !token.startsWith('mock_token:')) {
     return null
   }
 
@@ -22,17 +21,40 @@ function parseAuthToken(authHeader) {
   return { id, tipoUsuario }
 }
 
-export function createAuthMiddleware(usuarioRepository) {
+async function resolveUserFromToken(token, usuarioRepository, supabaseClient) {
+  if (!token) return null
+
+  const mockParsed = parseMockToken(token)
+  if (mockParsed) {
+    return usuarioRepository.findById(mockParsed.id)
+  }
+
+  if (supabaseClient?.auth?.getUser) {
+    const { data, error } = await supabaseClient.auth.getUser(token)
+    if (error || !data?.user) {
+      return null
+    }
+    const byAuthId = await usuarioRepository.findByAuthId(data.user.id)
+    if (byAuthId) return byAuthId
+    if (data.user.email) {
+      return usuarioRepository.findByEmail(data.user.email)
+    }
+  }
+
+  return null
+}
+
+export function createAuthMiddleware(usuarioRepository, supabaseClient = null) {
   return async function requireAuth(req, _res, next) {
     try {
-      const parsed = parseAuthToken(req.headers.authorization)
-      if (!parsed) {
+      const token = extractBearerToken(req.headers.authorization)
+      if (!token) {
         throw AppError.unauthorized('Token de autenticación inválido o ausente')
       }
 
-      const usuario = await usuarioRepository.findById(parsed.id)
+      const usuario = await resolveUserFromToken(token, usuarioRepository, supabaseClient)
       if (!usuario) {
-        throw AppError.unauthorized('Usuario asociado al token no existe')
+        throw AppError.unauthorized('Token inválido o usuario no encontrado')
       }
 
       req.user = usuario
@@ -43,12 +65,12 @@ export function createAuthMiddleware(usuarioRepository) {
   }
 }
 
-export function createOptionalAuthMiddleware(usuarioRepository) {
+export function createOptionalAuthMiddleware(usuarioRepository, supabaseClient = null) {
   return async function optionalAuth(req, _res, next) {
     try {
-      const parsed = parseAuthToken(req.headers.authorization)
-      if (parsed) {
-        const usuario = await usuarioRepository.findById(parsed.id)
+      const token = extractBearerToken(req.headers.authorization)
+      if (token) {
+        const usuario = await resolveUserFromToken(token, usuarioRepository, supabaseClient)
         if (usuario) {
           req.user = usuario
         }

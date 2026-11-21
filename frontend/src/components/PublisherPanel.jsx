@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
-import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../data/mockData.js";
+import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../constants/comarca.js";
 
 export default function PublisherPanel() {
   const { cuentasNegocio, usuario, cambiarRol, publicarEvento, crearNegocio } = useApp();

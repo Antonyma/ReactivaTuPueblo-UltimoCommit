@@ -1,6 +1,7 @@
 export class NegocioController {
-  constructor({ negocioService }) {
+  constructor({ negocioService, valoracionService }) {
     this.negocioService = negocioService
+    this.valoracionService = valoracionService
   }
 
   listar = async (req, res) => {
@@ -58,6 +59,15 @@ export class NegocioController {
       ok: true,
       message: 'Redes sociales actualizadas correctamente',
       data: negocio,
+    })
+  }
+
+  listarValoraciones = async (req, res) => {
+    await this.negocioService.obtenerNegocioPorId(req.params.id)
+    const result = await this.valoracionService.listarPorNegocio(req.params.id)
+    res.status(200).json({
+      ok: true,
+      data: result,
     })
   }
 }

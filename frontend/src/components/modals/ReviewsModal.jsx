@@ -1,13 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../../context/AppContext.jsx";
-import { evaluarFiabilidadNegocio } from "../../data/mockData.js";
+import { evaluarFiabilidadNegocio } from "../../constants/comarca.js";
 
 export default function ReviewsModal() {
-  const { modalResenas, setModalResenas, cuentasNegocio, agregarResena } = useApp();
+  const { modalResenas, setModalResenas, cuentasNegocio, agregarResena, cargarResenasNegocio } = useApp();
   const [estrellas, setEstrellas] = useState(5);
   const [texto, setTexto] = useState("");
 
   const nombreNegocio = modalResenas.nombreNegocio;
+
+  useEffect(() => {
+    if (modalResenas.open && nombreNegocio) {
+      cargarResenasNegocio(nombreNegocio);
+    }
+  }, [modalResenas.open, nombreNegocio]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!modalResenas.open || !nombreNegocio) return null;
 
   const info = cuentasNegocio[nombreNegocio] || { resenas: [] };

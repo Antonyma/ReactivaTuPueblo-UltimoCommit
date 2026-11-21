@@ -60,17 +60,40 @@ export function createEventoRoutes(
   router.post(
     '/:id/inscribirse',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     eventoController.inscribirse
+  )
+  router.delete(
+    '/:id/inscribirse',
+    requireAuth,
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    eventoController.desapuntarse
   )
   router.post(
     '/:id/dudas',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     requireBodyFields(['pregunta']),
     iaController.resolverDuda
+  )
+
+  // Rutas de moderador (aprobar / denegar)
+  router.post(
+    '/:id/aprobar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    eventoController.aprobar
+  )
+  router.post(
+    '/:id/denegar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    eventoController.denegar
   )
 
   // Rutas de publicador (CRUD y gestión de inscritos)

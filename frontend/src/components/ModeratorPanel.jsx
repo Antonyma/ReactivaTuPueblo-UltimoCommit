@@ -1,6 +1,6 @@
 import React from "react";
 import { useApp } from "../context/AppContext.jsx";
-import { evaluarFiabilidadNegocio } from "../data/mockData.js";
+import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
 
 export default function ModeratorPanel() {
   const {

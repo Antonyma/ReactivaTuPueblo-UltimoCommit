@@ -21,6 +21,7 @@ export const NEGOCIO_SCHEMA = {
     twitterUrl: 'twitterUrl',
     webUrl: 'webUrl',
     fiabilidad: 'fiabilidad',
+    pueblo: 'pueblo',
     createdAt: 'created_at',
   },
 }
@@ -52,6 +53,7 @@ export function mapNegocioFromRow(row) {
       row[cols.fiabilidad] !== undefined && row[cols.fiabilidad] !== null
         ? Number(row[cols.fiabilidad])
         : 100,
+    pueblo: String(row[cols.pueblo] ?? ''),
   })
 }
 
@@ -73,6 +75,7 @@ function mapNegocioToRow(data) {
   if (data.twitterUrl !== undefined) row[cols.twitterUrl] = String(data.twitterUrl)
   if (data.webUrl !== undefined) row[cols.webUrl] = String(data.webUrl)
   if (data.fiabilidad !== undefined) row[cols.fiabilidad] = Number(data.fiabilidad)
+  if (data.pueblo !== undefined) row[cols.pueblo] = String(data.pueblo).trim()
 
   return row
 }

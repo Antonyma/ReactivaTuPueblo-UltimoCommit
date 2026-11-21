@@ -2,6 +2,7 @@ export const USUARIOS = Object.freeze({
   NO_REGISTRADO: 'no registrado',
   REGISTRADO: 'registrado',
   PUBLICADOR: 'publicador',
+  MODERADOR: 'moderador',
 })
 
 export class Usuario {

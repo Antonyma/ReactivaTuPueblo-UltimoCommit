@@ -9,7 +9,7 @@ export function createAuthRoutes(authController) {
     requireBodyFields(['nombre', 'email', 'telefono', 'password']),
     authController.register
   )
-  router.post('/login', requireBodyFields(['email', 'password']), authController.login)
+  router.post('/login', requireBodyFields(['nombre', 'password']), authController.login)
 
   return router
 }

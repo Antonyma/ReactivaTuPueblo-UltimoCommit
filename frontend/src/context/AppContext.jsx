@@ -1,25 +1,39 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
-  actividadesIniciales,
-  cuentasNegocioIniciales,
-  evaluarFiabilidadNegocio,
-  formatearTelefonoConPrefijo,
+  authApi,
+  eventosApi,
+  negociosApi,
+  usuariosApi,
+  getAuthToken,
+  getStoredUser,
+  setAuthSession,
+} from "../api/client.js";
+import {
+  mapEventoFromApi,
+  mapNegocioFromApi,
+  normalizeRoleForApi,
+  normalizeRoleForUi,
+} from "../api/mappers.js";
+import {
+  CATEGORIA_A_TIPO_EVENTO,
+  CENTRO_MANCOMUNIDAD,
   formatearFechaBonita,
+  formatearTelefonoConPrefijo,
   municipiosMancomunidad,
-  CENTRO_MANCOMUNIDAD
-} from "../data/mockData.js";
+} from "../constants/comarca.js";
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  const [actividades, setActividades] = useState(actividadesIniciales);
-  const [cuentasNegocio, setCuentasNegocio] = useState(cuentasNegocioIniciales);
-  const [usuario, setUsuario] = useState(null); // { id, nombre, email, telefono, tipoUsuario }
+  const [actividades, setActividades] = useState([]);
+  const [cuentasNegocio, setCuentasNegocio] = useState({});
+  const [usuario, setUsuario] = useState(() => getStoredUser());
+  const [cargando, setCargando] = useState(true);
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
   const [misInscripcionesIds, setMisInscripcionesIds] = useState([]);
   const [muestrasAprendidasModelo, setMuestrasAprendidasModelo] = useState(4);
-  const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(3);
+  const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(0);
   const [ultimoWhatsAppPublicador, setUltimoWhatsAppPublicador] = useState(
     "Listo para notificar aprobación o rechazo al publicador."
   );
@@ -43,306 +57,371 @@ export function AppProvider({ children }) {
     }
   }, [letraGrande]);
 
-  const mostrarToast = (mensaje) => {
+  const mostrarToast = useCallback((mensaje) => {
     setToast({ open: true, mensaje });
     setTimeout(() => {
       setToast({ open: false, mensaje: "" });
     }, 5500);
-  };
+  }, []);
 
-  const notificarDecisionPublicadorWhatsApp = (act, decision) => {
-    const infoNegocio = cuentasNegocio[act.negocio];
-    const telPublicador = (infoNegocio && infoNegocio.telefonoPublicador)
-      ? infoNegocio.telefonoPublicador
-      : (usuario ? usuario.telefono : "+34600998877");
+  const cargarDatosIniciales = useCallback(async (usuarioActivo) => {
+    setCargando(true);
+    try {
+      const [eventosRes, negociosRes] = await Promise.all([
+        eventosApi.listar(),
+        negociosApi.listar(),
+      ]);
 
-    const evalRef = evaluarFiabilidadNegocio(act.negocio, cuentasNegocio);
-    const mensajeWhatsApp = decision === "APROBADA"
-      ? `✅ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido APROBADA y ya es visible para los vecinos. (Nivel de referencia actual: ${evalRef.nivel}/3).`
-      : `❌ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido DENEGADA por no cumplir las normas de publicación comarcal.`;
+      const listaEventos = (eventosRes?.data || []).map(mapEventoFromApi);
+      setActividades(listaEventos);
+      setEventosAhorradosTokens(listaEventos.filter((e) => e.ahorroTokens).length);
 
-    const logStr = `Para ${telPublicador}: "${mensajeWhatsApp}"`;
-    setUltimoWhatsAppPublicador(logStr);
-    mostrarToast(`📲 WhatsApp enviado a ${act.negocio} (${telPublicador}): ${decision}`);
-  };
+      const mapNegocios = {};
+      for (const neg of negociosRes?.data || []) {
+        const mapped = mapNegocioFromApi(neg, usuarioActivo);
+        mapNegocios[mapped.nombre] = mapped;
+      }
+      setCuentasNegocio(mapNegocios);
 
-  const loginUsuario = ({ nombre, email, telefono, tipoUsuario }) => {
-    const formattedTel = formatearTelefonoConPrefijo(telefono);
-    const u = { id: Date.now(), nombre, email, telefono: formattedTel, tipoUsuario };
+      if (usuarioActivo?.id && getAuthToken()) {
+        try {
+          const histRes = await usuariosApi.obtenerHistorial(usuarioActivo.id);
+          const ids = (histRes?.data || [])
+            .filter((h) => h.estado !== "CANCELADA" && h.evento?.id)
+            .map((h) => Number(h.evento.id));
+          setMisInscripcionesIds(ids);
+        } catch {
+          setMisInscripcionesIds([]);
+        }
+      } else {
+        setMisInscripcionesIds([]);
+      }
+    } catch (err) {
+      mostrarToast(`⚠️ No se pudieron cargar los datos del servidor: ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  }, [mostrarToast]);
+
+  useEffect(() => {
+    cargarDatosIniciales(usuario);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const finalizarAutenticacion = async (authPayload) => {
+    const rawUser = authPayload?.data?.usuario;
+    const token = authPayload?.data?.token;
+    if (!rawUser || !token) {
+      throw new Error("Respuesta de autenticación incompleta");
+    }
+
+    const u = {
+      ...rawUser,
+      tipoUsuario: normalizeRoleForUi(rawUser.tipoUsuario),
+    };
+    setAuthSession(token, u);
     setUsuario(u);
     setModalLogin({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
+
+    await cargarDatosIniciales(u);
 
     if (accionPendienteTrasRegistro) {
       const idAct = accionPendienteTrasRegistro;
       setAccionPendienteTrasRegistro(null);
-      const act = actividades.find((a) => a.id === idAct);
-      if (act && act.asistentes < act.aforo && !misInscripcionesIds.includes(idAct)) {
+      try {
+        await eventosApi.inscribirse(idAct);
+        setMisInscripcionesIds((prev) => (prev.includes(idAct) ? prev : [...prev, idAct]));
         setActividades((prev) =>
-          prev.map((a) => {
-            if (a.id === idAct) {
-              return {
-                ...a,
-                asistentes: a.asistentes + 1,
-                listaInscritos: [
-                  ...a.listaInscritos,
-                  { nombre: u.nombre, email: u.email, telefono: u.telefono }
-                ]
-              };
-            }
-            return a;
-          })
+          prev.map((a) => (a.id === idAct ? { ...a, asistentes: a.asistentes + 1 } : a))
         );
-        setMisInscripcionesIds((prev) => [...prev, idAct]);
-        mostrarToast(`✅ ¡Bienvenido ${nombre}! Quedas apuntado a "${act.nombre}".`);
+        mostrarToast(`✅ ¡Bienvenido ${u.nombre}! Quedas apuntado a la actividad.`);
+        return;
+      } catch (err) {
+        mostrarToast(`⚠️ ${err.message}`);
         return;
       }
     }
 
-    mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
+    mostrarToast(`Bienvenido/a ${u.nombre} (${u.tipoUsuario})`);
   };
 
-  const cambiarRol = (nuevoRol) => {
-    if (usuario) {
-      setUsuario({ ...usuario, tipoUsuario: nuevoRol });
-    } else {
-      setModalLogin({
-        open: true,
-        defaultTipo: nuevoRol,
-        motivo:
-          nuevoRol === "MODERADOR"
-            ? "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades."
-            : `Identifícate con rol ${nuevoRol}`
-      });
+  const loginUsuario = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.login({ nombre, password });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`❌ Error al entrar: ${err.message}`);
+      throw err;
     }
   };
 
-  const apuntarse = (id) => {
-    if (!usuario) {
+  const registerUsuario = async ({ nombre, email, telefono, password, tipoUsuario }) => {
+    try {
+      const formattedTel = formatearTelefonoConPrefijo(telefono);
+      const res = await authApi.register({
+        nombre,
+        email,
+        telefono: formattedTel,
+        password,
+        tipoUsuario: normalizeRoleForApi(tipoUsuario),
+      });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`❌ Error al registrarse: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const logoutUsuario = () => {
+    setAuthSession(null, null);
+    setUsuario(null);
+    setMisInscripcionesIds([]);
+    setCuentasNegocio((prev) => {
+      const next = {};
+      for (const [k, v] of Object.entries(prev)) {
+        next[k] = { ...v, esMio: false };
+      }
+      return next;
+    });
+    mostrarToast("Has cerrado sesión.");
+  };
+
+  const cambiarRol = (nuevoRol) => {
+    if (usuario && usuario.tipoUsuario === nuevoRol) return;
+    setModalLogin({
+      open: true,
+      defaultTipo: nuevoRol,
+      motivo:
+        nuevoRol === "MODERADOR"
+          ? "Esta zona es exclusiva para el Moderador. Inicia sesión o regístrate con rol Moderador."
+          : `Inicia sesión o regístrate con rol ${nuevoRol}`
+    });
+  };
+
+  const apuntarse = async (id) => {
+    if (!usuario || !getAuthToken()) {
       setAccionPendienteTrasRegistro(id);
       setModalLogin({
         open: true,
         defaultTipo: "REGISTRADO",
-        motivo: "Escribe tus datos una sola vez para apuntarte a planes."
+        motivo: "Inicia sesión o regístrate una sola vez para apuntarte a planes."
       });
       return;
     }
     const act = actividades.find((a) => a.id === id);
-    if (!act || act.asistentes >= act.aforo) return;
-    if (misInscripcionesIds.includes(id)) return;
+    if (!act || act.asistentes >= act.aforo || misInscripcionesIds.includes(id)) return;
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            asistentes: a.asistentes + 1,
-            listaInscritos: [
-              ...a.listaInscritos,
-              { nombre: usuario.nombre, email: usuario.email, telefono: usuario.telefono }
-            ]
-          };
-        }
-        return a;
-      })
-    );
-    setMisInscripcionesIds((prev) => [...prev, id]);
-    mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuario.telefono}.`);
+    try {
+      await eventosApi.inscribirse(id);
+      setActividades((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, asistentes: a.asistentes + 1 } : a))
+      );
+      setMisInscripcionesIds((prev) => [...prev, id]);
+      mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuario.telefono}.`);
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
   };
 
-  const desapuntarse = (id) => {
+  const desapuntarse = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            asistentes: Math.max(0, a.asistentes - 1),
-            listaInscritos: a.listaInscritos.filter((i) => i.email !== (usuario ? usuario.email : ""))
-          };
-        }
-        return a;
-      })
-    );
-    setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-    mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+    try {
+      await eventosApi.desapuntarse(id);
+      setActividades((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, asistentes: Math.max(0, a.asistentes - 1) } : a))
+      );
+      setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
+      mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
   };
 
-  const guardarNuevaHora = (id, inicio, fin) => {
+  const guardarNuevaHora = async (id, inicio, fin) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    const fechaBonita = formatearFechaBonita(inicio);
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            fechaInicioISO: inicio,
-            fechaFinISO: fin,
-            fecha: fechaBonita
-          };
-        }
-        return a;
-      })
-    );
-    setModalCambiarHora({ open: false, actividad: null });
-    const numApuntados = act.listaInscritos.length;
-    const aviso = numApuntados > 0
-      ? `🕒 Hora actualizada a "${fechaBonita}". Se ha enviado aviso por WhatsApp a los ${numApuntados} apuntados.`
-      : `🕒 Hora actualizada a "${fechaBonita}".`;
-    mostrarToast(aviso);
+    try {
+      await eventosApi.actualizar(id, { fechaInicio: inicio, fechaFin: fin });
+      const fechaBonita = formatearFechaBonita(inicio);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, fechaInicioISO: inicio, fechaFinISO: fin, fecha: fechaBonita } : a
+        )
+      );
+      setModalCambiarHora({ open: false, actividad: null });
+      mostrarToast(`🕒 Hora actualizada a "${fechaBonita}".`);
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
   };
 
-  const eliminarEvento = (id) => {
-    setActividades((prev) => prev.filter((a) => a.id !== id));
-    setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-    mostrarToast("🗑️ Evento eliminado.");
+  const eliminarEvento = async (id) => {
+    try {
+      await eventosApi.eliminar(id);
+      setActividades((prev) => prev.filter((a) => a.id !== id));
+      setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
+      mostrarToast("🗑️ Evento eliminado.");
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
   };
 
-  const publicarEvento = (nuevoData) => {
-    const evalRef = evaluarFiabilidadNegocio(nuevoData.negocio, cuentasNegocio);
-    const pasaSinRevision = evalRef.esDeConfianza;
+  const publicarEvento = async (nuevoData) => {
+    const negocioInfo = cuentasNegocio[nuevoData.negocio];
+    if (!negocioInfo?.id) {
+      mostrarToast("⚠️ Selecciona un negocio válido antes de publicar.");
+      return;
+    }
+
     const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
-
-    const nuevoEvento = {
-      id: Date.now(),
+    const payload = {
       nombre: nuevoData.titulo,
+      negocioId: negocioInfo.id,
       pueblo: nuevoData.pueblo,
-      negocio: nuevoData.negocio,
-      categoria: nuevoData.categoria,
       descripcion: nuevoData.descripcion,
-      coords: baseCoords,
-      dePago: nuevoData.dePago,
-      asistentes: 0,
-      aforo: nuevoData.aforo,
-      listaInscritos: [],
-      fechaInicioISO: nuevoData.fechaInicio,
-      fechaFinISO: nuevoData.fechaFin,
-      fecha: formatearFechaBonita(nuevoData.fechaInicio),
-      estadoModeracion: pasaSinRevision ? "aprobada" : "pendiente",
-      ahorroTokens: pasaSinRevision,
-      motivoIA: pasaSinRevision
-        ? `Pase directo por Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados)`
-        : `Cuenta Nivel 1/3 · Pendiente de revisión por Moderador`,
-      imagen: nuevoData.imagen || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
+      coordenadas: `${baseCoords[0]}, ${baseCoords[1]}`,
+      dePago: Boolean(nuevoData.dePago),
+      aforo: Number(nuevoData.aforo),
+      tipoEvento: CATEGORIA_A_TIPO_EVENTO[nuevoData.categoria] || 1,
+      fechaInicio: nuevoData.fechaInicio,
+      fechaFin: nuevoData.fechaFin,
+      imagen: nuevoData.imagen || "",
     };
 
-    setActividades((prev) => [nuevoEvento, ...prev]);
+    try {
+      const res = await eventosApi.crear(payload);
+      const nuevoEvento = mapEventoFromApi(res.data);
+      setActividades((prev) => [nuevoEvento, ...prev]);
 
-    if (pasaSinRevision) {
-      setEventosAhorradosTokens((prev) => prev + 1);
-      if (cuentasNegocio[nuevoData.negocio]) {
-        setCuentasNegocio((prev) => ({
-          ...prev,
-          [nuevoData.negocio]: {
-            ...prev[nuevoData.negocio],
-            actividadesAprobadas: prev[nuevoData.negocio].actividadesAprobadas + 1
-          }
-        }));
+      if (nuevoEvento.estadoModeracion === "aprobada") {
+        setEventosAhorradosTokens((prev) => prev + 1);
+        mostrarToast(`⚡ ¡Publicada al instante! "${nuevoData.negocio}" tiene pase directo.`);
+      } else {
+        mostrarToast(`⏳ Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
       }
-      notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
-      mostrarToast(`⚡ ¡Publicada al instante! "${nuevoData.negocio}" tiene Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados).`);
-    } else {
-      mostrarToast(`⏳ Enviada a revisión: "${nuevoData.negocio}" es Nivel 1/3. Te avisaremos por WhatsApp cuando el Moderador la apruebe.`);
+    } catch (err) {
+      mostrarToast(`❌ No se pudo publicar el evento: ${err.message}`);
     }
   };
 
-  const crearNegocio = ({ nombre, pueblo, instagramUrl, facebookUrl }) => {
-    setCuentasNegocio((prev) => ({
-      ...prev,
-      [nombre]: {
-        id: Date.now(),
+  const crearNegocio = async ({ nombre, pueblo, instagramUrl, facebookUrl }) => {
+    const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    try {
+      const res = await negociosApi.crear({
         nombre,
-        esMio: true,
         pueblo,
-        telefonoPublicador: usuario ? usuario.telefono : "+34600112233",
-        actividadesAprobadas: 0,
-        cuentaVerificada: false,
-        fiabilidad: 1,
+        coordenadas: `${coords[0]}, ${coords[1]}`,
         instagramUrl,
         facebookUrl,
-        resenas: []
-      }
-    }));
-    mostrarToast(`✅ Negocio "${nombre}" guardado con Referencia Nivel 1/3.`);
+        fiabilidad: 40,
+      });
+      const mapped = mapNegocioFromApi(res.data, usuario);
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [mapped.nombre]: mapped,
+      }));
+      mostrarToast(`✅ Negocio "${mapped.nombre}" guardado en el servidor.`);
+    } catch (err) {
+      mostrarToast(`❌ Error al crear negocio: ${err.message}`);
+    }
   };
 
-  const aprobarActividad = (id) => {
+  const aprobarActividad = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    let nuevoNivel = 1;
-    if (cuentasNegocio[act.negocio]) {
-      const updatedCount = cuentasNegocio[act.negocio].actividadesAprobadas + 2;
-      const updatedCuentas = {
-        ...cuentasNegocio,
-        [act.negocio]: {
-          ...cuentasNegocio[act.negocio],
-          actividadesAprobadas: updatedCount
-        }
-      };
-      setCuentasNegocio(updatedCuentas);
-      nuevoNivel = evaluarFiabilidadNegocio(act.negocio, updatedCuentas).nivel;
+    try {
+      const motivo = "Aprobada por Moderador · Verificada";
+      await eventosApi.aprobar(id, motivo);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, estadoModeracion: "aprobada", motivoIA: motivo } : a
+        )
+      );
+      setMuestrasAprendidasModelo((prev) => prev + 1);
+      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" aprobada y visible para los vecinos.`);
+      mostrarToast(`✅ Actividad "${act.nombre}" aprobada.`);
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
+  };
+
+  const denegarActividad = async (id) => {
+    const act = actividades.find((a) => a.id === id);
+    if (!act) return;
+
+    try {
+      const motivo = "Denegada por Moderador · No cumple las normas comarcales";
+      await eventosApi.denegar(id, motivo);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, estadoModeracion: "denegada", motivoIA: motivo } : a
+        )
+      );
+      setMuestrasAprendidasModelo((prev) => prev + 1);
+      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" denegada.`);
+      mostrarToast(`❌ Actividad "${act.nombre}" denegada.`);
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
+  };
+
+  const cargarResenasNegocio = useCallback(async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return [];
+    try {
+      const res = await negociosApi.listarValoraciones(info.id);
+      const lista = (res?.data?.valoraciones || []).map((v) => ({
+        id: v.id,
+        usuario: v.usuario?.nombre || "Vecino",
+        estrellas: v.estrellas,
+        texto: v.texto,
+      }));
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [nombreNegocio]: { ...prev[nombreNegocio], resenas: lista },
+      }));
+      return lista;
+    } catch {
+      return info.resenas || [];
+    }
+  }, [cuentasNegocio]);
+
+  const agregarResena = async (nombreNegocio, estrellas, texto) => {
+    const eventosDelNegocio = actividades.filter((a) => a.negocio === nombreNegocio);
+    const eventoObjetivo =
+      eventosDelNegocio.find((a) => misInscripcionesIds.includes(a.id)) || eventosDelNegocio[0];
+
+    if (!eventoObjetivo) {
+      mostrarToast("⚠️ Este negocio aún no tiene eventos para valorar.");
+      return;
     }
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            estadoModeracion: "aprobada",
-            motivoIA: `Aprobada por Moderador · Negocio sube a Referencia Nivel ${nuevoNivel}/3`
-          };
-        }
-        return a;
-      })
-    );
-
-    setMuestrasAprendidasModelo((prev) => prev + 1);
-    notificarDecisionPublicadorWhatsApp(act, "APROBADA");
-  };
-
-  const denegarActividad = (id) => {
-    const act = actividades.find((a) => a.id === id);
-    if (!act) return;
-
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            estadoModeracion: "denegada",
-            motivoIA: "Denegada por Moderador · Aviso enviado por WhatsApp al publicador"
-          };
-        }
-        return a;
-      })
-    );
-
-    setMuestrasAprendidasModelo((prev) => prev + 1);
-    notificarDecisionPublicadorWhatsApp(act, "DENEGADA");
-  };
-
-  const agregarResena = (nombreNegocio, estrellas, texto) => {
-    const autor = usuario ? usuario.nombre : "Vecino";
-    setCuentasNegocio((prev) => {
-      const existe = prev[nombreNegocio] || {
-        id: Date.now(),
-        nombre: nombreNegocio,
-        actividadesAprobadas: 0,
-        resenas: []
+    try {
+      const res = await eventosApi.crearValoracion(eventoObjetivo.id, { estrellas, texto });
+      const nueva = {
+        id: res?.data?.id,
+        usuario: usuario?.nombre || "Vecino",
+        estrellas,
+        texto,
       };
-      return {
-        ...prev,
-        [nombreNegocio]: {
-          ...existe,
-          resenas: [{ usuario: autor, estrellas, texto }, ...existe.resenas]
-        }
-      };
-    });
-    mostrarToast("⭐ ¡Gracias! Tu opinión actualiza la referencia del negocio.");
+      setCuentasNegocio((prev) => {
+        const existe = prev[nombreNegocio];
+        if (!existe) return prev;
+        return {
+          ...prev,
+          [nombreNegocio]: {
+            ...existe,
+            resenas: [nueva, ...(existe.resenas || [])],
+          },
+        };
+      });
+      mostrarToast("⭐ ¡Gracias! Tu opinión se ha guardado.");
+    } catch (err) {
+      mostrarToast(`❌ ${err.message}`);
+    }
   };
 
   return (
@@ -351,6 +430,7 @@ export function AppProvider({ children }) {
         actividades,
         cuentasNegocio,
         usuario,
+        cargando,
         letraGrande,
         setLetraGrande,
         puebloActivo,
@@ -372,6 +452,8 @@ export function AppProvider({ children }) {
         modalInscritos,
         setModalInscritos,
         loginUsuario,
+        registerUsuario,
+        logoutUsuario,
         cambiarRol,
         apuntarse,
         desapuntarse,
@@ -381,7 +463,8 @@ export function AppProvider({ children }) {
         crearNegocio,
         aprobarActividad,
         denegarActividad,
-        agregarResena
+        cargarResenasNegocio,
+        agregarResena,
       }}
     >
       {children}

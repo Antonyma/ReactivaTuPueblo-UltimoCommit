@@ -5,6 +5,14 @@ export class UsuarioRepository extends BaseRepository {
     throw new Error('Método findByEmail() no implementado')
   }
 
+  async findByNombre(_nombre) {
+    throw new Error('Método findByNombre() no implementado')
+  }
+
+  async findByAuthId(_authId) {
+    throw new Error('Método findByAuthId() no implementado')
+  }
+
   async findByTelefono(_telefono) {
     throw new Error('Método findByTelefono() no implementado')
   }

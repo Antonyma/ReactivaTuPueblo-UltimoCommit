@@ -9,6 +9,7 @@ export function createNegocioRoutes(negocioController, { requireAuth }) {
   // Rutas públicas
   router.get('/', negocioController.listar)
   router.get('/:id', validateIntParam('id'), negocioController.obtenerPorId)
+  router.get('/:id/valoraciones', validateIntParam('id'), negocioController.listarValoraciones)
 
   // Rutas de publicador (CRUD completo y redes sociales)
   router.post(

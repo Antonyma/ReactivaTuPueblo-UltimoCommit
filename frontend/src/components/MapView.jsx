@@ -5,7 +5,7 @@ import {
   CENTRO_MANCOMUNIDAD,
   ZOOM_MANCOMUNIDAD,
   coordsPueblos
-} from "../data/mockData.js";
+} from "../constants/comarca.js";
 
 export default function MapView() {
   const mapContainerRef = useRef(null);
