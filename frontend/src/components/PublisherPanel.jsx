@@ -588,14 +588,18 @@ export default function PublisherPanel() {
               <h3 className="font-black text-lg">Detalles del negocio</h3>
               <span
                 className={`text-xs font-black px-3 py-1 rounded-full ${
-                  negocioDetalle.pendiente
-                    ? "bg-amber-200 text-amber-950"
-                    : "bg-emerald-100 text-emerald-900"
+                  negocioDetalle.pendienteSync
+                    ? "bg-amber-400 text-stone-950"
+                    : negocioDetalle.pendiente
+                      ? "bg-amber-200 text-amber-950"
+                      : "bg-emerald-100 text-emerald-900"
                 }`}
               >
-                {negocioDetalle.pendiente
-                  ? "Pendiente de confirmación"
-                  : `Confirmado · Fiabilidad ${negocioDetalle.fiabilidad}`}
+                {negocioDetalle.pendienteSync
+                  ? "⏳ Guardado offline · Pendiente de sincronizar"
+                  : negocioDetalle.pendiente
+                    ? "Pendiente de confirmación"
+                    : `Confirmado · Fiabilidad ${negocioDetalle.fiabilidad}`}
               </span>
             </div>
 
@@ -722,14 +726,16 @@ export default function PublisherPanel() {
                         <p className="font-black text-base text-stone-900">{act.nombre}</p>
                         <span
                           className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
-                            act.estadoModeracion === "aprobada"
-                              ? "bg-emerald-100 text-emerald-900"
-                              : act.estadoModeracion === "denegada"
-                                ? "bg-red-100 text-red-900"
-                                : "bg-amber-200 text-amber-950"
+                            act.pendienteSync
+                              ? "bg-amber-400 text-stone-950"
+                              : act.estadoModeracion === "aprobada"
+                                ? "bg-emerald-100 text-emerald-900"
+                                : act.estadoModeracion === "denegada"
+                                  ? "bg-red-100 text-red-900"
+                                  : "bg-amber-200 text-amber-950"
                           }`}
                         >
-                          {act.estadoModeracion}
+                          {act.pendienteSync ? "⏳ En cola offline" : act.estadoModeracion}
                         </span>
                       </div>
                       <p className="text-xs text-stone-600 flex flex-wrap items-center gap-2">
@@ -792,11 +798,13 @@ export default function PublisherPanel() {
             misNegocios.map((nombre) => {
               const info = cuentasNegocio[nombre];
               const evalRef = evaluarFiabilidadNegocio(nombre, cuentasNegocio);
-              const badgeColor = info.pendiente
-                ? "bg-amber-200 text-amber-950"
-                : evalRef.esDeConfianza
-                  ? "bg-emerald-100 text-emerald-900"
-                  : "bg-blue-100 text-blue-950";
+              const badgeColor = info.pendienteSync
+                ? "bg-amber-400 text-stone-950"
+                : info.pendiente
+                  ? "bg-amber-200 text-amber-950"
+                  : evalRef.esDeConfianza
+                    ? "bg-emerald-100 text-emerald-900"
+                    : "bg-blue-100 text-blue-950";
 
               return (
                 <button
@@ -811,7 +819,11 @@ export default function PublisherPanel() {
                       <IconMapPin className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {info.pueblo} ·{" "}
-                        {info.pendiente ? "Pendiente de confirmación" : evalRef.motivo}
+                        {info.pendienteSync
+                          ? "Guardado sin conexión · Se enviará al reconectar"
+                          : info.pendiente
+                            ? "Pendiente de confirmación"
+                            : evalRef.motivo}
                       </span>
                     </p>
                     <p className="text-[11px] font-bold text-blue-700 mt-1">
@@ -819,7 +831,11 @@ export default function PublisherPanel() {
                     </p>
                   </div>
                   <span className={`${badgeColor} text-xs font-black px-2.5 py-1 rounded-lg shrink-0`}>
-                    {info.pendiente ? "Pendiente" : `Ref. ${evalRef.nivel}/3`}
+                    {info.pendienteSync
+                      ? "⏳ Sin red"
+                      : info.pendiente
+                        ? "Pendiente"
+                        : `Ref. ${evalRef.nivel}/3`}
                   </span>
                 </button>
               );

@@ -5,7 +5,7 @@ import { TELEFONO_BOT_WHATSAPP } from "../../constants/comarca.js";
 import { IconClose, IconMapPin, IconMessage } from "../Icons.jsx";
 
 export default function QuestionsModal() {
-  const { modalDudas, setModalDudas } = useApp();
+  const { modalDudas, setModalDudas, isOnline } = useApp();
   const [pregunta, setPregunta] = useState("");
   const [respuestaIA, setRespuestaIA] = useState("");
   const [consultando, setConsultando] = useState(false);
@@ -33,6 +33,12 @@ export default function QuestionsModal() {
 
   const handlePreguntarIA = async () => {
     if (!pregunta.trim()) return;
+    if (!isOnline) {
+      setRespuestaIA(
+        "Estás sin conexión a internet. Puedes consultar el lugar, fecha y descripción guardados en la ficha del evento y volver a preguntar al asistente en cuanto recuperes cobertura."
+      );
+      return;
+    }
     setConsultando(true);
     try {
       const res = await eventosApi.resolverDuda(act.id, pregunta.trim());

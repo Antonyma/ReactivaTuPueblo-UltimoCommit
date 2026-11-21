@@ -1,0 +1,22 @@
+{
+  "name": "PuebloVivo Almería · Filabres - Alhamilla",
+  "short_name": "PuebloVivo",
+  "description": "Eventos, actividades y comercios locales de la Mancomunidad Filabres - Alhamilla, disponible sin conexión.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#eff6ff",
+  "theme_color": "#172554",
+  "lang": "es",
+  "categories": ["lifestyle", "travel", "social"],
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

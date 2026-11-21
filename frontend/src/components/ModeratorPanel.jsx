@@ -27,6 +27,7 @@ export default function ModeratorPanel() {
     navegarA,
     crearAdmin,
     listarAdmins,
+    isOnline,
   } = useApp();
 
   const [administradores, setAdministradores] = useState([]);
@@ -72,15 +73,25 @@ export default function ModeratorPanel() {
     }
   };
 
-  const pendientes = actividades.filter((a) => a.estadoModeracion === "pendiente");
-  const aprobadas = actividades.filter((a) => a.estadoModeracion === "aprobada");
-  const denegadas = actividades.filter((a) => a.estadoModeracion === "denegada");
-  const negociosPendientes = Object.values(cuentasNegocio).filter((n) => n.pendiente);
+  // Excluir elementos locales pendientes de sincronizar: aún no han llegado al servidor
+  const pendientes = actividades.filter(
+    (a) => a.estadoModeracion === "pendiente" && !a.pendienteSync
+  );
+  const aprobadas = actividades.filter((a) => a.estadoModeracion === "aprobada" && !a.pendienteSync);
+  const denegadas = actividades.filter((a) => a.estadoModeracion === "denegada" && !a.pendienteSync);
+  const negociosPendientes = Object.values(cuentasNegocio).filter(
+    (n) => n.pendiente && !n.pendienteSync
+  );
 
   const precision = Math.min(99, 91 + Math.floor(muestrasAprendidasModelo / 2));
 
   return (
     <section id="vista-exclusiva-moderador" className="space-y-6">
+      {!isOnline && (
+        <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 rounded-2xl p-4 text-sm font-bold">
+          Estás sin conexión a internet. Los comercios o eventos creados sin red aún no han llegado al servidor y aparecerán aquí automáticamente cuando el dispositivo recupere cobertura y sincronice. Las acciones de moderación requieren conexión.
+        </div>
+      )}
       {/* Banner Resumen Métricas */}
       <div className="caja-panel panel-moderador-banner bg-blue-950 text-white p-4 sm:p-6 rounded-3xl shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-blue-800 pb-4">
@@ -193,8 +204,8 @@ export default function ModeratorPanel() {
 
             <button
               type="submit"
-              disabled={creandoAdmin}
-              className="w-full inline-flex items-center justify-center gap-2 bg-blue-950 hover:bg-blue-900 disabled:opacity-60 text-white font-black py-3 rounded-xl text-sm shadow"
+              disabled={creandoAdmin || !isOnline}
+              className="w-full inline-flex items-center justify-center gap-2 bg-blue-950 hover:bg-blue-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-sm shadow"
             >
               <IconPlus className="w-4 h-4" />
               <span>{creandoAdmin ? "Dando de alta..." : "Dar de alta Administrador"}</span>
@@ -276,16 +287,18 @@ export default function ModeratorPanel() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
+                    disabled={!isOnline}
                     onClick={() => aprobarNegocio(neg.nombre)}
-                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 rounded-xl text-sm"
+                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl text-sm"
                   >
                     <IconCheck className="w-4 h-4 shrink-0" />
                     <span>Confirmar</span>
                   </button>
                   <button
                     type="button"
+                    disabled={!isOnline}
                     onClick={() => denegarNegocio(neg.nombre)}
-                    className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-black py-2.5 rounded-xl text-sm"
+                    className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-2.5 rounded-xl text-sm"
                   >
                     <IconClose className="w-4 h-4 shrink-0" />
                     <span>Denegar</span>
@@ -348,16 +361,18 @@ export default function ModeratorPanel() {
                   <div className="p-4 pt-0 grid grid-cols-2 gap-2">
                     <button
                       type="button"
+                      disabled={!isOnline}
                       onClick={() => aprobarActividad(act.id)}
-                      className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3 rounded-xl text-sm"
+                      className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-sm"
                     >
                       <IconCheck className="w-4 h-4 shrink-0" />
                       <span>Aprobar</span>
                     </button>
                     <button
                       type="button"
+                      disabled={!isOnline}
                       onClick={() => denegarActividad(act.id)}
-                      className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl text-sm"
+                      className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3 rounded-xl text-sm"
                     >
                       <IconClose className="w-4 h-4 shrink-0" />
                       <span>Denegar</span>
