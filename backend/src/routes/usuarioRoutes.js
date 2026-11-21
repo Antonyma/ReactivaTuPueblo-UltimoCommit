@@ -6,6 +6,13 @@ import { USUARIOS } from '../models/index.js'
 export function createUsuarioRoutes(usuarioController, { requireAuth }) {
   const router = Router()
 
+  router.get(
+    '/admins',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    usuarioController.listarAdmins
+  )
+
   router.post(
     '/:id/solicitar-publicador',
     validateIntParam('id'),

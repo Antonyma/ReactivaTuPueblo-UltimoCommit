@@ -24,7 +24,14 @@ import {
 
 const AppContext = createContext();
 
+function normalizarRuta(pathname) {
+  return pathname && pathname.startsWith("/admin") ? "/admin" : "/";
+}
+
 export function AppProvider({ children }) {
+  const [rutaActual, setRutaActual] = useState(() =>
+    normalizarRuta(typeof window !== "undefined" ? window.location.pathname : "/")
+  );
   const [actividades, setActividades] = useState([]);
   const [cuentasNegocio, setCuentasNegocio] = useState({});
   const [usuario, setUsuario] = useState(() => getStoredUser());
@@ -48,6 +55,23 @@ export function AppProvider({ children }) {
   // Toast
   const [toast, setToast] = useState({ open: false, mensaje: "" });
   const [accionPendienteTrasRegistro, setAccionPendienteTrasRegistro] = useState(null);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setRutaActual(normalizarRuta(window.location.pathname));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const navegarA = useCallback((ruta) => {
+    const destino = normalizarRuta(ruta);
+    if (window.location.pathname !== destino) {
+      window.history.pushState({}, "", destino);
+    }
+    setRutaActual(destino);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   useEffect(() => {
     if (letraGrande) {
@@ -174,6 +198,36 @@ export function AppProvider({ children }) {
     }
   };
 
+  const loginAdmin = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.adminLogin({ nombre, password });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`Acceso denegado: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const crearAdmin = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.registerAdmin({
+        nombre,
+        password,
+      });
+      const nuevoAdmin = res?.data?.usuario;
+      mostrarToast(`Administrador "${nuevoAdmin?.nombre || nombre}" dado de alta correctamente.`);
+      return nuevoAdmin;
+    } catch (err) {
+      mostrarToast(`Error al dar de alta administrador: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const listarAdmins = useCallback(async () => {
+    const res = await usuariosApi.listarAdmins();
+    return res?.data || [];
+  }, []);
+
   const registerUsuario = async ({ nombre, email, telefono, password, tipoUsuario }) => {
     try {
       const formattedTel = formatearTelefonoConPrefijo(telefono);
@@ -296,12 +350,16 @@ export function AppProvider({ children }) {
     }
 
     const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadas =
+      typeof nuevoData.coordenadas === "string" && nuevoData.coordenadas.trim()
+        ? nuevoData.coordenadas.trim()
+        : `${baseCoords[0]}, ${baseCoords[1]}`;
     const payload = {
       nombre: nuevoData.titulo,
       negocioId: negocioInfo.id,
       pueblo: nuevoData.pueblo,
       descripcion: nuevoData.descripcion,
-      coordenadas: `${baseCoords[0]}, ${baseCoords[1]}`,
+      coordenadas,
       dePago: Boolean(nuevoData.dePago),
       aforo: Number(nuevoData.aforo),
       tipoEvento: CATEGORIA_A_TIPO_EVENTO[nuevoData.categoria] || 1,
@@ -326,13 +384,17 @@ export function AppProvider({ children }) {
     }
   };
 
-  const crearNegocio = async ({ nombre, pueblo, instagramUrl, twitterUrl, facebookUrl, webUrl }) => {
+  const crearNegocio = async ({ nombre, pueblo, coordenadas, instagramUrl, twitterUrl, facebookUrl, webUrl }) => {
     const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadasStr =
+      typeof coordenadas === "string" && coordenadas.trim()
+        ? coordenadas.trim()
+        : `${coords[0]}, ${coords[1]}`;
     try {
       const res = await negociosApi.crear({
         nombre,
         pueblo,
-        coordenadas: `${coords[0]}, ${coords[1]}`,
+        coordenadas: coordenadasStr,
         instagramUrl,
         twitterUrl,
         facebookUrl,
@@ -384,16 +446,20 @@ export function AppProvider({ children }) {
 
   const actualizarNegocio = async (
     nombreActual,
-    { nombre, pueblo, instagramUrl, twitterUrl, facebookUrl, webUrl }
+    { nombre, pueblo, coordenadas, instagramUrl, twitterUrl, facebookUrl, webUrl }
   ) => {
     const info = cuentasNegocio[nombreActual];
     if (!info?.id) return null;
     const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadasStr =
+      typeof coordenadas === "string" && coordenadas.trim()
+        ? coordenadas.trim()
+        : `${coords[0]}, ${coords[1]}`;
     try {
       const res = await negociosApi.actualizar(info.id, {
         nombre,
         pueblo,
-        coordenadas: `${coords[0]}, ${coords[1]}`,
+        coordenadas: coordenadasStr,
         instagramUrl,
         twitterUrl,
         facebookUrl,
@@ -552,6 +618,8 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider
       value={{
+        rutaActual,
+        navegarA,
         actividades,
         cuentasNegocio,
         usuario,
@@ -577,6 +645,9 @@ export function AppProvider({ children }) {
         modalInscritos,
         setModalInscritos,
         loginUsuario,
+        loginAdmin,
+        crearAdmin,
+        listarAdmins,
         registerUsuario,
         logoutUsuario,
         cambiarRol,

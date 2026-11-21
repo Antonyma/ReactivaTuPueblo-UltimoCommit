@@ -21,7 +21,7 @@ export class AuthService {
       throw AppError.conflict('Ya existe un usuario registrado con ese nombre')
     }
 
-    const rolPermitido = Object.values(USUARIOS).includes(tipoUsuario)
+    const rolPermitido = [USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR].includes(tipoUsuario)
       ? tipoUsuario
       : USUARIOS.REGISTRADO
 
@@ -49,6 +49,53 @@ export class AuthService {
       usuario: result.usuario,
       token: result.token || this.#buildToken(result.usuario),
     }
+  }
+
+  async loginAdmin({ nombre, password }) {
+    const result = await this.usuarioRepository.loginWithNombre(nombre, password)
+    if (!result || !result.usuario) {
+      throw AppError.unauthorized('Usuario o contraseña de administrador inválidos')
+    }
+
+    if (result.usuario.tipoUsuario !== USUARIOS.MODERADOR) {
+      throw AppError.forbidden('Acceso denegado: solo los administradores pueden iniciar sesión aquí')
+    }
+
+    return {
+      usuario: result.usuario,
+      token: result.token || this.#buildToken(result.usuario),
+    }
+  }
+
+  async registerAdmin({ nombre, password }) {
+    const existingNombre = await this.usuarioRepository.findByNombre(nombre)
+    if (existingNombre) {
+      throw AppError.conflict('Ya existe un usuario registrado con ese nombre')
+    }
+
+    const slug =
+      String(nombre)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '.')
+        .replace(/^\.+|\.+$/g, '') || 'admin'
+
+    let generatedEmail = `${slug}@admin.pueblovivo.es`
+    const existingEmail = await this.usuarioRepository.findByEmail(generatedEmail)
+    if (existingEmail) {
+      generatedEmail = `${slug}.${Date.now()}@admin.pueblovivo.es`
+    }
+
+    const { usuario } = await this.usuarioRepository.registerWithAuth({
+      nombre,
+      email: generatedEmail,
+      telefono: '',
+      password,
+      tipoUsuario: USUARIOS.MODERADOR,
+    })
+
+    return { usuario }
   }
 }
 

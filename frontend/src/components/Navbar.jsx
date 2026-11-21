@@ -10,8 +10,12 @@ import {
 } from "./Icons.jsx";
 
 export default function Navbar() {
-  const { letraGrande, setLetraGrande, usuario, setModalLogin, logoutUsuario } = useApp();
+  const { letraGrande, setLetraGrande, usuario, setModalLogin, logoutUsuario, rutaActual, navegarA } =
+    useApp();
   const [menuAbierto, setMenuAbierto] = useState(false);
+
+  const enRutaAdmin = rutaActual === "/admin";
+  const esModerador = usuario?.tipoUsuario === "MODERADOR";
 
   const rolTexto = usuario
     ? `${usuario.nombre} · [${usuario.tipoUsuario}]`
@@ -88,24 +92,46 @@ export default function Navbar() {
             {rolTexto}
           </span>
 
-          {usuario ? (
+          {enRutaAdmin ? (
             <button
               type="button"
-              onClick={cerrarSesion}
-              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+              onClick={() => navegarA("/")}
+              className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-4 py-2.5 rounded-xl text-sm shrink-0"
             >
               <IconArrowLeft className="w-4 h-4" />
-              <span>Cerrar sesión</span>
+              <span>Web pública</span>
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={abrirCuenta}
-              className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
-            >
-              <IconUser className="w-4 h-4" />
-              <span>Entrar / Perfil</span>
-            </button>
+            <>
+              {esModerador && (
+                <button
+                  type="button"
+                  onClick={() => navegarA("/admin")}
+                  className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                >
+                  <span>Panel Admin</span>
+                </button>
+              )}
+              {usuario ? (
+                <button
+                  type="button"
+                  onClick={cerrarSesion}
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                >
+                  <IconArrowLeft className="w-4 h-4" />
+                  <span>Cerrar sesión</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={abrirCuenta}
+                  className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                >
+                  <IconUser className="w-4 h-4" />
+                  <span>Entrar / Perfil</span>
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -172,7 +198,19 @@ export default function Navbar() {
             </div>
           </div>
 
-          {usuario ? (
+          {enRutaAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuAbierto(false);
+                navegarA("/");
+              }}
+              className="w-full inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold py-3.5 px-4 rounded-2xl text-base"
+            >
+              <IconArrowLeft className="w-5 h-5" />
+              <span>Volver a la web pública</span>
+            </button>
+          ) : usuario ? (
             <button
               type="button"
               onClick={cerrarSesion}

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../constants/comarca.js";
+import { parseCoords } from "../api/mappers.js";
+import LocationPickerModal from "./modals/LocationPickerModal.jsx";
 import {
   IconArrowLeft,
   IconCheck,
@@ -11,6 +13,44 @@ import {
   IconTrash,
   IconUsers,
 } from "./Icons.jsx";
+
+function UbicacionSelector({ pueblo, coords, onOpenModal, onClear }) {
+  return (
+    <div className="md:col-span-2 bg-white border-2 border-blue-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-stone-900">Ubicación exacta en el mapa</p>
+        {coords ? (
+          <p className="text-xs font-bold text-emerald-700 mt-0.5">
+            Ubicación fijada: {coords[0].toFixed(5)}, {coords[1].toFixed(5)}
+          </p>
+        ) : (
+          <p className="text-xs text-stone-600 mt-0.5">
+            Si no añades una ubicación exacta, se usará el centro de {pueblo}.
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {coords && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-3 py-2 rounded-xl text-xs border border-stone-300"
+          >
+            Quitar
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onOpenModal}
+          className="inline-flex items-center gap-1.5 bg-blue-100 hover:bg-blue-200 text-blue-950 font-black px-3.5 py-2 rounded-xl text-xs border border-blue-300"
+        >
+          <IconMapPin className="w-4 h-4 text-blue-700 shrink-0" />
+          <span>{coords ? "Cambiar ubicación" : "Añadir ubicación"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function PublisherPanel() {
   const {
@@ -42,6 +82,7 @@ export default function PublisherPanel() {
   const [descripcion, setDescripcion] = useState("");
   const [imagenBase64, setImagenBase64] = useState("");
   const [previewName, setPreviewName] = useState("");
+  const [eventoCoords, setEventoCoords] = useState(null);
 
   // Form Negocio state
   const [negNombre, setNegNombre] = useState("");
@@ -50,6 +91,7 @@ export default function PublisherPanel() {
   const [negTwitter, setNegTwitter] = useState("");
   const [negFacebook, setNegFacebook] = useState("");
   const [negWeb, setNegWeb] = useState("");
+  const [negCoords, setNegCoords] = useState(null);
 
   // Form Editar Negocio (pestaña de detalle)
   const [editNombre, setEditNombre] = useState("");
@@ -58,7 +100,11 @@ export default function PublisherPanel() {
   const [editTwitter, setEditTwitter] = useState("");
   const [editFacebook, setEditFacebook] = useState("");
   const [editWeb, setEditWeb] = useState("");
+  const [editCoords, setEditCoords] = useState(null);
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+  // Modal selector de ubicación en el mapa ('evento' | 'negocio' | 'editarNegocio')
+  const [locationModal, setLocationModal] = useState({ open: false, target: null });
 
   const misNegocios = Object.keys(cuentasNegocio).filter((k) => cuentasNegocio[k].esMio);
   const misNegociosConfirmados = misNegocios.filter((k) => !cuentasNegocio[k].pendiente);
@@ -83,6 +129,11 @@ export default function PublisherPanel() {
     setEditTwitter(info.twitterUrl || "");
     setEditFacebook(info.facebookUrl || "");
     setEditWeb(info.webUrl || "");
+    setEditCoords(
+      info.coordenadas && info.coordenadas.includes(",")
+        ? parseCoords(info.coordenadas, info.pueblo)
+        : null
+    );
   };
 
   const handleImageChange = (e) => {
@@ -124,6 +175,7 @@ export default function PublisherPanel() {
       categoria,
       negocio: defaultBusiness,
       pueblo,
+      coordenadas: eventoCoords ? `${eventoCoords[0]}, ${eventoCoords[1]}` : undefined,
       aforo,
       dePago,
       fechaInicio,
@@ -136,6 +188,7 @@ export default function PublisherPanel() {
     setDescripcion("");
     setImagenBase64("");
     setPreviewName("");
+    setEventoCoords(null);
     setMostrarFormEvento(false);
   };
 
@@ -145,6 +198,7 @@ export default function PublisherPanel() {
     crearNegocio({
       nombre: negNombre.trim(),
       pueblo: negPueblo,
+      coordenadas: negCoords ? `${negCoords[0]}, ${negCoords[1]}` : undefined,
       instagramUrl: negInstagram.trim(),
       twitterUrl: negTwitter.trim(),
       facebookUrl: negFacebook.trim(),
@@ -155,6 +209,7 @@ export default function PublisherPanel() {
     setNegTwitter("");
     setNegFacebook("");
     setNegWeb("");
+    setNegCoords(null);
     setMostrarFormNegocio(false);
   };
 
@@ -166,6 +221,7 @@ export default function PublisherPanel() {
       const updated = await actualizarNegocio(negocioDetalle.nombre, {
         nombre: editNombre.trim(),
         pueblo: editPueblo,
+        coordenadas: editCoords ? `${editCoords[0]}, ${editCoords[1]}` : undefined,
         instagramUrl: editInstagram.trim(),
         twitterUrl: editTwitter.trim(),
         facebookUrl: editFacebook.trim(),
@@ -315,7 +371,10 @@ export default function PublisherPanel() {
             <label className="block text-sm font-bold mb-1">Pueblo *</label>
             <select
               value={pueblo}
-              onChange={(e) => setPueblo(e.target.value)}
+              onChange={(e) => {
+                setPueblo(e.target.value);
+                setEventoCoords(null);
+              }}
               className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
               {pueblosArray.map((p) => (
@@ -369,6 +428,13 @@ export default function PublisherPanel() {
               className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
+
+          <UbicacionSelector
+            pueblo={pueblo}
+            coords={eventoCoords}
+            onOpenModal={() => setLocationModal({ open: true, target: "evento" })}
+            onClear={() => setEventoCoords(null)}
+          />
 
           <div className="md:col-span-2 bg-white text-stone-900 border-2 border-dashed border-blue-400 rounded-2xl p-4 space-y-2">
             <label className="block text-sm font-black">
@@ -434,7 +500,10 @@ export default function PublisherPanel() {
             <select
               required
               value={negPueblo}
-              onChange={(e) => setNegPueblo(e.target.value)}
+              onChange={(e) => {
+                setNegPueblo(e.target.value);
+                setNegCoords(null);
+              }}
               className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
               {pueblosArray.map((p) => (
@@ -484,6 +553,12 @@ export default function PublisherPanel() {
               className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
+          <UbicacionSelector
+            pueblo={negPueblo}
+            coords={negCoords}
+            onOpenModal={() => setLocationModal({ open: true, target: "negocio" })}
+            onClear={() => setNegCoords(null)}
+          />
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 justify-end">
             <button
               type="button"
@@ -540,7 +615,10 @@ export default function PublisherPanel() {
               <select
                 required
                 value={editPueblo}
-                onChange={(e) => setEditPueblo(e.target.value)}
+                onChange={(e) => {
+                  setEditPueblo(e.target.value);
+                  setEditCoords(null);
+                }}
                 className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
               >
                 {pueblosArray.map((p) => (
@@ -594,6 +672,13 @@ export default function PublisherPanel() {
                 className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
               />
             </div>
+
+            <UbicacionSelector
+              pueblo={editPueblo}
+              coords={editCoords}
+              onOpenModal={() => setLocationModal({ open: true, target: "editarNegocio" })}
+              onClear={() => setEditCoords(null)}
+            />
 
             <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 justify-between pt-2">
               <button
@@ -742,6 +827,34 @@ export default function PublisherPanel() {
           )}
         </div>
       )}
+
+      <LocationPickerModal
+        isOpen={locationModal.open}
+        onClose={() => setLocationModal({ open: false, target: null })}
+        pueblo={
+          locationModal.target === "evento"
+            ? pueblo
+            : locationModal.target === "negocio"
+              ? negPueblo
+              : editPueblo
+        }
+        initialCoords={
+          locationModal.target === "evento"
+            ? eventoCoords
+            : locationModal.target === "negocio"
+              ? negCoords
+              : editCoords
+        }
+        onConfirm={(coords) => {
+          if (locationModal.target === "evento") {
+            setEventoCoords(coords);
+          } else if (locationModal.target === "negocio") {
+            setNegCoords(coords);
+          } else if (locationModal.target === "editarNegocio") {
+            setEditCoords(coords);
+          }
+        }}
+      />
     </section>
   );
 }

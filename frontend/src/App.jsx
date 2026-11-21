@@ -1,5 +1,5 @@
 import React from "react";
-import { AppProvider } from "./context/AppContext.jsx";
+import { AppProvider, useApp } from "./context/AppContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Home from "./pages/Home.jsx";
 import MobileNav from "./components/MobileNav.jsx";
@@ -11,20 +11,31 @@ import ReviewsModal from "./components/modals/ReviewsModal.jsx";
 import AttendeesModal from "./components/modals/AttendeesModal.jsx";
 import "./App.css";
 
-export default function App() {
+function AppShell() {
+  const { rutaActual } = useApp();
+  const enRutaAdmin = rutaActual === "/admin";
+
   return (
-    <AppProvider>
+    <>
       <Navbar />
       <Home />
-      <MobileNav />
+      {!enRutaAdmin && <MobileNav />}
       <Toast />
 
       {/* Modals */}
-      <LoginModal />
+      {!enRutaAdmin && <LoginModal />}
       <TimeModal />
       <QuestionsModal />
       <ReviewsModal />
       <AttendeesModal />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppShell />
     </AppProvider>
   );
 }

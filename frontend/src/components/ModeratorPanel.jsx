@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
 import {
@@ -7,7 +7,9 @@ import {
   IconClock,
   IconClose,
   IconMapPin,
+  IconPlus,
   IconShield,
+  IconUser,
 } from "./Icons.jsx";
 
 export default function ModeratorPanel() {
@@ -21,8 +23,54 @@ export default function ModeratorPanel() {
     denegarActividad,
     aprobarNegocio,
     denegarNegocio,
-    cambiarRol,
+    logoutUsuario,
+    navegarA,
+    crearAdmin,
+    listarAdmins,
   } = useApp();
+
+  const [administradores, setAdministradores] = useState([]);
+  const [cargandoAdmins, setCargandoAdmins] = useState(true);
+  const [nuevoAdminNombre, setNuevoAdminNombre] = useState("");
+  const [nuevoAdminPassword, setNuevoAdminPassword] = useState("");
+  const [creandoAdmin, setCreandoAdmin] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      try {
+        const lista = await listarAdmins();
+        if (activo) setAdministradores(lista);
+      } catch {
+        if (activo) setAdministradores([]);
+      } finally {
+        if (activo) setCargandoAdmins(false);
+      }
+    })();
+    return () => {
+      activo = false;
+    };
+  }, [listarAdmins]);
+
+  const handleCrearAdmin = async (e) => {
+    e.preventDefault();
+    setCreandoAdmin(true);
+    try {
+      const creado = await crearAdmin({
+        nombre: nuevoAdminNombre,
+        password: nuevoAdminPassword,
+      });
+      if (creado) {
+        setAdministradores((prev) => [...prev, creado]);
+      }
+      setNuevoAdminNombre("");
+      setNuevoAdminPassword("");
+    } catch {
+      // El toast de error ya se muestra en AppContext
+    } finally {
+      setCreandoAdmin(false);
+    }
+  };
 
   const pendientes = actividades.filter((a) => a.estadoModeracion === "pendiente");
   const aprobadas = actividades.filter((a) => a.estadoModeracion === "aprobada");
@@ -50,14 +98,23 @@ export default function ModeratorPanel() {
               notificando por WhatsApp al publicador.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => cambiarRol("REGISTRADO")}
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-950 font-black px-5 py-3 rounded-2xl text-sm shrink-0 shadow w-full sm:w-auto"
-          >
-            <IconArrowLeft className="w-4 h-4" />
-            <span>Salir de Moderador</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => navegarA("/")}
+              className="inline-flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-800 text-white font-bold px-4 py-3 rounded-2xl text-sm border border-blue-700"
+            >
+              <IconArrowLeft className="w-4 h-4" />
+              <span>Web pública</span>
+            </button>
+            <button
+              type="button"
+              onClick={logoutUsuario}
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-950 font-black px-5 py-3 rounded-2xl text-sm shadow"
+            >
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -78,6 +135,97 @@ export default function ModeratorPanel() {
             <p className="text-xs font-bold text-amber-200 mt-1.5 leading-snug">
               {ultimoWhatsAppPublicador}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ALTA DE NUEVOS ADMINISTRADORES */}
+      <div className="caja-panel bg-white p-4 sm:p-6 rounded-3xl shadow-sm space-y-5">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg sm:text-xl font-black flex items-center gap-2">
+              <IconUser className="w-5 h-5 text-blue-950 shrink-0" />
+              <span>Gestión y Alta de Administradores</span>
+            </h2>
+            <p className="text-sm text-stone-600">
+              Da de alta nuevas cuentas con permisos de administrador para acceder al panel.
+            </p>
+          </div>
+          <span className="bg-blue-950 text-white font-black px-3.5 py-1.5 rounded-full text-sm shrink-0">
+            {administradores.length}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <form
+            onSubmit={handleCrearAdmin}
+            className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-3"
+          >
+            <h3 className="font-black text-base text-blue-950 flex items-center gap-1.5">
+              <IconPlus className="w-4 h-4" />
+              <span>Dar de alta nuevo administrador</span>
+            </h3>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Nombre de usuario *</label>
+              <input
+                type="text"
+                required
+                placeholder="Ej: Admin Comarca"
+                value={nuevoAdminNombre}
+                onChange={(e) => setNuevoAdminNombre(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 text-sm bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Contraseña *</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="Mínimo 6 caracteres"
+                value={nuevoAdminPassword}
+                onChange={(e) => setNuevoAdminPassword(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 text-sm bg-white"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={creandoAdmin}
+              className="w-full inline-flex items-center justify-center gap-2 bg-blue-950 hover:bg-blue-900 disabled:opacity-60 text-white font-black py-3 rounded-xl text-sm shadow"
+            >
+              <IconPlus className="w-4 h-4" />
+              <span>{creandoAdmin ? "Dando de alta..." : "Dar de alta Administrador"}</span>
+            </button>
+          </form>
+
+          <div className="space-y-2.5">
+            <h3 className="font-black text-base text-stone-900">Administradores activos</h3>
+            {cargandoAdmins ? (
+              <p className="text-sm text-stone-500">Cargando administradores...</p>
+            ) : administradores.length === 0 ? (
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 text-sm text-stone-600">
+                No se encontraron administradores registrados.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[340px] overflow-y-auto">
+                {administradores.map((adm) => (
+                  <div
+                    key={adm.id}
+                    className="p-3 bg-stone-50 border border-stone-200 rounded-2xl flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-black text-sm text-stone-900 truncate">{adm.nombre}</p>
+                    </div>
+                    <span className="bg-amber-400 text-stone-950 text-[11px] font-black px-2.5 py-1 rounded-full shrink-0">
+                      Administrador
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
