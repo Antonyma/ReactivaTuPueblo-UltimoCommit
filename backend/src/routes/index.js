@@ -19,7 +19,13 @@ export function createApiRouter(container) {
   router.use('/negocios', createNegocioRoutes(controllers.negocioController, middlewares))
   router.use(
     '/eventos',
-    createEventoRoutes(controllers.eventoController, controllers.iaController, middlewares)
+    createEventoRoutes(
+      controllers.eventoController,
+      controllers.iaController,
+      controllers.valoracionController,
+      controllers.imagenController,
+      middlewares
+    )
   )
   router.use('/ia', createIaRoutes(controllers.iaController, middlewares))
   router.get(
