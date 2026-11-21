@@ -3,6 +3,7 @@ import base64
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+from agents.recommend import recommend_actividades
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
