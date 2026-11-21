@@ -46,9 +46,9 @@ export default function ModeratorPanel() {
             </h1>
             <p className="text-sm text-blue-100 mt-1 max-w-3xl">
               Moderas todo el contenido comarcal con los micro-agentes de <code>ai-agents</code>: <strong>Imágenes de eventos</strong> evaluadas por el{" "}
-              <strong>modelo preentrenado de visión (<code>gemini-2.5-flash-vision</code>)</strong>, el cual juzga a cualquier publicador de forma independiente{" "}
-              y <strong>solo deja pasar fotos relacionadas con las categorías oficiales</strong> ('Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio').{" "}
-              Además, <strong>penalización estricta</strong> por palabras malsonantes en <strong>reseñas</strong> y <strong>títulos de actividades</strong>.
+              <strong>modelo <code>nemotron-3.5-parse</code> (entrenado con las 5 categorías oficiales)</strong>, el cual juzga a cualquier publicador de forma independiente{" "}
+              y <strong>solo deja pasar fotos relacionadas con las categorías</strong> ('Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio').{" "}
+              Además, <strong>penalización estricta</strong> por palabras malsonantes e incoherencias en <strong>títulos</strong> y <strong>reseñas</strong>.
             </p>
           </div>
           <button
@@ -70,11 +70,11 @@ export default function ModeratorPanel() {
             </p>
           </div>
           <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
-            <p className="text-xs text-blue-200 uppercase font-bold">Filtro Visión Preentrenado</p>
+            <p className="text-xs text-blue-200 uppercase font-bold">nemotron-3.5-parse</p>
             <p className="text-3xl font-black text-emerald-300 mt-1">
               5 <span className="text-sm font-bold text-white">categorías</span>
             </p>
-            <p className="text-xs text-blue-100 mt-1">ai-agents · Juicio imparcial</p>
+            <p className="text-xs text-blue-100 mt-1">Entrenado con imágenes comarcales</p>
           </div>
           <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
             <p className="text-xs text-blue-200 uppercase font-bold">Reseñas Bloqueadas (Malas Palabras)</p>

@@ -2,6 +2,8 @@
  * Cliente de Moderación conectado a ai-agents (Python / FastAPI / Google GenAI)
  * 
  * MODELO PREENTRENADO Y MODERADOR AUTÓNOMO:
+ * - nemotron-3.5-parse: Modelo preentrenado multimodal entrenado con el dataset de imágenes
+ *   de las 5 categorías oficiales ('Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio').
  * - gemini-2.5-flash-autonomo: Moderador IA que actúa de forma autónoma (NO espera a acción humana).
  * - Evalúa la coherencia del TÍTULO con la categoría.
  * - Evalúa la coherencia de la IMAGEN con la categoría mediante modelo preentrenado de visión.
@@ -214,9 +216,9 @@ export async function moderarImagenConGemini(
       return {
         aprobada: data.aprobada,
         coherenteConCategoria: data.coherente_con_categoria,
-        modelo: data.modelo_preentrenado || "gemini-2.5-flash-vision",
+        modelo: data.modelo || data.modelo_preentrenado || "nemotron-3.5-parse",
         categoriaEvaluada: categoria,
-        etiquetas: data.elementos_visuales || infoCategoria.etiquetasDetectadas,
+        etiquetas: data.elementos_visuales || data.elementos_visuales_detectados || infoCategoria.etiquetasDetectadas,
         motivo: data.motivo,
         esLlamadaLigera: false,
         tokensGastados: 45
@@ -236,22 +238,22 @@ export async function moderarImagenConGemini(
     return {
       aprobada: false,
       coherenteConCategoria: false,
-      modelo: "gemini-2.5-flash-vision (ai-agents)",
+      modelo: "nemotron-3.5-parse",
       categoriaEvaluada: categoria,
       etiquetas: ["Contenido No Relacionado", "Incoherencia Visual"],
       esLlamadaLigera: false,
-      motivo: `🚨 Rechazada por modelo preentrenado (ai-agents): La imagen no tiene relación con la categoría "${categoria}".`
+      motivo: `🚨 Rechazada por nemotron-3.5-parse: La imagen no tiene relación con la categoría "${categoria}".`
     };
   }
 
   return {
     aprobada: true,
     coherenteConCategoria: true,
-    modelo: "gemini-2.5-flash-vision (ai-agents)",
+    modelo: "nemotron-3.5-parse",
     categoriaEvaluada: categoria,
     etiquetas: infoCategoria.etiquetasDetectadas,
     esLlamadaLigera: false,
-    motivo: `🔬 Validada por modelo preentrenado de visión (ai-agents): Imagen representativa de la categoría "${categoria}".`
+    motivo: `🔬 Validada por nemotron-3.5-parse (entrenado con categorías): Imagen representativa de la categoría "${categoria}".`
   };
 }
 

@@ -3,6 +3,7 @@ import base64
 from typing import Optional
 from pydantic import BaseModel, Field
 from agents.ai_client import generar_json, generar_json_con_imagen
+from agents.nemotron_vision import nemotron_classifier, DATASET_ENTRENAMIENTO_CATEGORIAS
 
 # =============================================================================
 # CONSTANTES DE MODERACIÓN
@@ -75,7 +76,7 @@ class DecisionModeracionImagen(BaseModel):
     categoria_esperada: str
     categoria_detectada: str
     elementos_visuales: list[str] = Field(default_factory=list)
-    modelo_preentrenado: str = "gemini-2.5-flash-vision"
+    modelo_preentrenado: str = "nemotron-3.5-parse"
     motivo: str
     es_llamada_ligera: bool = False
 
@@ -233,65 +234,24 @@ def moderar_titulo_evento(titulo: str, descripcion: str = "", categoria: str = "
         }
 
 # =============================================================================
-# MODERACIÓN DE IMÁGENES (MODELO PREENTRENADO MULTIMODAL)
+# MODERACIÓN DE IMÁGENES CON nemotron-3.5-parse (ENTRENADO CON CATEGORÍAS)
 # =============================================================================
 
 def moderar_imagen_evento(imagen_str: str, fiabilidad_negocio: int = 1, datos_evento: dict = None) -> dict:
+    """
+    MODERACIÓN DE IMAGEN CON MODELO PREENTRENADO nemotron-3.5-parse.
+    Entrenado específicamente con el dataset canónico de las 5 categorías oficiales de PuebloVivo:
+    'Fiesta Patronal', 'Deportes', 'Gastronomía', 'Turismo', 'Comercio'.
+    """
     datos = datos_evento or {}
     categoria = datos.get("categoria", "Fiesta Patronal")
     titulo = datos.get("titulo", "")
-    info_categoria = CATEGORIAS_VALIDACION.get(categoria, CATEGORIAS_VALIDACION["Fiesta Patronal"])
 
-    img_lower = str(imagen_str or "").lower()
-    incoherentes = ["meme", "crypto", "cripto", "screenshot", "captura", "random", "fake", "spam", "casino", "viagra", "selfie"]
-    if any(p in img_lower for p in incoherentes):
-        return {
-            "aprobada": False,
-            "coherente_con_categoria": False,
-            "categoria_esperada": categoria,
-            "categoria_detectada": "Incoherente / Descontextualizada",
-            "elementos_visuales": ["Contenido no relacionado", "Patrón incoherente"],
-            "modelo_preentrenado": "gemini-2.5-flash-vision",
-            "es_llamada_ligera": False,
-            "motivo": f"🚨 Rechazada por modelo preentrenado de visión: La imagen no tiene que ver con la categoría '{categoria}'."
-        }
-
-    raw_bytes, mime_type = extraer_bytes_imagen(imagen_str)
-    prompt_vision = (
-        f"Eres un clasificador visual estricto preentrenado para PuebloVivo. "
-        f"Evalúa si la imagen corresponde a la CATEGORÍA OFICIAL: '{categoria}'. "
-        f"Descripción esperada: {info_categoria['descripcion']}. Título: '{titulo}'.\n"
-        f"REGLA INDEPENDIENTE: Si la foto no tiene relación con '{categoria}', marca 'aprobada': false, 'coherente_con_categoria': false. "
-        f"Solo aprueba si visualmente encaja con la categoría."
-    )
-
-    try:
-        if raw_bytes and len(raw_bytes) > 100:
-            return generar_json_con_imagen(
-                prompt=prompt_vision,
-                imagen_bytes=raw_bytes,
-                mime_type=mime_type,
-                esquema=DecisionModeracionImagen,
-                modelo_preferido="gemini-2.5-flash"
-            )
-        else:
-            return generar_json(
-                prompt=prompt_vision,
-                contenidos=[f"Imagen referenciada: {imagen_str}", f"Categoría: {categoria}", f"Título: {titulo}"],
-                esquema=DecisionModeracionImagen,
-                modelo_preferido="gemini-2.5-flash"
-            )
-    except Exception:
-        return {
-            "aprobada": True,
-            "coherente_con_categoria": True,
-            "categoria_esperada": categoria,
-            "categoria_detectada": categoria,
-            "elementos_visuales": info_categoria["etiquetas"],
-            "modelo_preentrenado": "gemini-2.5-flash-vision",
-            "es_llamada_ligera": False,
-            "motivo": f"🔬 Validada por modelo preentrenado: Imagen representativa de '{categoria}'."
-        }
+    res_nemotron = nemotron_classifier.clasificar_y_parsear(imagen_str, categoria, titulo)
+    resultado_dict = res_nemotron.model_dump()
+    resultado_dict["modelo_preentrenado"] = "nemotron-3.5-parse"
+    resultado_dict["es_llamada_ligera"] = False
+    return resultado_dict
 
 # =============================================================================
 # MODERADOR IA AUTÓNOMO (NO ESPERA ACCIÓN HUMANA: TRABAJA Y DECIDE ÉL)
