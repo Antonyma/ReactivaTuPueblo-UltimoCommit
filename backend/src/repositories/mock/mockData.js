@@ -30,6 +30,13 @@ export function createInitialMockStore() {
       telefono: '+34644556677',
       tipoUsuario: USUARIOS.NO_REGISTRADO,
     }),
+    new Usuario({
+      id: 5,
+      nombre: 'admin',
+      email: 'admin@pueblovivo.es',
+      telefono: '+34600000000',
+      tipoUsuario: USUARIOS.MODERADOR,
+    }),
   ]
 
   const negocios = [
@@ -147,6 +154,7 @@ export function createInitialMockStore() {
     ['carlos@tahonarural.es', '123456'],
     ['elena@bodegaelena.es', '123456'],
     ['invitado@pueblovivo.es', '123456'],
+    ['admin@pueblovivo.es', 'admin123'],
   ])
 
   const solicitudesPublicador = []

@@ -14,7 +14,7 @@ export function createApiRouter(container) {
   const { controllers, middlewares } = container
 
   router.use('/health', healthRoutes)
-  router.use('/auth', createAuthRoutes(controllers.authController))
+  router.use('/auth', createAuthRoutes(controllers.authController, middlewares))
   router.use('/usuarios', createUsuarioRoutes(controllers.usuarioController, middlewares))
   router.use('/negocios', createNegocioRoutes(controllers.negocioController, middlewares))
   router.use(

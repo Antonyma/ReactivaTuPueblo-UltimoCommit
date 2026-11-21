@@ -1,14 +1,19 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
+import { IconCalendar, IconCheck, IconMap, IconUser } from "./Icons.jsx";
 
 export default function MobileNav() {
-  const { setModalLogin } = useApp();
+  const { setModalLogin, usuario } = useApp();
   const [tabActivo, setTabActivo] = useState("planes");
 
   const handleTabClick = (tab) => {
     setTabActivo(tab);
     if (tab === "cuenta") {
-      setModalLogin({ open: true, defaultTipo: "REGISTRADO", motivo: "" });
+      setModalLogin({
+        open: true,
+        defaultTipo: usuario ? usuario.tipoUsuario : "REGISTRADO",
+        motivo: "",
+      });
     } else if (tab === "mapa") {
       const el = document.getElementById("tab-contenido-mapa");
       if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -28,44 +33,44 @@ export default function MobileNav() {
       <button
         type="button"
         onClick={() => handleTabClick("planes")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
           tabActivo === "planes" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
-        <span className="text-xl">📅</span>
+        <IconCalendar className="w-5 h-5" />
         <span>Planes</span>
       </button>
 
       <button
         type="button"
         onClick={() => handleTabClick("mapa")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
           tabActivo === "mapa" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
-        <span className="text-xl">🗺️</span>
+        <IconMap className="w-5 h-5" />
         <span>Mapa</span>
       </button>
 
       <button
         type="button"
         onClick={() => handleTabClick("misplanes")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
           tabActivo === "misplanes" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
-        <span className="text-xl">✅</span>
+        <IconCheck className="w-5 h-5" />
         <span>Mis Planes</span>
       </button>
 
       <button
         type="button"
         onClick={() => handleTabClick("cuenta")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
           tabActivo === "cuenta" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
-        <span className="text-xl">👤</span>
+        <IconUser className="w-5 h-5" />
         <span>Cuenta</span>
       </button>
     </nav>

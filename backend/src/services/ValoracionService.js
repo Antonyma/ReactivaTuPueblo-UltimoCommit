@@ -25,6 +25,27 @@ export class ValoracionService {
     }
   }
 
+  async listarPorNegocio(negocioId) {
+    const eventos = await this.eventoRepository.findAll({ negocioId: Number(negocioId) })
+    const listas = await Promise.all(
+      eventos.map((ev) => this.valoracionRepository.findByEventoId(ev.id))
+    )
+    const valoraciones = listas
+      .flat()
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
+    const total = valoraciones.length
+    const suma = valoraciones.reduce((acc, v) => acc + v.estrellas, 0)
+    const mediaEstrellas = total > 0 ? Number((suma / total).toFixed(2)) : 0
+
+    return {
+      negocioId: Number(negocioId),
+      total,
+      mediaEstrellas,
+      valoraciones,
+    }
+  }
+
   async crearValoracion(eventoId, usuarioId, { estrellas, texto = '' }) {
     const evento = await this.eventoRepository.findById(eventoId)
     if (!evento) {
@@ -34,6 +55,13 @@ export class ValoracionService {
     const inscrito = await this.eventoRepository.isUsuarioInscrito(eventoId, usuarioId)
     if (!inscrito) {
       throw AppError.forbidden('Solo los usuarios inscritos en el evento pueden valorarlo')
+    }
+
+    if (evento.fechaFin) {
+      const finMs = new Date(evento.fechaFin).getTime()
+      if (!Number.isNaN(finMs) && finMs > Date.now()) {
+        throw AppError.badRequest('Solo puedes valorar el evento cuando haya finalizado')
+      }
     }
 
     const estrellasNum = Number(estrellas)

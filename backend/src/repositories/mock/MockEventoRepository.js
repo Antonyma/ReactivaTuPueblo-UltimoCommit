@@ -111,6 +111,21 @@ export class MockEventoRepository extends EventoRepository {
     return inscripcion
   }
 
+  async desinscribirUsuario(eventoId, usuarioId) {
+    const eId = Number(eventoId)
+    const uId = Number(usuarioId)
+    const idx = this.store.inscripciones.findIndex(
+      (i) => i.eventoId === eId && i.usuarioId === uId
+    )
+    if (idx === -1) return false
+    this.store.inscripciones.splice(idx, 1)
+    const evento = await this.findById(eId)
+    if (evento) {
+      evento.asistentes = Math.max(0, evento.asistentes - 1)
+    }
+    return true
+  }
+
   async findInscritos(eventoId) {
     const eId = Number(eventoId)
     const registros = this.store.inscripciones.filter((i) => i.eventoId === eId)

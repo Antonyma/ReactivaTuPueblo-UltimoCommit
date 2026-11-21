@@ -1,33 +1,46 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
-  actividadesIniciales,
-  cuentasNegocioIniciales,
-  resenasIniciales,
-  evaluarFiabilidadNegocio,
-  formatearTelefonoConPrefijo,
+  authApi,
+  eventosApi,
+  negociosApi,
+  usuariosApi,
+  getAuthToken,
+  getStoredUser,
+  setAuthSession,
+} from "../api/client.js";
+import {
+  mapEventoFromApi,
+  mapNegocioFromApi,
+  normalizeRoleForApi,
+  normalizeRoleForUi,
+} from "../api/mappers.js";
+import {
+  CATEGORIA_A_TIPO_EVENTO,
+  CENTRO_MANCOMUNIDAD,
   formatearFechaBonita,
+  formatearTelefonoConPrefijo,
   municipiosMancomunidad,
-  CENTRO_MANCOMUNIDAD
-} from "../data/mockData.js";
-import {
-  moderarResenaConGemini,
-  moderarImagenConGemini,
-  moderarTituloActividadConGemini,
-  moderarActividadAutonomaConGemini
-} from "../services/geminiModeration.js";
+} from "../constants/comarca.js";
 
 const AppContext = createContext();
 
+function normalizarRuta(pathname) {
+  return pathname && pathname.startsWith("/admin") ? "/admin" : "/";
+}
+
 export function AppProvider({ children }) {
-  const [actividades, setActividades] = useState(actividadesIniciales);
-  const [cuentasNegocio, setCuentasNegocio] = useState(cuentasNegocioIniciales);
-  const [resenas, setResenas] = useState(resenasIniciales);
-  const [usuario, setUsuario] = useState(null); // { id, nombre, email, telefono, tipoUsuario }
+  const [rutaActual, setRutaActual] = useState(() =>
+    normalizarRuta(typeof window !== "undefined" ? window.location.pathname : "/")
+  );
+  const [actividades, setActividades] = useState([]);
+  const [cuentasNegocio, setCuentasNegocio] = useState({});
+  const [usuario, setUsuario] = useState(() => getStoredUser());
+  const [cargando, setCargando] = useState(true);
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
   const [misInscripcionesIds, setMisInscripcionesIds] = useState([]);
   const [muestrasAprendidasModelo, setMuestrasAprendidasModelo] = useState(4);
-  const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(3);
+  const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(0);
   const [ultimoWhatsAppPublicador, setUltimoWhatsAppPublicador] = useState(
     "Listo para notificar aprobación o rechazo al publicador."
   );
@@ -44,6 +57,23 @@ export function AppProvider({ children }) {
   const [accionPendienteTrasRegistro, setAccionPendienteTrasRegistro] = useState(null);
 
   useEffect(() => {
+    const onPopState = () => {
+      setRutaActual(normalizarRuta(window.location.pathname));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const navegarA = useCallback((ruta) => {
+    const destino = normalizarRuta(ruta);
+    if (window.location.pathname !== destino) {
+      window.history.pushState({}, "", destino);
+    }
+    setRutaActual(destino);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
     if (letraGrande) {
       document.body.classList.add("letra-grande");
     } else {
@@ -51,420 +81,549 @@ export function AppProvider({ children }) {
     }
   }, [letraGrande]);
 
-  const mostrarToast = (mensaje) => {
+  const mostrarToast = useCallback((mensaje) => {
     setToast({ open: true, mensaje });
     setTimeout(() => {
       setToast({ open: false, mensaje: "" });
     }, 5500);
-  };
+  }, []);
 
-  const notificarDecisionPublicadorWhatsApp = (act, decision) => {
-    const infoNegocio = cuentasNegocio[act.negocio];
-    const telPublicador = (infoNegocio && infoNegocio.telefonoPublicador)
-      ? infoNegocio.telefonoPublicador
-      : (usuario ? usuario.telefono : "+34600998877");
+  const cargarDatosIniciales = useCallback(async (usuarioActivo) => {
+    setCargando(true);
+    try {
+      let usuarioActualizado = usuarioActivo;
+      const token = getAuthToken();
+      if (token) {
+        try {
+          const meRes = await authApi.me();
+          const rawMe = meRes?.data?.usuario;
+          if (rawMe) {
+            usuarioActualizado = {
+              ...rawMe,
+              tipoUsuario: normalizeRoleForUi(rawMe.tipoUsuario),
+            };
+            setAuthSession(token, usuarioActualizado);
+            setUsuario(usuarioActualizado);
+          }
+        } catch {
+          // Si el token expiró o no es válido, mantenemos el estado o limpiamos
+        }
+      }
 
-    const evalRef = evaluarFiabilidadNegocio(act.negocio, cuentasNegocio);
-    const mensajeWhatsApp = decision === "APROBADA"
-      ? `✅ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido APROBADA y ya es visible para los vecinos. (Nivel de referencia actual: ${evalRef.nivel}/3).`
-      : `❌ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido DENEGADA por no cumplir las normas de publicación comarcal.`;
+      const [eventosRes, negociosRes] = await Promise.all([
+        eventosApi.listar(),
+        negociosApi.listar(),
+      ]);
 
-    const logStr = `Para ${telPublicador}: "${mensajeWhatsApp}"`;
-    setUltimoWhatsAppPublicador(logStr);
-    mostrarToast(`📲 WhatsApp enviado a ${act.negocio} (${telPublicador}): ${decision}`);
-  };
+      const listaEventos = (eventosRes?.data || []).map(mapEventoFromApi);
+      setActividades(listaEventos);
+      setEventosAhorradosTokens(listaEventos.filter((e) => e.ahorroTokens).length);
 
-  const loginUsuario = ({ nombre, email, telefono, tipoUsuario }) => {
-    const formattedTel = formatearTelefonoConPrefijo(telefono);
-    const u = { id: Date.now(), nombre, email, telefono: formattedTel, tipoUsuario };
+      const mapNegocios = {};
+      for (const neg of negociosRes?.data || []) {
+        const mapped = mapNegocioFromApi(neg, usuarioActualizado);
+        mapNegocios[mapped.nombre] = mapped;
+      }
+      setCuentasNegocio(mapNegocios);
+
+      if (usuarioActualizado?.id && getAuthToken()) {
+        try {
+          const histRes = await usuariosApi.obtenerHistorial(usuarioActualizado.id);
+          const ids = (histRes?.data || [])
+            .filter((h) => h.estado !== "CANCELADA" && h.evento?.id)
+            .map((h) => Number(h.evento.id));
+          setMisInscripcionesIds(ids);
+        } catch {
+          setMisInscripcionesIds([]);
+        }
+      } else {
+        setMisInscripcionesIds([]);
+      }
+    } catch (err) {
+      mostrarToast(`No se pudieron cargar los datos del servidor: ${err.message}`);
+    } finally {
+      setCargando(false);
+    }
+  }, [mostrarToast]);
+
+  useEffect(() => {
+    cargarDatosIniciales(usuario);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const finalizarAutenticacion = async (authPayload) => {
+    const rawUser = authPayload?.data?.usuario;
+    const token = authPayload?.data?.token;
+    if (!rawUser || !token) {
+      throw new Error("Respuesta de autenticación incompleta");
+    }
+
+    const u = {
+      ...rawUser,
+      tipoUsuario: normalizeRoleForUi(rawUser.tipoUsuario),
+    };
+    console.log("[DEBUG Auth] usuario:", u);
+    setAuthSession(token, u);
     setUsuario(u);
     setModalLogin({ open: false, defaultTipo: "REGISTRADO", motivo: "" });
+
+    await cargarDatosIniciales(u);
 
     if (accionPendienteTrasRegistro) {
       const idAct = accionPendienteTrasRegistro;
       setAccionPendienteTrasRegistro(null);
-      const act = actividades.find((a) => a.id === idAct);
-      if (act && act.asistentes < act.aforo && !misInscripcionesIds.includes(idAct)) {
+      try {
+        await eventosApi.inscribirse(idAct);
+        setMisInscripcionesIds((prev) => (prev.includes(idAct) ? prev : [...prev, idAct]));
         setActividades((prev) =>
-          prev.map((a) => {
-            if (a.id === idAct) {
-              return {
-                ...a,
-                asistentes: a.asistentes + 1,
-                listaInscritos: [
-                  ...a.listaInscritos,
-                  { nombre: u.nombre, email: u.email, telefono: u.telefono }
-                ]
-              };
-            }
-            return a;
-          })
+          prev.map((a) => (a.id === idAct ? { ...a, asistentes: a.asistentes + 1 } : a))
         );
-        setMisInscripcionesIds((prev) => [...prev, idAct]);
-        mostrarToast(`✅ ¡Bienvenido ${nombre}! Quedas apuntado a "${act.nombre}".`);
+        mostrarToast(`Bienvenido ${u.nombre}. Quedas apuntado a la actividad.`);
+        return;
+      } catch (err) {
+        mostrarToast(err.message);
         return;
       }
     }
 
-    mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
+    mostrarToast(`Bienvenido/a ${u.nombre} (${u.tipoUsuario})`);
   };
 
-  const cambiarRol = (nuevoRol) => {
-    if (usuario) {
-      setUsuario({ ...usuario, tipoUsuario: nuevoRol });
-    } else {
-      setModalLogin({
-        open: true,
-        defaultTipo: nuevoRol,
-        motivo:
-          nuevoRol === "MODERADOR"
-            ? "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades."
-            : `Identifícate con rol ${nuevoRol}`
-      });
+  const loginUsuario = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.login({ nombre, password });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`Error al entrar: ${err.message}`);
+      throw err;
     }
   };
 
-  const apuntarse = (id) => {
-    if (!usuario) {
+  const loginAdmin = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.adminLogin({ nombre, password });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`Acceso denegado: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const crearAdmin = async ({ nombre, password }) => {
+    try {
+      const res = await authApi.registerAdmin({
+        nombre,
+        password,
+      });
+      const nuevoAdmin = res?.data?.usuario;
+      mostrarToast(`Administrador "${nuevoAdmin?.nombre || nombre}" dado de alta correctamente.`);
+      return nuevoAdmin;
+    } catch (err) {
+      mostrarToast(`Error al dar de alta administrador: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const listarAdmins = useCallback(async () => {
+    const res = await usuariosApi.listarAdmins();
+    return res?.data || [];
+  }, []);
+
+  const registerUsuario = async ({ nombre, email, telefono, password, tipoUsuario }) => {
+    try {
+      const formattedTel = formatearTelefonoConPrefijo(telefono);
+      const res = await authApi.register({
+        nombre,
+        email,
+        telefono: formattedTel,
+        password,
+        tipoUsuario: normalizeRoleForApi(tipoUsuario),
+      });
+      await finalizarAutenticacion(res);
+    } catch (err) {
+      mostrarToast(`Error al registrarse: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const logoutUsuario = () => {
+    setAuthSession(null, null);
+    setUsuario(null);
+    setMisInscripcionesIds([]);
+    setCuentasNegocio((prev) => {
+      const next = {};
+      for (const [k, v] of Object.entries(prev)) {
+        next[k] = { ...v, esMio: false };
+      }
+      return next;
+    });
+    mostrarToast("Has cerrado sesión.");
+  };
+
+  const cambiarRol = (nuevoRol) => {
+    if (usuario && usuario.tipoUsuario === nuevoRol) return;
+    setModalLogin({
+      open: true,
+      defaultTipo: nuevoRol,
+      motivo:
+        nuevoRol === "MODERADOR"
+          ? "Esta zona es exclusiva para el Moderador. Inicia sesión o regístrate con rol Moderador."
+          : `Inicia sesión o regístrate con rol ${nuevoRol}`
+    });
+  };
+
+  const apuntarse = async (id) => {
+    if (!usuario || !getAuthToken()) {
       setAccionPendienteTrasRegistro(id);
       setModalLogin({
         open: true,
         defaultTipo: "REGISTRADO",
-        motivo: "Escribe tus datos una sola vez para apuntarte a planes."
+        motivo: "Inicia sesión o regístrate una sola vez para apuntarte a planes."
       });
       return;
     }
     const act = actividades.find((a) => a.id === id);
-    if (!act || act.asistentes >= act.aforo) return;
-    if (misInscripcionesIds.includes(id)) return;
+    if (!act || act.asistentes >= act.aforo || misInscripcionesIds.includes(id)) return;
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            asistentes: a.asistentes + 1,
-            listaInscritos: [
-              ...a.listaInscritos,
-              { nombre: usuario.nombre, email: usuario.email, telefono: usuario.telefono }
-            ]
-          };
-        }
-        return a;
-      })
-    );
-    setMisInscripcionesIds((prev) => [...prev, id]);
-    mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuario.telefono}.`);
+    try {
+      await eventosApi.inscribirse(id);
+      setActividades((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, asistentes: a.asistentes + 1 } : a))
+      );
+      setMisInscripcionesIds((prev) => [...prev, id]);
+      mostrarToast(`Apuntado a "${act.nombre}". Te avisaremos por WhatsApp al ${usuario.telefono}.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
-  const desapuntarse = (id) => {
+  const desapuntarse = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            asistentes: Math.max(0, a.asistentes - 1),
-            listaInscritos: a.listaInscritos.filter((i) => i.email !== (usuario ? usuario.email : ""))
-          };
-        }
-        return a;
-      })
-    );
-    setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-    mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
+    try {
+      await eventosApi.desapuntarse(id);
+      setActividades((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, asistentes: Math.max(0, a.asistentes - 1) } : a))
+      );
+      setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
+      mostrarToast(`Te has desapuntado de "${act.nombre}".`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
-  const guardarNuevaHora = (id, inicio, fin) => {
+  const guardarNuevaHora = async (id, inicio, fin) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    const fechaBonita = formatearFechaBonita(inicio);
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            fechaInicioISO: inicio,
-            fechaFinISO: fin,
-            fecha: fechaBonita
-          };
-        }
-        return a;
-      })
-    );
-    setModalCambiarHora({ open: false, actividad: null });
-    const numApuntados = act.listaInscritos.length;
-    const aviso = numApuntados > 0
-      ? `🕒 Hora actualizada a "${fechaBonita}". Se ha enviado aviso por WhatsApp a los ${numApuntados} apuntados.`
-      : `🕒 Hora actualizada a "${fechaBonita}".`;
-    mostrarToast(aviso);
+    try {
+      await eventosApi.actualizar(id, { fechaInicio: inicio, fechaFin: fin });
+      const fechaBonita = formatearFechaBonita(inicio);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, fechaInicioISO: inicio, fechaFinISO: fin, fecha: fechaBonita } : a
+        )
+      );
+      setModalCambiarHora({ open: false, actividad: null });
+      mostrarToast(`Hora actualizada a "${fechaBonita}".`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
-  const eliminarEvento = (id) => {
-    setActividades((prev) => prev.filter((a) => a.id !== id));
-    setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
-    mostrarToast("🗑️ Evento eliminado.");
+  const eliminarEvento = async (id) => {
+    try {
+      await eventosApi.eliminar(id);
+      setActividades((prev) => prev.filter((a) => a.id !== id));
+      setMisInscripcionesIds((prev) => prev.filter((i) => i !== id));
+      mostrarToast("Evento eliminado.");
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
   const publicarEvento = async (nuevoData) => {
-    const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
-
-    // MODERADOR IA AUTÓNOMO (NO ESPERA A ACCIÓN HUMANA: TRABAJA Y DECIDE ÉL)
-    // 1. Evalúa palabras malsonantes en el título.
-    // 2. Evalúa coherencia temática estricta del título con la categoría.
-    // 3. Evalúa coherencia de la imagen con la categoría con el modelo preentrenado.
-    const resultadoIA = await moderarActividadAutonomaConGemini(nuevoData);
-    const esAprobada = resultadoIA.decision === "aprobar" && resultadoIA.aprobada;
-
-    const nuevoEvento = {
-      id: Date.now(),
-      nombre: nuevoData.titulo,
-      pueblo: nuevoData.pueblo,
-      negocio: nuevoData.negocio,
-      categoria: nuevoData.categoria,
-      descripcion: nuevoData.descripcion,
-      coords: baseCoords,
-      dePago: nuevoData.dePago,
-      asistentes: 0,
-      aforo: nuevoData.aforo,
-      listaInscritos: [],
-      fechaInicioISO: nuevoData.fechaInicio,
-      fechaFinISO: nuevoData.fechaFin,
-      fecha: formatearFechaBonita(nuevoData.fechaInicio),
-      estadoModeracion: esAprobada ? "aprobada" : "denegada",
-      ahorroTokens: esAprobada,
-      motivoIA: resultadoIA.motivo,
-      moderacionImagen: {
-        modelo: resultadoIA.modelo || "gemini-2.5-flash-autonomo",
-        aprobada: esAprobada,
-        coherenteConCategoria: resultadoIA.coherenteImagen,
-        motivo: resultadoIA.motivo
-      },
-      imagen: nuevoData.imagen || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
-    };
-
-    setActividades((prev) => [nuevoEvento, ...prev]);
-
-    if (!esAprobada) {
-      setMuestrasAprendidasModelo((prev) => prev + 1);
-      notificarDecisionPublicadorWhatsApp(nuevoEvento, "DENEGADA");
-      mostrarToast(`🚨 Actividad rechazada por el Moderador IA: ${resultadoIA.motivo}`);
-      return {
-        exito: false,
-        motivo: resultadoIA.motivo
-      };
+    const negocioInfo = cuentasNegocio[nuevoData.negocio];
+    if (!negocioInfo?.id) {
+      mostrarToast("Selecciona un negocio válido antes de publicar.");
+      return;
     }
 
-    // Si es aprobada autónomamente por el moderador
-    setEventosAhorradosTokens((prev) => prev + 1);
-    if (cuentasNegocio[nuevoData.negocio]) {
+    const baseCoords = municipiosMancomunidad[nuevoData.pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadas =
+      typeof nuevoData.coordenadas === "string" && nuevoData.coordenadas.trim()
+        ? nuevoData.coordenadas.trim()
+        : `${baseCoords[0]}, ${baseCoords[1]}`;
+    const payload = {
+      nombre: nuevoData.titulo,
+      negocioId: negocioInfo.id,
+      pueblo: nuevoData.pueblo,
+      descripcion: nuevoData.descripcion,
+      coordenadas,
+      dePago: Boolean(nuevoData.dePago),
+      aforo: Number(nuevoData.aforo),
+      tipoEvento: CATEGORIA_A_TIPO_EVENTO[nuevoData.categoria] || 1,
+      fechaInicio: nuevoData.fechaInicio,
+      fechaFin: nuevoData.fechaFin,
+      imagen: nuevoData.imagen || "",
+    };
+
+    try {
+      const res = await eventosApi.crear(payload);
+      const nuevoEvento = mapEventoFromApi(res.data);
+      setActividades((prev) => [nuevoEvento, ...prev]);
+
+      if (nuevoEvento.estadoModeracion === "aprobada") {
+        setEventosAhorradosTokens((prev) => prev + 1);
+        mostrarToast(`Publicada al instante. "${nuevoData.negocio}" tiene pase directo.`);
+      } else {
+        mostrarToast(`Enviada a revisión: "${nuevoData.negocio}" queda pendiente de Moderador.`);
+      }
+    } catch (err) {
+      mostrarToast(`No se pudo publicar el evento: ${err.message}`);
+    }
+  };
+
+  const crearNegocio = async ({ nombre, pueblo, coordenadas, instagramUrl, twitterUrl, facebookUrl, webUrl }) => {
+    const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadasStr =
+      typeof coordenadas === "string" && coordenadas.trim()
+        ? coordenadas.trim()
+        : `${coords[0]}, ${coords[1]}`;
+    try {
+      const res = await negociosApi.crear({
+        nombre,
+        pueblo,
+        coordenadas: coordenadasStr,
+        instagramUrl,
+        twitterUrl,
+        facebookUrl,
+        webUrl,
+        fiabilidad: 0,
+      });
+      const mapped = mapNegocioFromApi(res.data, usuario);
       setCuentasNegocio((prev) => ({
         ...prev,
-        [nuevoData.negocio]: {
-          ...prev[nuevoData.negocio],
-          actividadesAprobadas: prev[nuevoData.negocio].actividadesAprobadas + 1
-        }
+        [mapped.nombre]: mapped,
       }));
+      mostrarToast(`Comercio "${mapped.nombre}" enviado. Queda pendiente hasta que un moderador lo confirme.`);
+    } catch (err) {
+      mostrarToast(`Error al crear negocio: ${err.message}`);
     }
-    notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
-    mostrarToast(`✅ ¡Aprobada por el Moderador IA Autónomo! Título e imagen verificados para la categoría "${nuevoData.categoria}".`);
-    return { exito: true };
   };
 
-  const ejecutarModeradorAutonomoEnTodas = async () => {
-    let aprobadasCount = 0;
-    let denegadasCount = 0;
-
-    const nuevasActividades = await Promise.all(
-      actividades.map(async (act) => {
-        if (act.estadoModeracion === "pendiente") {
-          const resIA = await moderarActividadAutonomaConGemini({
-            titulo: act.nombre,
-            descripcion: act.descripcion,
-            categoria: act.categoria,
-            imagen: act.imagen
-          });
-          const estado = resIA.decision === "aprobar" ? "aprobada" : "denegada";
-          if (estado === "aprobada") aprobadasCount++;
-          else denegadasCount++;
-
-          return {
-            ...act,
-            estadoModeracion: estado,
-            motivoIA: resIA.motivo
-          };
-        }
-        return act;
-      })
-    );
-
-    setActividades(nuevasActividades);
-    setMuestrasAprendidasModelo((prev) => prev + 1);
-    mostrarToast(`⚡ Moderador IA Autónomo procesó todas las actividades: ${aprobadasCount} aprobadas y ${denegadasCount} denegadas.`);
+  const aprobarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      const res = await negociosApi.aprobar(info.id);
+      const mapped = mapNegocioFromApi(res.data, usuario);
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [mapped.nombre]: { ...mapped, resenas: info.resenas || [] },
+      }));
+      mostrarToast(`Comercio "${mapped.nombre}" confirmado.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
-  const crearNegocio = ({ nombre, pueblo, instagramUrl, facebookUrl }) => {
-    setCuentasNegocio((prev) => ({
-      ...prev,
-      [nombre]: {
-        id: Date.now(),
+  const denegarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      await negociosApi.denegar(info.id);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        delete next[nombreNegocio];
+        return next;
+      });
+      mostrarToast(`Comercio "${nombreNegocio}" denegado y eliminado.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
+  };
+
+  const actualizarNegocio = async (
+    nombreActual,
+    { nombre, pueblo, coordenadas, instagramUrl, twitterUrl, facebookUrl, webUrl }
+  ) => {
+    const info = cuentasNegocio[nombreActual];
+    if (!info?.id) return null;
+    const coords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+    const coordenadasStr =
+      typeof coordenadas === "string" && coordenadas.trim()
+        ? coordenadas.trim()
+        : `${coords[0]}, ${coords[1]}`;
+    try {
+      const res = await negociosApi.actualizar(info.id, {
         nombre,
-        esMio: true,
         pueblo,
-        telefonoPublicador: usuario ? usuario.telefono : "+34600112233",
-        actividadesAprobadas: 0,
-        cuentaVerificada: false,
-        fiabilidad: 1,
+        coordenadas: coordenadasStr,
         instagramUrl,
+        twitterUrl,
         facebookUrl,
-        resenas: []
+        webUrl,
+      });
+      const mapped = mapNegocioFromApi(res.data, usuario);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        if (nombreActual !== mapped.nombre) {
+          delete next[nombreActual];
+        }
+        next[mapped.nombre] = { ...mapped, resenas: info.resenas || [] };
+        return next;
+      });
+      if (nombreActual !== mapped.nombre) {
+        setActividades((prev) =>
+          prev.map((a) => (a.negocio === nombreActual ? { ...a, negocio: mapped.nombre } : a))
+        );
       }
-    }));
-    mostrarToast(`✅ Negocio "${nombre}" guardado con Referencia Nivel 1/3.`);
-  };
-
-  const aprobarActividad = (id) => {
-    const act = actividades.find((a) => a.id === id);
-    if (!act) return;
-
-    let nuevoNivel = 1;
-    if (cuentasNegocio[act.negocio]) {
-      const updatedCount = cuentasNegocio[act.negocio].actividadesAprobadas + 2;
-      const updatedCuentas = {
-        ...cuentasNegocio,
-        [act.negocio]: {
-          ...cuentasNegocio[act.negocio],
-          actividadesAprobadas: updatedCount
-        }
-      };
-      setCuentasNegocio(updatedCuentas);
-      nuevoNivel = evaluarFiabilidadNegocio(act.negocio, updatedCuentas).nivel;
+      mostrarToast(`Negocio "${mapped.nombre}" actualizado.`);
+      return mapped;
+    } catch (err) {
+      mostrarToast(`Error al actualizar negocio: ${err.message}`);
+      throw err;
     }
-
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            estadoModeracion: "aprobada",
-            motivoIA: `Aprobada por Moderador · Negocio sube a Referencia Nivel ${nuevoNivel}/3`
-          };
-        }
-        return a;
-      })
-    );
-
-    setMuestrasAprendidasModelo((prev) => prev + 1);
-    notificarDecisionPublicadorWhatsApp(act, "APROBADA");
   };
 
-  const denegarActividad = (id) => {
+  const eliminarNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return;
+    try {
+      await negociosApi.eliminar(info.id);
+      setCuentasNegocio((prev) => {
+        const next = { ...prev };
+        delete next[nombreNegocio];
+        return next;
+      });
+      setActividades((prev) => prev.filter((a) => a.negocio !== nombreNegocio));
+      mostrarToast(`Negocio "${nombreNegocio}" eliminado.`);
+    } catch (err) {
+      mostrarToast(`Error al eliminar negocio: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const aprobarActividad = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
-    setActividades((prev) =>
-      prev.map((a) => {
-        if (a.id === id) {
-          return {
-            ...a,
-            estadoModeracion: "denegada",
-            motivoIA: "Denegada por Moderador · Aviso enviado por WhatsApp al publicador"
-          };
-        }
-        return a;
-      })
-    );
-
-    setMuestrasAprendidasModelo((prev) => prev + 1);
-    notificarDecisionPublicadorWhatsApp(act, "DENEGADA");
+    try {
+      const motivo = "Aprobada por Moderador · Verificada";
+      await eventosApi.aprobar(id, motivo);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, estadoModeracion: "aprobada", motivoIA: motivo } : a
+        )
+      );
+      setMuestrasAprendidasModelo((prev) => prev + 1);
+      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" aprobada y visible para los vecinos.`);
+      mostrarToast(`Actividad "${act.nombre}" aprobada.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
+
+  const denegarActividad = async (id) => {
+    const act = actividades.find((a) => a.id === id);
+    if (!act) return;
+
+    try {
+      const motivo = "Denegada por Moderador · No cumple las normas comarcales";
+      await eventosApi.denegar(id, motivo);
+      setActividades((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, estadoModeracion: "denegada", motivoIA: motivo } : a
+        )
+      );
+      setMuestrasAprendidasModelo((prev) => prev + 1);
+      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" denegada.`);
+      mostrarToast(`Actividad "${act.nombre}" denegada.`);
+    } catch (err) {
+      mostrarToast(err.message);
+    }
+  };
+
+  const cargarResenasNegocio = useCallback(async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return [];
+    try {
+      const res = await negociosApi.listarValoraciones(info.id);
+      const lista = (res?.data?.valoraciones || []).map((v) => ({
+        id: v.id,
+        usuario: v.usuario?.nombre || "Vecino",
+        estrellas: v.estrellas,
+        texto: v.texto,
+      }));
+      setCuentasNegocio((prev) => ({
+        ...prev,
+        [nombreNegocio]: { ...prev[nombreNegocio], resenas: lista },
+      }));
+      return lista;
+    } catch {
+      return info.resenas || [];
+    }
+  }, [cuentasNegocio]);
 
   const agregarResena = async (nombreNegocio, estrellas, texto) => {
-    const autor = usuario ? usuario.nombre : "Vecino";
-
-    // 1. MODERACIÓN CON GEMINI (Detección de palabras malsonantes e insultos)
-    // REGLA DEL MODERADOR: "Reseñas que pongan malas palabras se van (sin excepciones de fidelidad)"
-    const analisisIA = await moderarResenaConGemini(texto);
-
-    const nuevaResena = {
-      id: Date.now(),
-      negocio: nombreNegocio,
-      usuario: autor,
-      estrellas,
-      texto,
-      estado: analisisIA.contieneMalasPalabras ? "rechazada" : "aprobada",
-      contieneMalasPalabras: analisisIA.contieneMalasPalabras,
-      palabrasDetectadas: analisisIA.palabrasDetectadas,
-      modeloIA: analisisIA.modelo,
-      motivoIA: analisisIA.motivo,
-      fecha: new Date().toISOString().split("T")[0]
-    };
-
-    setResenas((prev) => [nuevaResena, ...prev]);
-
-    if (analisisIA.contieneMalasPalabras) {
-      // Las reseñas con malas palabras SE VAN (no se publican en el negocio)
-      mostrarToast(`🚫 Reseña bloqueada por Gemini: contiene palabras malsonantes (${analisisIA.palabrasDetectadas.join(", ")}).`);
-      return {
-        exito: false,
-        motivo: analisisIA.motivo,
-        palabras: analisisIA.palabrasDetectadas
-      };
+    if (!usuario || !getAuthToken()) {
+      mostrarToast("Inicia sesión para poder dejar una reseña.");
+      return;
     }
 
-    // Si está limpia, se añade a las opiniones públicas del negocio
-    setCuentasNegocio((prev) => {
-      const existe = prev[nombreNegocio] || {
-        id: Date.now(),
-        nombre: nombreNegocio,
-        actividadesAprobadas: 0,
-        resenas: []
-      };
-      return {
-        ...prev,
-        [nombreNegocio]: {
-          ...existe,
-          resenas: [{ usuario: autor, estrellas, texto }, ...existe.resenas]
-        }
-      };
+    const ahora = Date.now();
+    const eventosDelNegocio = actividades.filter((a) => a.negocio === nombreNegocio);
+    const eventosAsistidos = eventosDelNegocio.filter((a) => misInscripcionesIds.includes(a.id));
+    const eventoObjetivo = eventosAsistidos.find((a) => {
+      if (!a.fechaFinISO) return false;
+      const finMs = new Date(a.fechaFinISO).getTime();
+      return !Number.isNaN(finMs) && finMs <= ahora;
     });
 
-    mostrarToast("⭐ ¡Gracias! Tu opinión ha sido aprobada por Gemini y publicada.");
-    return { exito: true };
-  };
+    if (!eventoObjetivo) {
+      if (eventosAsistidos.length > 0) {
+        mostrarToast("Solo puedes reseñar cuando haya acabado el evento al que asististe.");
+      } else {
+        mostrarToast("Solo puedes reseñar si has asistido a un evento de este negocio y ya ha acabado.");
+      }
+      return;
+    }
 
-  const eliminarResena = (id) => {
-    setResenas((prev) => prev.filter((r) => r.id !== id));
-    mostrarToast("🗑️ Reseña eliminada del sistema.");
-  };
-
-  const restaurarResena = (id) => {
-    setResenas((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          return {
-            ...r,
-            estado: "aprobada",
-            contieneMalasPalabras: false,
-            motivoIA: "Aprobada manualmente por el Moderador."
-          };
-        }
-        return r;
-      })
-    );
-    mostrarToast("✅ Reseña marcada como aprobada por el Moderador.");
+    try {
+      const res = await eventosApi.crearValoracion(eventoObjetivo.id, { estrellas, texto });
+      const nueva = {
+        id: res?.data?.id,
+        usuario: usuario?.nombre || "Vecino",
+        estrellas,
+        texto,
+      };
+      setCuentasNegocio((prev) => {
+        const existe = prev[nombreNegocio];
+        if (!existe) return prev;
+        return {
+          ...prev,
+          [nombreNegocio]: {
+            ...existe,
+            resenas: [nueva, ...(existe.resenas || [])],
+          },
+        };
+      });
+      mostrarToast("Gracias, tu opinión se ha guardado.");
+    } catch (err) {
+      mostrarToast(err.message);
+    }
   };
 
   return (
     <AppContext.Provider
       value={{
+        rutaActual,
+        navegarA,
         actividades,
         cuentasNegocio,
-        resenas,
         usuario,
+        cargando,
         letraGrande,
         setLetraGrande,
         puebloActivo,
@@ -486,6 +645,11 @@ export function AppProvider({ children }) {
         modalInscritos,
         setModalInscritos,
         loginUsuario,
+        loginAdmin,
+        crearAdmin,
+        listarAdmins,
+        registerUsuario,
+        logoutUsuario,
         cambiarRol,
         apuntarse,
         desapuntarse,
@@ -493,12 +657,14 @@ export function AppProvider({ children }) {
         eliminarEvento,
         publicarEvento,
         crearNegocio,
+        actualizarNegocio,
+        eliminarNegocio,
+        aprobarNegocio,
+        denegarNegocio,
         aprobarActividad,
         denegarActividad,
-        ejecutarModeradorAutonomoEnTodas,
+        cargarResenasNegocio,
         agregarResena,
-        eliminarResena,
-        restaurarResena
       }}
     >
       {children}

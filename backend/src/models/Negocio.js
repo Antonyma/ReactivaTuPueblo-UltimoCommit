@@ -21,6 +21,7 @@ export class Negocio {
     twitterUrl = '',
     webUrl = '',
     fiabilidad = 100,
+    pueblo = '',
   }) {
     this.id = Number(id)
     this.nombre = String(nombre)
@@ -31,6 +32,7 @@ export class Negocio {
     this.twitterUrl = String(twitterUrl)
     this.webUrl = String(webUrl)
     this.fiabilidad = Number(fiabilidad)
+    this.pueblo = String(pueblo)
   }
 }
 

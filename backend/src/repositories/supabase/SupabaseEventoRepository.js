@@ -28,6 +28,9 @@ export const EVENTO_SCHEMA = {
     imagen: 'imagen',
     fechaInicio: 'fechaInicio',
     fechaFin: 'fechaFin',
+    pueblo: 'pueblo',
+    estado: 'estado',
+    motivo: 'motivo',
     urlPost: 'url_post',
     createdAt: 'created_at',
   },
@@ -74,6 +77,9 @@ export function mapEventoFromRow(row) {
     imagen: String(row[cols.imagen] ?? ''),
     fechaInicio: toDateOrNull(row[cols.fechaInicio]) || new Date(0),
     fechaFin: toDateOrNull(row[cols.fechaFin]) || new Date(0),
+    pueblo: String(row[cols.pueblo] ?? negocio?.pueblo ?? ''),
+    estado: String(row[cols.estado] || 'aprobada').trim().toLowerCase(),
+    motivo: String(row[cols.motivo] ?? ''),
   })
 }
 
@@ -100,6 +106,9 @@ function mapEventoToRow(data, { isCreate = false } = {}) {
   if (data.aforo !== undefined) row[cols.aforo] = Number(data.aforo)
   if (data.tipoEvento !== undefined) row[cols.tipoEvento] = Number(data.tipoEvento)
   if (data.imagen !== undefined) row[cols.imagen] = String(data.imagen)
+  if (data.pueblo !== undefined) row[cols.pueblo] = String(data.pueblo).trim()
+  if (data.estado !== undefined) row[cols.estado] = String(data.estado).trim()
+  if (data.motivo !== undefined) row[cols.motivo] = String(data.motivo).trim()
   if (data.urlPost !== undefined) row[cols.urlPost] = data.urlPost
 
   const fechaInicioIso = toIsoString(data.fechaInicio)
@@ -155,6 +164,14 @@ export class SupabaseEventoRepository extends EventoRepository {
 
     if (filters.negocioId !== undefined && filters.negocioId !== '') {
       query = query.eq(cols.negocioId, Number(filters.negocioId))
+    }
+
+    if (filters.pueblo) {
+      query = query.ilike(cols.pueblo, String(filters.pueblo).trim())
+    }
+
+    if (filters.estado) {
+      query = query.eq(cols.estado, String(filters.estado).trim())
     }
 
     const result = await query.order(cols.fechaInicio, { ascending: true })
@@ -274,6 +291,22 @@ export class SupabaseEventoRepository extends EventoRepository {
     }
   }
 
+  async desinscribirUsuario(eventoId, usuarioId) {
+    const eId = Number(eventoId)
+    const uId = Number(usuarioId)
+    const cols = EVENTO_SCHEMA.inscripcionesColumns
+
+    const result = await this.client
+      .from(EVENTO_SCHEMA.inscripcionesTable)
+      .delete()
+      .eq(cols.eventoId, eId)
+      .eq(cols.usuarioId, uId)
+      .select(cols.id)
+
+    const rows = unwrapSupabaseResult(result, 'Error al cancelar inscripción del evento') || []
+    return rows.length > 0
+  }
+
   async findInscritos(eventoId) {
     const cols = EVENTO_SCHEMA.inscripcionesColumns
     const result = await this.client
@@ -359,6 +392,22 @@ export class SupabaseEventoRepository extends EventoRepository {
       fechaInscripcion: toDateOrNull(row[cols.fechaInscripcion]) || new Date(),
       confirmadaPorWhatsapp: row[cols.estado] === 'CONFIRMADA',
     }
+  }
+
+  async desinscribirUsuario(eventoId, usuarioId) {
+    const eId = Number(eventoId)
+    const uId = Number(usuarioId)
+    const cols = EVENTO_SCHEMA.inscripcionesColumns
+
+    const result = await this.client
+      .from(EVENTO_SCHEMA.inscripcionesTable)
+      .delete()
+      .eq(cols.eventoId, eId)
+      .eq(cols.usuarioId, uId)
+      .select(cols.id)
+
+    const rows = unwrapSupabaseResult(result, 'Error al cancelar inscripción del evento') || []
+    return rows.length > 0
   }
 
   async confirmarPublicacionWhatsapp(eventoId) {

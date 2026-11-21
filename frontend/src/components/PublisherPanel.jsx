@@ -1,12 +1,74 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
-import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../data/mockData.js";
+import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../constants/comarca.js";
+import { parseCoords } from "../api/mappers.js";
+import LocationPickerModal from "./modals/LocationPickerModal.jsx";
+import {
+  IconArrowLeft,
+  IconCheck,
+  IconClock,
+  IconMapPin,
+  IconPlus,
+  IconStore,
+  IconTrash,
+  IconUsers,
+} from "./Icons.jsx";
+
+function UbicacionSelector({ pueblo, coords, onOpenModal, onClear }) {
+  return (
+    <div className="md:col-span-2 bg-white border-2 border-blue-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-stone-900">Ubicación exacta en el mapa</p>
+        {coords ? (
+          <p className="text-xs font-bold text-emerald-700 mt-0.5">
+            Ubicación fijada: {coords[0].toFixed(5)}, {coords[1].toFixed(5)}
+          </p>
+        ) : (
+          <p className="text-xs text-stone-600 mt-0.5">
+            Si no añades una ubicación exacta, se usará el centro de {pueblo}.
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {coords && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-3 py-2 rounded-xl text-xs border border-stone-300"
+          >
+            Quitar
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onOpenModal}
+          className="inline-flex items-center gap-1.5 bg-blue-100 hover:bg-blue-200 text-blue-950 font-black px-3.5 py-2 rounded-xl text-xs border border-blue-300"
+        >
+          <IconMapPin className="w-4 h-4 text-blue-700 shrink-0" />
+          <span>{coords ? "Cambiar ubicación" : "Añadir ubicación"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function PublisherPanel() {
-  const { cuentasNegocio, usuario, cambiarRol, publicarEvento, crearNegocio } = useApp();
+  const {
+    actividades,
+    cuentasNegocio,
+    cambiarRol,
+    publicarEvento,
+    crearNegocio,
+    actualizarNegocio,
+    eliminarNegocio,
+    eliminarEvento,
+    setModalCambiarHora,
+    setModalInscritos,
+  } = useApp();
 
   const [mostrarFormEvento, setMostrarFormEvento] = useState(false);
   const [mostrarFormNegocio, setMostrarFormNegocio] = useState(false);
+  const [negocioDetalleNombre, setNegocioDetalleNombre] = useState(null);
 
   // Form Evento state
   const [titulo, setTitulo] = useState("");
@@ -20,58 +82,113 @@ export default function PublisherPanel() {
   const [descripcion, setDescripcion] = useState("");
   const [imagenBase64, setImagenBase64] = useState("");
   const [previewName, setPreviewName] = useState("");
-  const [alertaErrorEvento, setAlertaErrorEvento] = useState("");
+  const [eventoCoords, setEventoCoords] = useState(null);
 
   // Form Negocio state
   const [negNombre, setNegNombre] = useState("");
   const [negPueblo, setNegPueblo] = useState("Lucainena de las Torres");
   const [negInstagram, setNegInstagram] = useState("");
+  const [negTwitter, setNegTwitter] = useState("");
   const [negFacebook, setNegFacebook] = useState("");
+  const [negWeb, setNegWeb] = useState("");
+  const [negCoords, setNegCoords] = useState(null);
+
+  // Form Editar Negocio (pestaña de detalle)
+  const [editNombre, setEditNombre] = useState("");
+  const [editPueblo, setEditPueblo] = useState("Lucainena de las Torres");
+  const [editInstagram, setEditInstagram] = useState("");
+  const [editTwitter, setEditTwitter] = useState("");
+  const [editFacebook, setEditFacebook] = useState("");
+  const [editWeb, setEditWeb] = useState("");
+  const [editCoords, setEditCoords] = useState(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+  // Modal selector de ubicación en el mapa ('evento' | 'negocio' | 'editarNegocio')
+  const [locationModal, setLocationModal] = useState({ open: false, target: null });
 
   const misNegocios = Object.keys(cuentasNegocio).filter((k) => cuentasNegocio[k].esMio);
+  const misNegociosConfirmados = misNegocios.filter((k) => !cuentasNegocio[k].pendiente);
 
-  // Initialize selected business if empty
-  const defaultBusiness = negocioSelect || (misNegocios.length > 0 ? misNegocios[0] : "");
+  const defaultBusiness =
+    negocioSelect || (misNegociosConfirmados.length > 0 ? misNegociosConfirmados[0] : "");
+
+  const negocioDetalle =
+    negocioDetalleNombre && cuentasNegocio[negocioDetalleNombre]?.esMio
+      ? cuentasNegocio[negocioDetalleNombre]
+      : null;
+
+  const abrirDetalleNegocio = (nombre) => {
+    const info = cuentasNegocio[nombre];
+    if (!info) return;
+    setMostrarFormEvento(false);
+    setMostrarFormNegocio(false);
+    setNegocioDetalleNombre(nombre);
+    setEditNombre(info.nombre || "");
+    setEditPueblo(info.pueblo || "Lucainena de las Torres");
+    setEditInstagram(info.instagramUrl || "");
+    setEditTwitter(info.twitterUrl || "");
+    setEditFacebook(info.facebookUrl || "");
+    setEditWeb(info.webUrl || "");
+    setEditCoords(
+      info.coordenadas && info.coordenadas.includes(",")
+        ? parseCoords(info.coordenadas, info.pueblo)
+        : null
+    );
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setImagenBase64(ev.target.result);
-      setPreviewName(file.name);
+      const dataUrl = ev.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1000;
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          setImagenBase64(canvas.toDataURL("image/jpeg", 0.8));
+        } else {
+          setImagenBase64(dataUrl);
+        }
+        setPreviewName(file.name);
+      };
+      img.onerror = () => {
+        setImagenBase64(dataUrl);
+        setPreviewName(file.name);
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   };
 
-  const handleCrearEvento = async (e) => {
+  const handleCrearEvento = (e) => {
     e.preventDefault();
     if (!defaultBusiness) return;
-    setAlertaErrorEvento("");
-
-    const res = await publicarEvento({
+    publicarEvento({
       titulo,
       categoria,
       negocio: defaultBusiness,
       pueblo,
+      coordenadas: eventoCoords ? `${eventoCoords[0]}, ${eventoCoords[1]}` : undefined,
       aforo,
       dePago,
       fechaInicio,
       fechaFin,
       descripcion,
-      imagen: imagenBase64
+      imagen: imagenBase64,
     });
-
-    if (res && res.exito === false) {
-      setAlertaErrorEvento(res.motivo);
-      return;
-    }
 
     setTitulo("");
     setDescripcion("");
     setImagenBase64("");
     setPreviewName("");
-    setAlertaErrorEvento("");
+    setEventoCoords(null);
     setMostrarFormEvento(false);
   };
 
@@ -81,49 +198,94 @@ export default function PublisherPanel() {
     crearNegocio({
       nombre: negNombre.trim(),
       pueblo: negPueblo,
+      coordenadas: negCoords ? `${negCoords[0]}, ${negCoords[1]}` : undefined,
       instagramUrl: negInstagram.trim(),
-      facebookUrl: negFacebook.trim()
+      twitterUrl: negTwitter.trim(),
+      facebookUrl: negFacebook.trim(),
+      webUrl: negWeb.trim(),
     });
     setNegNombre("");
     setNegInstagram("");
+    setNegTwitter("");
     setNegFacebook("");
+    setNegWeb("");
+    setNegCoords(null);
     setMostrarFormNegocio(false);
   };
 
+  const handleGuardarEdicionNegocio = async (e) => {
+    e.preventDefault();
+    if (!negocioDetalle || !editNombre.trim()) return;
+    setGuardandoEdicion(true);
+    try {
+      const updated = await actualizarNegocio(negocioDetalle.nombre, {
+        nombre: editNombre.trim(),
+        pueblo: editPueblo,
+        coordenadas: editCoords ? `${editCoords[0]}, ${editCoords[1]}` : undefined,
+        instagramUrl: editInstagram.trim(),
+        twitterUrl: editTwitter.trim(),
+        facebookUrl: editFacebook.trim(),
+        webUrl: editWeb.trim(),
+      });
+      if (updated) {
+        setNegocioDetalleNombre(updated.nombre);
+      }
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const handleEliminarNegocio = async () => {
+    if (!negocioDetalle) return;
+    const confirmado = window.confirm(
+      `¿Seguro que quieres borrar "${negocioDetalle.nombre}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmado) return;
+    await eliminarNegocio(negocioDetalle.nombre);
+    setNegocioDetalleNombre(null);
+  };
+
   const pueblosArray = Object.keys(municipiosMancomunidad).sort();
+  const eventosDelNegocio = negocioDetalle
+    ? actividades.filter((a) => a.negocio === negocioDetalle.nombre)
+    : [];
 
   return (
-    <section id="panel-publicador" className="caja-panel bg-white p-5 rounded-3xl shadow-sm space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200 pb-3">
+    <section id="panel-publicador" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-blue-200 pb-3">
         <div>
-          <span className="bg-blue-100 text-blue-950 text-xs font-black px-3 py-1 rounded-full">
+          <span className="bg-blue-100 text-blue-950 text-xs font-black px-3 py-1 rounded-full inline-block">
             Panel de Publicador · Sistema de Referencia
           </span>
-          <h2 className="text-xl font-black mt-1">Mis Negocios y Eventos</h2>
+          <h2 className="text-xl font-black mt-1.5">Mis Negocios y Eventos</h2>
           <p className="text-xs text-stone-600">
-            Todas las publicaciones y fotos se analizan con <strong>nemotron-3.5-parse</strong>: no se mira solo la fiabilidad, se evalúan <strong>todas las fotos</strong> y solo pasan las estrictamente coherentes con la categoría.
+            Pulsa en cualquiera de tus negocios para ver sus detalles, editarlo, borrarlo o gestionar su historial de eventos.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
+              setNegocioDetalleNombre(null);
               setMostrarFormNegocio(false);
               setMostrarFormEvento(!mostrarFormEvento);
             }}
-            className="bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3 rounded-2xl text-sm"
+            className="inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3 rounded-2xl text-sm"
           >
-            ➕ Publicar Evento
+            <IconPlus className="w-4 h-4 shrink-0" />
+            <span>Publicar Evento</span>
           </button>
           <button
             type="button"
             onClick={() => {
+              setNegocioDetalleNombre(null);
               setMostrarFormEvento(false);
               setMostrarFormNegocio(!mostrarFormNegocio);
             }}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-3 rounded-2xl text-sm"
+            className="inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-3 rounded-2xl text-sm"
           >
-            🏪 Añadir Negocio / Redes
+            <IconStore className="w-4 h-4 shrink-0" />
+            <span>Añadir Negocio / Redes</span>
           </button>
           <button
             type="button"
@@ -135,18 +297,29 @@ export default function PublisherPanel() {
         </div>
       </div>
 
+      {/* Pestañas de navegación rápida entre lista y detalle */}
+      {negocioDetalle && (
+        <div className="flex flex-wrap items-center gap-2 bg-blue-50 p-2 rounded-2xl border border-blue-200">
+          <button
+            type="button"
+            onClick={() => setNegocioDetalleNombre(null)}
+            className="inline-flex items-center gap-1.5 bg-white hover:bg-blue-100 text-blue-950 font-bold px-3.5 py-2 rounded-xl text-sm border border-blue-200"
+          >
+            <IconArrowLeft className="w-4 h-4" />
+            <span>Todos mis negocios</span>
+          </button>
+          <span className="bg-blue-700 text-white font-black px-3.5 py-2 rounded-xl text-sm">
+            Detalle: {negocioDetalle.nombre}
+          </span>
+        </div>
+      )}
+
       {/* Formulario Crear Evento */}
-      {mostrarFormEvento && (
+      {mostrarFormEvento && !negocioDetalle && (
         <form
           onSubmit={handleCrearEvento}
           className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-2xl border border-blue-200"
         >
-          {alertaErrorEvento && (
-            <div className="md:col-span-2 bg-red-100 border-2 border-red-400 text-red-950 p-3 rounded-2xl text-xs font-bold space-y-1">
-              <p className="font-black text-sm text-red-700">⚠️ Error de Moderación Gemini</p>
-              <p>{alertaErrorEvento}</p>
-            </div>
-          )}
           <div className="md:col-span-2">
             <label className="block text-sm font-bold mb-1">Nombre del evento *</label>
             <input
@@ -155,7 +328,7 @@ export default function PublisherPanel() {
               placeholder="Ej: Merienda y baile en la plaza"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
           <div>
@@ -163,13 +336,13 @@ export default function PublisherPanel() {
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
-              <option value="Fiesta Patronal">🎉 Fiesta Patronal</option>
-              <option value="Deportes">⚽ Deportes</option>
-              <option value="Gastronomía">🍲 Gastronomía</option>
-              <option value="Turismo">🥾 Paseo / Turismo</option>
-              <option value="Comercio">🛍️ Comercio Local</option>
+              <option value="Fiesta Patronal">Fiesta Patronal</option>
+              <option value="Deportes">Deportes</option>
+              <option value="Gastronomía">Gastronomía</option>
+              <option value="Turismo">Paseo / Turismo</option>
+              <option value="Comercio">Comercio Local</option>
             </select>
           </div>
           <div>
@@ -178,24 +351,31 @@ export default function PublisherPanel() {
               value={defaultBusiness}
               onChange={(e) => setNegocioSelect(e.target.value)}
               required
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
-              {misNegocios.map((nombre) => {
-                const evalRef = evaluarFiabilidadNegocio(nombre, cuentasNegocio);
-                return (
-                  <option key={nombre} value={nombre}>
-                    {nombre} ({evalRef.esDeConfianza ? `Ref. ${evalRef.nivel}/3 · Directo` : "Ref. 1/3 · Revisión"})
-                  </option>
-                );
-              })}
+              {misNegociosConfirmados.length === 0 ? (
+                <option value="">Ningún negocio confirmado aún</option>
+              ) : (
+                misNegociosConfirmados.map((nombre) => {
+                  const evalRef = evaluarFiabilidadNegocio(nombre, cuentasNegocio);
+                  return (
+                    <option key={nombre} value={nombre}>
+                      {nombre} ({evalRef.esDeConfianza ? `Ref. ${evalRef.nivel}/3 · Directo` : "Ref. 1/3 · Revisión"})
+                    </option>
+                  );
+                })
+              )}
             </select>
           </div>
           <div>
             <label className="block text-sm font-bold mb-1">Pueblo *</label>
             <select
               value={pueblo}
-              onChange={(e) => setPueblo(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              onChange={(e) => {
+                setPueblo(e.target.value);
+                setEventoCoords(null);
+              }}
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
               {pueblosArray.map((p) => (
                 <option key={p} value={p}>
@@ -213,7 +393,7 @@ export default function PublisherPanel() {
                 required
                 value={aforo}
                 onChange={(e) => setAforo(Number(e.target.value))}
-                className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
               />
             </div>
             <div>
@@ -221,7 +401,7 @@ export default function PublisherPanel() {
               <select
                 value={dePago ? "true" : "false"}
                 onChange={(e) => setDePago(e.target.value === "true")}
-                className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
               >
                 <option value="false">Gratis</option>
                 <option value="true">De pago</option>
@@ -235,7 +415,7 @@ export default function PublisherPanel() {
               required
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
           <div>
@@ -245,19 +425,26 @@ export default function PublisherPanel() {
               required
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
 
+          <UbicacionSelector
+            pueblo={pueblo}
+            coords={eventoCoords}
+            onOpenModal={() => setLocationModal({ open: true, target: "evento" })}
+            onClear={() => setEventoCoords(null)}
+          />
+
           <div className="md:col-span-2 bg-white text-stone-900 border-2 border-dashed border-blue-400 rounded-2xl p-4 space-y-2">
             <label className="block text-sm font-black">
-              🖼️ Foto o cartel del evento (nemotron-3.5-parse analiza todas las fotos sin excepción: exige coincidencia con la categoría) *
+              Foto o cartel del evento (si el negocio es Nivel 1 pasará por el Moderador) *
             </label>
             <input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm" />
             {imagenBase64 && (
               <div className="flex items-center gap-3 pt-2">
                 <img src={imagenBase64} alt="Vista previa" className="w-20 h-20 object-cover rounded-xl border" />
-                <span className="text-xs font-bold text-stone-700">{previewName}</span>
+                <span className="text-xs font-bold text-stone-700 truncate">{previewName}</span>
               </div>
             )}
           </div>
@@ -270,10 +457,10 @@ export default function PublisherPanel() {
               placeholder="Describe dónde es y qué se va a hacer."
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             ></textarea>
           </div>
-          <div className="md:col-span-2 flex gap-2 justify-end">
+          <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 justify-end">
             <button
               type="button"
               onClick={() => setMostrarFormEvento(false)}
@@ -292,7 +479,7 @@ export default function PublisherPanel() {
       )}
 
       {/* Formulario Añadir Negocio */}
-      {mostrarFormNegocio && (
+      {mostrarFormNegocio && !negocioDetalle && (
         <form
           onSubmit={handleCrearNegocio}
           className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-emerald-50/60 p-4 rounded-2xl border border-emerald-300"
@@ -305,15 +492,19 @@ export default function PublisherPanel() {
               placeholder="Ej: Bar La Plaza"
               value={negNombre}
               onChange={(e) => setNegNombre(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
           <div>
             <label className="block text-sm font-bold mb-1">Pueblo *</label>
             <select
+              required
               value={negPueblo}
-              onChange={(e) => setNegPueblo(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              onChange={(e) => {
+                setNegPueblo(e.target.value);
+                setNegCoords(null);
+              }}
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             >
               {pueblosArray.map((p) => (
                 <option key={p} value={p}>
@@ -329,20 +520,46 @@ export default function PublisherPanel() {
               placeholder="https://instagram.com/..."
               value={negInstagram}
               onChange={(e) => setNegInstagram(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1">Facebook o Web (opcional)</label>
+            <label className="block text-sm font-bold mb-1">Twitter / X (opcional)</label>
+            <input
+              type="url"
+              placeholder="https://x.com/..."
+              value={negTwitter}
+              onChange={(e) => setNegTwitter(e.target.value)}
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold mb-1">Facebook (opcional)</label>
             <input
               type="url"
               placeholder="https://facebook.com/..."
               value={negFacebook}
               onChange={(e) => setNegFacebook(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
             />
           </div>
-          <div className="md:col-span-2 flex gap-2 justify-end">
+          <div>
+            <label className="block text-sm font-bold mb-1">Web (opcional)</label>
+            <input
+              type="url"
+              placeholder="https://..."
+              value={negWeb}
+              onChange={(e) => setNegWeb(e.target.value)}
+              className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+            />
+          </div>
+          <UbicacionSelector
+            pueblo={negPueblo}
+            coords={negCoords}
+            onOpenModal={() => setLocationModal({ open: true, target: "negocio" })}
+            onClear={() => setNegCoords(null)}
+          />
+          <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 justify-end">
             <button
               type="button"
               onClick={() => setMostrarFormNegocio(false)}
@@ -354,39 +571,290 @@ export default function PublisherPanel() {
               type="submit"
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-xl shadow"
             >
-              Guardar Negocio (Inicia en Nivel 1)
+              Enviar para Confirmación
             </button>
           </div>
         </form>
       )}
 
-      {/* Lista de mis negocios */}
-      <div id="lista-cuentas-ia" className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-        {misNegocios.map((nombre) => {
-          const info = cuentasNegocio[nombre];
-          const evalRef = evaluarFiabilidadNegocio(nombre, cuentasNegocio);
-          const badgeColor = evalRef.esDeConfianza
-            ? "bg-emerald-100 text-emerald-900"
-            : "bg-amber-100 text-amber-900";
-
-          return (
-            <div
-              key={nombre}
-              className="p-3 bg-blue-50/70 rounded-2xl border border-blue-200 flex justify-between items-center gap-2"
-            >
-              <div>
-                <p className="font-black">{nombre}</p>
-                <p className="text-xs text-stone-600">
-                  📍 {info.pueblo} · {evalRef.motivo}
-                </p>
-              </div>
-              <span className={`${badgeColor} text-xs font-black px-2.5 py-1 rounded-lg shrink-0`}>
-                Ref. {evalRef.nivel}/3
+      {/* Pestaña de Detalle, Edición, Borrado e Historial del Negocio */}
+      {negocioDetalle ? (
+        <div className="space-y-6">
+          <form
+            onSubmit={handleGuardarEdicionNegocio}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-2xl border border-blue-200"
+          >
+            <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2">
+              <h3 className="font-black text-lg">Detalles del negocio</h3>
+              <span
+                className={`text-xs font-black px-3 py-1 rounded-full ${
+                  negocioDetalle.pendiente
+                    ? "bg-amber-200 text-amber-950"
+                    : "bg-emerald-100 text-emerald-900"
+                }`}
+              >
+                {negocioDetalle.pendiente
+                  ? "Pendiente de confirmación"
+                  : `Confirmado · Fiabilidad ${negocioDetalle.fiabilidad}`}
               </span>
             </div>
-          );
-        })}
-      </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Nombre del negocio *</label>
+              <input
+                type="text"
+                required
+                value={editNombre}
+                onChange={(e) => setEditNombre(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Pueblo *</label>
+              <select
+                required
+                value={editPueblo}
+                onChange={(e) => {
+                  setEditPueblo(e.target.value);
+                  setEditCoords(null);
+                }}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              >
+                {pueblosArray.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Instagram</label>
+              <input
+                type="url"
+                placeholder="https://instagram.com/..."
+                value={editInstagram}
+                onChange={(e) => setEditInstagram(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Twitter / X</label>
+              <input
+                type="url"
+                placeholder="https://x.com/..."
+                value={editTwitter}
+                onChange={(e) => setEditTwitter(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Facebook</label>
+              <input
+                type="url"
+                placeholder="https://facebook.com/..."
+                value={editFacebook}
+                onChange={(e) => setEditFacebook(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold mb-1">Web</label>
+              <input
+                type="url"
+                placeholder="https://..."
+                value={editWeb}
+                onChange={(e) => setEditWeb(e.target.value)}
+                className="w-full border-2 border-blue-300 rounded-xl p-2.5 sm:p-3 bg-white text-stone-900"
+              />
+            </div>
+
+            <UbicacionSelector
+              pueblo={editPueblo}
+              coords={editCoords}
+              onOpenModal={() => setLocationModal({ open: true, target: "editarNegocio" })}
+              onClear={() => setEditCoords(null)}
+            />
+
+            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 justify-between pt-2">
+              <button
+                type="button"
+                onClick={handleEliminarNegocio}
+                className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-5 py-3 rounded-xl text-sm"
+              >
+                <IconTrash className="w-4 h-4" />
+                <span>Eliminar negocio</span>
+              </button>
+              <button
+                type="submit"
+                disabled={guardandoEdicion}
+                className="inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-black px-6 py-3 rounded-xl shadow text-sm"
+              >
+                <IconCheck className="w-4 h-4" />
+                <span>{guardandoEdicion ? "Guardando..." : "Guardar cambios"}</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Historial de eventos del negocio */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-black text-lg">Historial de eventos ({eventosDelNegocio.length})</h3>
+            </div>
+
+            {eventosDelNegocio.length === 0 ? (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl text-sm text-stone-600 text-center">
+                Este negocio todavía no tiene eventos publicados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {eventosDelNegocio.map((act) => (
+                  <div
+                    key={act.id}
+                    className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-base text-stone-900">{act.nombre}</p>
+                        <span
+                          className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
+                            act.estadoModeracion === "aprobada"
+                              ? "bg-emerald-100 text-emerald-900"
+                              : act.estadoModeracion === "denegada"
+                                ? "bg-red-100 text-red-900"
+                                : "bg-amber-200 text-amber-950"
+                          }`}
+                        >
+                          {act.estadoModeracion}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-600 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          <IconMapPin className="w-3.5 h-3.5" />
+                          <span>{act.pueblo}</span>
+                        </span>
+                        <span>·</span>
+                        <span className="inline-flex items-center gap-1">
+                          <IconClock className="w-3.5 h-3.5" />
+                          <span>{act.fecha}</span>
+                        </span>
+                        <span>·</span>
+                        <span>
+                          Plazas: {act.asistentes}/{act.aforo}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setModalCambiarHora({ open: true, actividad: act })}
+                        className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold px-3 py-2 rounded-xl text-xs"
+                      >
+                        <IconClock className="w-4 h-4" />
+                        <span>Editar hora</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalInscritos({ open: true, actividad: act })}
+                        className="inline-flex items-center gap-1.5 bg-blue-950 hover:bg-blue-900 text-white font-bold px-3 py-2 rounded-xl text-xs"
+                      >
+                        <IconUsers className="w-4 h-4" />
+                        <span>Apuntados ({act.asistentes})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => eliminarEvento(act.id)}
+                        className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-xl text-xs"
+                      >
+                        <IconTrash className="w-4 h-4" />
+                        <span>Borrar</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Lista de mis negocios clicables */
+        <div id="lista-cuentas-ia" className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          {misNegocios.length === 0 ? (
+            <div className="col-span-full p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center text-stone-600">
+              Aún no tienes negocios registrados. Pulsa &quot;Añadir Negocio / Redes&quot; para crear el primero.
+            </div>
+          ) : (
+            misNegocios.map((nombre) => {
+              const info = cuentasNegocio[nombre];
+              const evalRef = evaluarFiabilidadNegocio(nombre, cuentasNegocio);
+              const badgeColor = info.pendiente
+                ? "bg-amber-200 text-amber-950"
+                : evalRef.esDeConfianza
+                  ? "bg-emerald-100 text-emerald-900"
+                  : "bg-blue-100 text-blue-950";
+
+              return (
+                <button
+                  key={nombre}
+                  type="button"
+                  onClick={() => abrirDetalleNegocio(nombre)}
+                  className="text-left p-3.5 bg-blue-50/70 hover:bg-blue-100/80 rounded-2xl border-2 border-blue-200 hover:border-blue-500 flex justify-between items-center gap-2 transition"
+                >
+                  <div className="min-w-0">
+                    <p className="font-black truncate text-blue-950">{nombre}</p>
+                    <p className="text-xs text-stone-600 inline-flex items-center gap-1 flex-wrap mt-0.5">
+                      <IconMapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {info.pueblo} ·{" "}
+                        {info.pendiente ? "Pendiente de confirmación" : evalRef.motivo}
+                      </span>
+                    </p>
+                    <p className="text-[11px] font-bold text-blue-700 mt-1">
+                      Pulsa para editar, borrar o ver eventos
+                    </p>
+                  </div>
+                  <span className={`${badgeColor} text-xs font-black px-2.5 py-1 rounded-lg shrink-0`}>
+                    {info.pendiente ? "Pendiente" : `Ref. ${evalRef.nivel}/3`}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      <LocationPickerModal
+        isOpen={locationModal.open}
+        onClose={() => setLocationModal({ open: false, target: null })}
+        pueblo={
+          locationModal.target === "evento"
+            ? pueblo
+            : locationModal.target === "negocio"
+              ? negPueblo
+              : editPueblo
+        }
+        initialCoords={
+          locationModal.target === "evento"
+            ? eventoCoords
+            : locationModal.target === "negocio"
+              ? negCoords
+              : editCoords
+        }
+        onConfirm={(coords) => {
+          if (locationModal.target === "evento") {
+            setEventoCoords(coords);
+          } else if (locationModal.target === "negocio") {
+            setNegCoords(coords);
+          } else if (locationModal.target === "editarNegocio") {
+            setEditCoords(coords);
+          }
+        }}
+      />
     </section>
   );
 }

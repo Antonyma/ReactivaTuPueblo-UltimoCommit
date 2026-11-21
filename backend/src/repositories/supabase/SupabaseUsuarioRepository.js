@@ -1,4 +1,5 @@
 import { AppError } from '../../middlewares/errorHandler.js'
+import { createSupabaseAuthClient } from '../../config/supabaseClient.js'
 import { USUARIOS, Usuario } from '../../models/index.js'
 import { UsuarioRepository } from '../contracts/UsuarioRepository.js'
 import { unwrapSupabaseResult } from './supabaseHelpers.js'
@@ -24,15 +25,18 @@ const DB_ROLE_TO_JS = {
   NO_REGISTRADO: USUARIOS.NO_REGISTRADO,
   REGISTRADO: USUARIOS.REGISTRADO,
   PUBLICADOR: USUARIOS.PUBLICADOR,
+  MODERADOR: USUARIOS.MODERADOR,
 }
 
 const JS_ROLE_TO_DB = {
   [USUARIOS.NO_REGISTRADO]: 'NO_REGISTRADO',
   [USUARIOS.REGISTRADO]: 'REGISTRADO',
   [USUARIOS.PUBLICADOR]: 'PUBLICADOR',
+  [USUARIOS.MODERADOR]: 'MODERADOR',
   NO_REGISTRADO: 'NO_REGISTRADO',
   REGISTRADO: 'REGISTRADO',
   PUBLICADOR: 'PUBLICADOR',
+  MODERADOR: 'MODERADOR',
 }
 
 function normalizeTelefonoToBigInt(telefono) {
@@ -124,6 +128,33 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     return mapUsuarioFromRow(row)
   }
 
+  async findByNombre(nombre) {
+    const normalized = String(nombre || '').trim()
+    if (!normalized) return null
+
+    const result = await this.client
+      .from(USUARIO_SCHEMA.table)
+      .select('*')
+      .ilike(USUARIO_SCHEMA.columns.nombre, normalized)
+      .maybeSingle()
+
+    const row = unwrapSupabaseResult(result, 'Error al buscar usuario por nombre')
+    return mapUsuarioFromRow(row)
+  }
+
+  async findByAuthId(authId) {
+    if (!authId) return null
+
+    const result = await this.client
+      .from(USUARIO_SCHEMA.table)
+      .select('*')
+      .eq(USUARIO_SCHEMA.columns.authId, String(authId))
+      .maybeSingle()
+
+    const row = unwrapSupabaseResult(result, 'Error al buscar usuario por auth_id')
+    return mapUsuarioFromRow(row)
+  }
+
   async findByTelefono(telefono) {
     const normalized = normalizeTelefonoToBigInt(telefono)
     if (normalized === null) return null
@@ -188,6 +219,91 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
     return rows.length > 0
   }
 
+  async registerWithAuth({ nombre, email, telefono, password, tipoUsuario = USUARIOS.REGISTRADO }) {
+    const normalizedEmail = String(email || '').toLowerCase().trim()
+    const cleanNombre = String(nombre || '').trim()
+    let authId = null
+
+    const authClient = this.client.auth?.signUp || this.client.auth?.signInWithPassword
+      ? createSupabaseAuthClient()
+      : null
+
+    if (this.client.auth?.admin?.createUser) {
+      const { data: adminData, error: adminErr } = await this.client.auth.admin.createUser({
+        email: normalizedEmail,
+        password: String(password),
+        email_confirm: true,
+        user_metadata: { nombre: cleanNombre, telefono: String(telefono || '') },
+      })
+      if (adminErr) {
+        throw AppError.badRequest(adminErr.message || 'Error al registrar usuario en Supabase Auth')
+      }
+      authId = adminData?.user?.id || null
+    } else if (authClient?.auth?.signUp) {
+      const { data: signUpData, error: signUpErr } = await authClient.auth.signUp({
+        email: normalizedEmail,
+        password: String(password),
+        options: { data: { nombre: cleanNombre, telefono: String(telefono || '') } },
+      })
+      if (signUpErr) {
+        throw AppError.badRequest(signUpErr.message || 'Error al registrar usuario en Supabase Auth')
+      }
+      authId = signUpData?.user?.id || null
+    }
+
+    const usuario = await this.create({
+      authId,
+      nombre: cleanNombre,
+      email: normalizedEmail,
+      telefono,
+      tipoUsuario,
+    })
+
+    let token = null
+    if (authClient?.auth?.signInWithPassword) {
+      const { data: signInData } = await authClient.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: String(password),
+      })
+      token = signInData?.session?.access_token || null
+    }
+
+    return { usuario, token }
+  }
+
+  async loginWithNombre(nombre, password) {
+    const cleanInput = String(nombre || '').trim()
+    if (!cleanInput || !password) return null
+
+    let usuarioPorNombre = await this.findByNombre(cleanInput)
+    if (!usuarioPorNombre && cleanInput.includes('@')) {
+      usuarioPorNombre = await this.findByEmail(cleanInput)
+    }
+    if (!usuarioPorNombre || !usuarioPorNombre.email) {
+      return null
+    }
+
+    const authClient = this.client.auth?.signInWithPassword ? createSupabaseAuthClient() : null
+    if (authClient?.auth?.signInWithPassword) {
+      const { data, error } = await authClient.auth.signInWithPassword({
+        email: usuarioPorNombre.email,
+        password: String(password),
+      })
+
+      if (error || !data?.user || !data?.session?.access_token) {
+        return null
+      }
+
+      const usuario = (await this.findByAuthId(data.user.id)) || usuarioPorNombre
+      return {
+        usuario,
+        token: data.session.access_token,
+      }
+    }
+
+    return null
+  }
+
   async verifyCredentials(email, password) {
     const normalized = String(email || '').toLowerCase().trim()
     if (!normalized || !password) return null
@@ -203,14 +319,8 @@ export class SupabaseUsuarioRepository extends UsuarioRepository {
         return null
       }
 
-      const byAuthId = await this.client
-        .from(USUARIO_SCHEMA.table)
-        .select('*')
-        .eq(USUARIO_SCHEMA.columns.authId, data.user.id)
-        .maybeSingle()
-
-      const row = unwrapSupabaseResult(byAuthId, 'Error al obtener perfil de usuario autenticado')
-      if (row) return mapUsuarioFromRow(row)
+      const rowUsuario = await this.findByAuthId(data.user.id)
+      if (rowUsuario) return rowUsuario
     }
 
     return this.findByEmail(normalized)

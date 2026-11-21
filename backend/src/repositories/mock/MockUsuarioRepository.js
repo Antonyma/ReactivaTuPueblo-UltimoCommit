@@ -20,6 +20,15 @@ export class MockUsuarioRepository extends UsuarioRepository {
     return this.store.usuarios.find((u) => u.email.toLowerCase() === normalized) || null
   }
 
+  async findByNombre(nombre) {
+    const normalized = String(nombre).toLowerCase().trim()
+    return this.store.usuarios.find((u) => u.nombre.toLowerCase() === normalized) || null
+  }
+
+  async findByAuthId(_authId) {
+    return null
+  }
+
   async findByTelefono(telefono) {
     const normalized = String(telefono).replace(/\s+/g, '')
     return (
@@ -68,6 +77,25 @@ export class MockUsuarioRepository extends UsuarioRepository {
     if (index === -1) return false
     this.store.usuarios.splice(index, 1)
     return true
+  }
+
+  async registerWithAuth({ nombre, email, telefono, password, tipoUsuario }) {
+    const usuario = await this.create({ nombre, email, telefono, password, tipoUsuario })
+    return {
+      usuario,
+      token: `mock_token:${usuario.id}:${usuario.tipoUsuario}`,
+    }
+  }
+
+  async loginWithNombre(nombre, password) {
+    const usuario = await this.findByNombre(nombre)
+    if (!usuario) return null
+    const storedPassword = this.store.credenciales.get(usuario.email.toLowerCase())
+    if (!storedPassword || storedPassword !== password) return null
+    return {
+      usuario,
+      token: `mock_token:${usuario.id}:${usuario.tipoUsuario}`,
+    }
   }
 
   async verifyCredentials(email, password) {
