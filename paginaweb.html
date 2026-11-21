@@ -9,61 +9,61 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    /* ===================================================================== */
-    /* 3 MODELOS SIMPLISTAS PARA PERSONAS MAYORES                            */
-    /* ===================================================================== */
-
-    /* MODELO 1: CLÁSICO CLARO (Por defecto) */
-    body.tema-clasico {
-      background-color: #F6F4EF;
-      color: #1C1917;
-      font-size: 18px;
-      line-height: 1.55;
+    /* PALETA FIJA AZUL CLARO (Máxima nitidez para vista cansada) */
+    body {
+      background-color: #EEF4FA;
+      color: #0B2545;
+      font-size: 20px;
+      line-height: 1.65;
     }
 
-    /* MODELO 2: ALTO CONTRASTE (Blanco puro + bordes negros gruesos) */
-    body.tema-contraste {
-      background-color: #FFFFFF;
-      color: #000000;
-      font-size: 19px;
-      line-height: 1.6;
+    header,
+    #nav-inferior-movil {
+      background-color: #0B2545 !important;
+      color: #FFFFFF !important;
     }
 
-    body.tema-contraste .tarjeta-plan,
-    body.tema-contraste .caja-panel {
+    .tarjeta-plan,
+    .caja-panel {
       background-color: #FFFFFF !important;
-      border: 3px solid #000000 !important;
+      border: 3px solid #1D4ED8 !important;
       box-shadow: none !important;
     }
 
-    body.tema-contraste .text-stone-500,
-    body.tema-contraste .text-stone-600,
-    body.tema-contraste .text-stone-700 {
-      color: #111111 !important;
+    button[data-action="apuntar"] {
+      background-color: #1D4ED8 !important;
+      color: #FFFFFF !important;
     }
 
-    /* MODELO 3: ULTRA GRANDE / LECTURA FÁCIL (1 columna, botones gigantes) */
-    body.tema-grande {
-      background-color: #FFFBEB;
-      color: #1C1917;
-      font-size: 21px;
-      line-height: 1.7;
+    .text-orange-700 {
+      color: #1E40AF !important;
     }
 
-    body.tema-grande #grid-actividades {
+    .text-stone-500,
+    .text-stone-600,
+    .text-stone-700 {
+      color: #1E3A5F !important;
+    }
+
+    /* MODO LETRA GRANDE ACTIVADO */
+    body.letra-grande {
+      font-size: 23px;
+      line-height: 1.75;
+    }
+
+    body.letra-grande #grid-actividades {
       grid-template-columns: 1fr !important;
     }
 
-    body.tema-grande button,
-    body.tema-grande input,
-    body.tema-grande select,
-    body.tema-grande textarea,
-    body.tema-grande a {
-      min-height: 58px !important;
-      font-size: 20px !important;
+    body.letra-grande button,
+    body.letra-grande input,
+    body.letra-grande select,
+    body.letra-grande textarea,
+    body.letra-grande a {
+      min-height: 60px !important;
+      font-size: 21px !important;
     }
 
-    /* Ajustes táctiles globales para móvil */
     button,
     select,
     input {
@@ -82,7 +82,7 @@
       width: 48px;
       height: 48px;
       border-radius: 9999px;
-      border: 3px solid #EA580C;
+      border: 3px solid #1D4ED8;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
       overflow: hidden;
       background: #fff;
@@ -98,50 +98,44 @@
       width: 11px;
       height: 11px;
       border-radius: 9999px;
-      background-color: #1C1917;
+      background-color: #0B2545;
       border: 2px solid #F59E0B;
     }
   </style>
 </head>
 
-<body class="tema-clasico font-sans antialiased min-h-screen flex flex-col pb-24 md:pb-8">
+<body class="font-sans antialiased min-h-screen flex flex-col pb-24 md:pb-8">
 
   <!-- CABECERA SIMPLE Y DIRECTA -->
-  <header class="bg-stone-900 text-white sticky top-0 z-40 shadow-md">
+  <header class="text-white sticky top-0 z-40 shadow-md">
     <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
 
-      <!-- Logo y Nombre -->
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center text-2xl shrink-0">
+        <div class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl shrink-0">
           🏔️
         </div>
         <div>
           <span class="font-black text-xl block leading-none">PuebloVivo</span>
-          <span class="text-xs text-stone-300 block mt-1">Filabres - Alhamilla</span>
+          <span class="text-xs text-blue-200 block mt-1">Filabres - Alhamilla</span>
         </div>
       </div>
 
-      <!-- SELECTOR DE 3 MODELOS SIMPLISTAS PARA PERSONAS MAYORES -->
-      <div class="flex items-center gap-1.5 bg-stone-800 p-1.5 rounded-2xl border border-stone-700" role="group"
-        aria-label="Elegir diseño visual">
-        <button type="button" data-tema="tema-clasico"
-          class="btn-tema bg-orange-600 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-black">
-          ☀️ Claro
+      <!-- SOLO BOTONES DE TAMAÑO DE LETRA -->
+      <div class="flex items-center gap-2 bg-black/30 p-1.5 rounded-2xl border border-white/25" role="group"
+        aria-label="Tamaño de letra">
+        <button type="button" data-letra="normal"
+          class="btn-letra bg-amber-400 text-stone-950 px-3.5 py-2 rounded-xl text-sm font-black">
+          🅰️ Letra Normal
         </button>
-        <button type="button" data-tema="tema-contraste"
-          class="btn-tema text-stone-200 hover:bg-stone-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold">
-          ⬛ Contraste
-        </button>
-        <button type="button" data-tema="tema-grande"
-          class="btn-tema text-stone-200 hover:bg-stone-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold">
+        <button type="button" data-letra="grande"
+          class="btn-letra text-white hover:bg-white/15 px-3.5 py-2 rounded-xl text-sm font-bold">
           🔍 Letra Grande
         </button>
       </div>
 
-      <!-- Estado de Sesión / Acceso directo -->
       <div class="flex items-center gap-2">
         <span id="badge-rol-actual"
-          class="hidden sm:inline-block bg-stone-800 border border-stone-600 px-3 py-2 rounded-xl text-xs font-bold">
+          class="hidden sm:inline-block bg-black/30 border border-white/25 px-3 py-2 rounded-xl text-xs font-bold">
           👤 Invitado
         </span>
         <button type="button" id="btn-abrir-cuenta"
@@ -160,39 +154,38 @@
     <!-- ===================================================================== -->
     <div id="vista-general-comarca" class="space-y-6">
 
-      <!-- BARRA SUPERIOR DE ACCESO RÁPIDO EN ESCRITORIO -->
-      <div
-        class="caja-panel bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div class="caja-panel bg-white p-4 rounded-3xl shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-xl sm:text-2xl font-black">¿Qué hacemos hoy en el pueblo?</h1>
-          <p id="subtitulo-estado-usuario" class="text-sm text-stone-600">Elige un plan de abajo y pulsa el botón
-            naranja para apuntarte.</p>
+          <p id="subtitulo-estado-usuario" class="text-sm text-stone-600">Elige un plan de abajo y pulsa el botón azul
+            para apuntarte.</p>
         </div>
 
         <div class="flex flex-wrap gap-2">
           <button type="button" id="btn-acceso-publicador"
-            class="bg-stone-900 hover:bg-stone-800 text-white font-bold px-4 py-3 rounded-2xl text-sm">
+            class="bg-blue-950 hover:bg-blue-900 text-white font-bold px-4 py-3 rounded-2xl text-sm">
             📢 Soy Negocio / Publicador
           </button>
           <button type="button" id="btn-acceso-moderador"
-            class="bg-stone-200 hover:bg-stone-300 text-stone-900 font-bold px-4 py-3 rounded-2xl text-sm">
+            class="bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold px-4 py-3 rounded-2xl text-sm">
             🛡️ Soy Moderador
           </button>
         </div>
       </div>
 
       <!-- PANEL DE PUBLICADOR (Solo visible cuando rol === 'PUBLICADOR') -->
-      <section id="panel-publicador"
-        class="hidden caja-panel bg-white p-5 rounded-3xl border-2 border-orange-500 shadow-sm space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3">
+      <section id="panel-publicador" class="hidden caja-panel bg-white p-5 rounded-3xl shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200 pb-3">
           <div>
-            <span class="bg-orange-100 text-orange-900 text-xs font-black px-3 py-1 rounded-full">Panel de
-              Publicador</span>
+            <span class="bg-blue-100 text-blue-950 text-xs font-black px-3 py-1 rounded-full">Panel de Publicador ·
+              Sistema de Referencia</span>
             <h2 class="text-xl font-black mt-1">Mis Negocios y Eventos</h2>
+            <p class="text-xs text-stone-600">Negocios con <strong>Referencia Nivel 2 o 3</strong> publican al instante
+              sin gastar tokens de revisión IA.</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" id="btn-mostrar-form-evento"
-              class="bg-orange-600 hover:bg-orange-700 text-white font-black px-4 py-3 rounded-2xl text-sm">
+              class="bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3 rounded-2xl text-sm">
               ➕ Publicar Evento
             </button>
             <button type="button" id="btn-mostrar-form-negocio"
@@ -206,18 +199,17 @@
           </div>
         </div>
 
-        <!-- Formulario Crear / Editar Evento -->
+        <!-- Formulario Crear Evento -->
         <form id="form-publicar"
-          class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-200">
-          <input type="hidden" id="edit-evento-id" value="" />
+          class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-2xl border border-blue-200">
           <div class="md:col-span-2">
             <label class="block text-sm font-bold mb-1">Nombre del evento *</label>
             <input type="text" id="input-titulo" required placeholder="Ej: Merienda y baile en la plaza"
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Tipo de actividad *</label>
-            <select id="input-categoria" class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white">
+            <select id="input-categoria" class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900">
               <option value="Fiesta Patronal" data-tipo="1">🎉 Fiesta Patronal</option>
               <option value="Deportes" data-tipo="2">⚽ Deportes</option>
               <option value="Gastronomía" data-tipo="3">🍲 Gastronomía</option>
@@ -228,21 +220,22 @@
           <div>
             <label class="block text-sm font-bold mb-1">Negocio organizador *</label>
             <select id="input-negocio-select" required
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white"></select>
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"></select>
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Pueblo *</label>
-            <select id="input-pueblo" class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white"></select>
+            <select id="input-pueblo"
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"></select>
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="block text-sm font-bold mb-1">Plazas *</label>
               <input type="number" id="input-aforo" value="40" min="1" required
-                class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+                class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
             </div>
             <div>
               <label class="block text-sm font-bold mb-1">Precio</label>
-              <select id="input-depago" class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white">
+              <select id="input-depago" class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900">
                 <option value="false">Gratis</option>
                 <option value="true">De pago</option>
               </select>
@@ -251,18 +244,18 @@
           <div>
             <label class="block text-sm font-bold mb-1">Fecha y hora inicio *</label>
             <input type="datetime-local" id="input-fecha-inicio" required
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Fecha y hora fin *</label>
             <input type="datetime-local" id="input-fecha-fin" required
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
 
-          <!-- Subida de imagen para el moderador -->
-          <div class="md:col-span-2 bg-white border-2 border-dashed border-stone-400 rounded-2xl p-4 space-y-2">
+          <div
+            class="md:col-span-2 bg-white text-stone-900 border-2 border-dashed border-blue-400 rounded-2xl p-4 space-y-2">
             <label for="input-imagen-archivo" class="block text-sm font-black">
-              🖼️ Foto o cartel del evento (el Moderador la revisará) *
+              🖼️ Foto o cartel del evento (si el negocio es Nivel 1 pasará por el Moderador) *
             </label>
             <input type="file" id="input-imagen-archivo" accept="image/*" class="w-full text-sm" />
             <div id="contenedor-preview-subida" class="hidden flex items-center gap-3 pt-2">
@@ -274,45 +267,46 @@
           <div class="md:col-span-2">
             <label class="block text-sm font-bold mb-1">Explicación sencilla *</label>
             <textarea id="input-desc" rows="2" required placeholder="Describe dónde es y qué se va a hacer."
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white"></textarea>
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"></textarea>
           </div>
           <div class="md:col-span-2 flex gap-2 justify-end">
             <button type="button" id="btn-cancelar-form-actividad"
               class="bg-stone-200 text-stone-900 font-bold px-5 py-3 rounded-xl">Cerrar</button>
-            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-black px-6 py-3 rounded-xl">
-              Enviar al Moderador y Publicar
+            <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white font-black px-6 py-3 rounded-xl">
+              Publicar Evento
             </button>
           </div>
         </form>
 
-        <!-- Formulario Añadir Negocio y Redes -->
+        <!-- Formulario Añadir Negocio (Inicia en Nivel 1 de Referencia) -->
         <form id="form-nuevo-negocio"
           class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-emerald-50/60 p-4 rounded-2xl border border-emerald-300">
           <div>
             <label class="block text-sm font-bold mb-1">Nombre del negocio *</label>
             <input type="text" id="neg-nombre" required placeholder="Ej: Bar La Plaza"
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Pueblo *</label>
-            <select id="neg-pueblo" class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white"></select>
+            <select id="neg-pueblo"
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900"></select>
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Instagram (opcional)</label>
             <input type="url" id="neg-instagram" placeholder="https://instagram.com/..."
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
           <div>
             <label class="block text-sm font-bold mb-1">Facebook o Web (opcional)</label>
             <input type="url" id="neg-facebook" placeholder="https://facebook.com/..."
-              class="w-full border-2 border-stone-300 rounded-xl p-3 bg-white" />
+              class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white text-stone-900" />
           </div>
           <div class="md:col-span-2 flex gap-2 justify-end">
             <button type="button" id="btn-cancelar-negocio"
               class="bg-stone-200 text-stone-900 font-bold px-5 py-3 rounded-xl">Cerrar</button>
             <button type="submit"
               class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-xl">
-              Guardar Negocio
+              Guardar Negocio (Inicia en Nivel 1)
             </button>
           </div>
         </form>
@@ -320,62 +314,53 @@
         <div id="lista-cuentas-ia" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm"></div>
       </section>
 
-      <!-- FILTRO SENCILLO POR PUEBLO (Botones grandes y claros) -->
-      <section id="seccion-filtros"
-        class="caja-panel bg-white p-4 rounded-3xl border border-stone-200 shadow-sm space-y-3">
-        <p class="text-sm font-black text-stone-700">1. Elige tu pueblo:</p>
+      <!-- FILTRO SENCILLO POR PUEBLO -->
+      <section id="seccion-filtros" class="caja-panel bg-white p-4 rounded-3xl shadow-sm space-y-3">
+        <p class="text-sm font-black">1. Elige tu pueblo:</p>
         <div class="flex flex-wrap gap-2" id="grupo-pueblos">
           <button type="button" data-pueblo="Todos"
-            class="btn-pueblo bg-stone-900 text-white px-4 py-2.5 rounded-2xl text-sm font-bold">Todos</button>
+            class="btn-pueblo bg-blue-950 text-white px-4 py-2.5 rounded-2xl text-sm font-bold">Todos</button>
           <button type="button" data-pueblo="Lucainena de las Torres"
-            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-900 px-4 py-2.5 rounded-2xl text-sm font-bold">Lucainena</button>
+            class="btn-pueblo bg-blue-100 hover:bg-blue-200 text-blue-950 px-4 py-2.5 rounded-2xl text-sm font-bold">Lucainena</button>
           <button type="button" data-pueblo="Velefique"
-            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-900 px-4 py-2.5 rounded-2xl text-sm font-bold">Velefique</button>
+            class="btn-pueblo bg-blue-100 hover:bg-blue-200 text-blue-950 px-4 py-2.5 rounded-2xl text-sm font-bold">Velefique</button>
           <button type="button" data-pueblo="Senés"
-            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-900 px-4 py-2.5 rounded-2xl text-sm font-bold">Senés</button>
+            class="btn-pueblo bg-blue-100 hover:bg-blue-200 text-blue-950 px-4 py-2.5 rounded-2xl text-sm font-bold">Senés</button>
           <button type="button" data-pueblo="Uleila del Campo"
-            class="btn-pueblo bg-stone-100 hover:bg-stone-200 text-stone-900 px-4 py-2.5 rounded-2xl text-sm font-bold">Uleila</button>
+            class="btn-pueblo bg-blue-100 hover:bg-blue-200 text-blue-950 px-4 py-2.5 rounded-2xl text-sm font-bold">Uleila</button>
         </div>
       </section>
 
       <!-- BLOQUE DE ACTIVIDADES + MAPA + MIS PLANES -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- COLUMNA IZQUIERDA (2/3): LISTADO DE PLANES -->
         <div id="tab-contenido-planes" class="lg:col-span-2 space-y-4">
-          <div id="grid-actividades" class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <!-- Tarjetas generadas por JS -->
-          </div>
+          <div id="grid-actividades" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
         </div>
 
-        <!-- COLUMNA DERECHA (1/3): MAPA + MIS PLANES / HISTORIAL -->
         <div class="space-y-6">
 
-          <!-- MAPA DE LA MANCOMUNIDAD -->
-          <div id="tab-contenido-mapa"
-            class="caja-panel bg-white p-4 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+          <div id="tab-contenido-mapa" class="caja-panel bg-white p-4 rounded-3xl shadow-sm space-y-3">
             <div class="flex items-center justify-between">
               <h2 class="font-black text-lg">🗺️ Mapa de los Pueblos</h2>
               <button type="button" id="btn-centrar-mancomunidad"
-                class="bg-stone-900 text-amber-300 text-xs font-bold px-3 py-2 rounded-xl">
+                class="bg-blue-950 text-amber-300 text-xs font-bold px-3 py-2 rounded-xl">
                 🎯 Ver todos
               </button>
             </div>
             <div id="mapa-comarca"></div>
           </div>
 
-          <!-- MIS PLANES E HISTORIAL -->
-          <div id="tab-contenido-misplanes"
-            class="caja-panel bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+          <div id="tab-contenido-misplanes" class="caja-panel bg-white p-5 rounded-3xl shadow-sm space-y-4">
             <div class="flex items-center justify-between">
               <h2 class="font-black text-lg">📅 Mis Planes Apuntados</h2>
               <span id="badge-total-inscritos"
-                class="bg-orange-600 text-white font-black text-sm px-3 py-0.5 rounded-full">0</span>
+                class="bg-blue-700 text-white font-black text-sm px-3 py-0.5 rounded-full">0</span>
             </div>
 
             <ul id="lista-inscripciones" class="space-y-2.5 text-sm"></ul>
 
-            <div class="pt-3 border-t border-stone-200 space-y-2">
+            <div class="pt-3 border-t border-blue-200 space-y-2">
               <h3 class="font-black text-base">📜 Actividades ya hechas</h3>
               <div
                 class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2">
@@ -400,52 +385,52 @@
     <!-- ===================================================================== -->
     <section id="vista-exclusiva-moderador" class="hidden space-y-6">
 
-      <!-- Cabecera y Panel de Aprendizaje del Modelo IA -->
-      <div class="caja-panel bg-stone-900 text-white p-6 rounded-3xl shadow-lg space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-stone-700 pb-4">
+      <div class="caja-panel bg-blue-950 text-white p-6 rounded-3xl shadow-lg space-y-4"
+        style="background-color:#0B2545 !important; color:#FFFFFF !important;">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-blue-800 pb-4">
           <div>
             <span class="bg-amber-400 text-stone-950 text-xs font-black uppercase px-3 py-1 rounded-full">Acceso
               Exclusivo · Rol Moderador</span>
-            <h1 class="text-2xl sm:text-3xl font-black mt-2">🛡️ Panel de Moderación y Aprendizaje del Modelo</h1>
-            <p class="text-sm text-stone-300 mt-1">
-              El modelo de IA observa cada aprobación o denegación que realizas para aprender qué contenido es válido en
-              los pueblos y cuál es spam.
+            <h1 class="text-2xl sm:text-3xl font-black mt-2">🛡️ Panel de Moderación, Referencia y Aprendizaje</h1>
+            <p class="text-sm text-blue-100 mt-1">
+              Los negocios con <strong>Referencia Nivel 2 o 3</strong> pasan directos con <strong>0 tokens</strong>.
+              Solo revisas cuentas nuevas (Nivel 1), entrenando el modelo y notificando por WhatsApp al publicador.
             </p>
           </div>
           <button type="button" id="btn-salir-moderador"
-            class="bg-white hover:bg-stone-100 text-stone-950 font-black px-5 py-3 rounded-2xl text-sm shrink-0">
+            class="bg-white hover:bg-blue-50 text-blue-950 font-black px-5 py-3 rounded-2xl text-sm shrink-0">
             ← Salir de Moderador
           </button>
         </div>
 
-        <!-- Métricas de Aprendizaje en Tiempo Real -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-stone-800 p-4 rounded-2xl border border-stone-700">
-            <p class="text-xs text-stone-400 uppercase font-bold">Muestras aprendidas por el modelo</p>
+          <div class="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
+            <p class="text-xs text-blue-200 uppercase font-bold">Muestras aprendidas por el modelo</p>
             <p id="stat-muestras-aprendidas" class="text-3xl font-black text-amber-400 mt-1">4</p>
-            <p class="text-xs text-stone-300 mt-1">Actualizado con cada clic tuyo</p>
+            <p class="text-xs text-blue-100 mt-1">Precisión actual: <strong id="stat-precision-modelo"
+                class="text-emerald-300">92%</strong></p>
           </div>
-          <div class="bg-stone-800 p-4 rounded-2xl border border-stone-700">
-            <p class="text-xs text-stone-400 uppercase font-bold">Precisión estimada del modelo</p>
-            <p id="stat-precision-modelo" class="text-3xl font-black text-emerald-400 mt-1">92%</p>
-            <p class="text-xs text-stone-300 mt-1">NVIDIA NIM Vision + Feedback Humano</p>
+          <div class="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
+            <p class="text-xs text-blue-200 uppercase font-bold">Tokens ahorrados por Referencia</p>
+            <p id="stat-tokens-ahorrados" class="text-3xl font-black text-emerald-300 mt-1">3 eventos</p>
+            <p class="text-xs text-blue-100 mt-1">Negocios Nivel 2/3 pasan directos</p>
           </div>
-          <div class="bg-stone-800 p-4 rounded-2xl border border-stone-700">
-            <p class="text-xs text-stone-400 uppercase font-bold">Último patrón aprendido</p>
-            <p id="stat-ultimo-patron" class="text-sm font-bold text-white mt-1.5">
-              "Carteles locales con fecha y lugar claros → Aprobar"
+          <div class="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
+            <p class="text-xs text-blue-200 uppercase font-bold">Último WhatsApp enviado al Publicador</p>
+            <p id="stat-ultimo-whatsapp-pub" class="text-xs font-bold text-amber-200 mt-1.5 leading-snug">
+              Listo para notificar aprobación o rechazo al publicador.
             </p>
           </div>
         </div>
       </div>
 
-      <!-- DISPLAY 1: ACTIVIDADES PENDIENTES DE APROBAR O DENEGAR -->
-      <div class="caja-panel bg-white p-6 rounded-3xl border-2 border-amber-400 shadow-sm space-y-4">
+      <!-- DISPLAY 1: ACTIVIDADES PENDIENTES (SOLO NIVEL 1) -->
+      <div class="caja-panel bg-white p-6 rounded-3xl shadow-sm space-y-4">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-xl font-black text-amber-950">⏳ 1. Pendientes de Moderación</h2>
-            <p class="text-sm text-stone-600">Actividades nuevas esperando tu decisión para entrenar al modelo y
-              publicarlas.</p>
+            <h2 class="text-xl font-black">⏳ 1. Pendientes de Moderación (Cuentas Nivel 1)</h2>
+            <p class="text-sm text-stone-600">Al aprobar o denegar se envía WhatsApp al publicador y sube su nivel de
+              referencia si es válida.</p>
           </div>
           <span id="contador-pendientes"
             class="bg-amber-400 text-stone-950 font-black px-3.5 py-1.5 rounded-full text-sm">0</span>
@@ -453,15 +438,15 @@
         <div id="display-mod-pendientes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
       </div>
 
-      <!-- DISPLAY 2 Y 3: ACTIVIDADES YA APROBADAS VS DENEGADAS -->
+      <!-- DISPLAY 2 Y 3: ACTIVIDADES APROBADAS VS DENEGADAS -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <!-- DISPLAY 2: APROBADAS -->
-        <div class="caja-panel bg-white p-6 rounded-3xl border-2 border-emerald-400 shadow-sm space-y-4">
+        <div class="caja-panel bg-white p-6 rounded-3xl shadow-sm space-y-4">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-black text-emerald-950">✅ 2. Actividades Aprobadas</h2>
-              <p class="text-xs text-stone-600">Ejemplos positivos usados por el modelo para validar eventos.</p>
+              <p class="text-xs text-stone-600">Incluye pase directo por Referencia (0 tokens) y aprobadas por
+                Moderador.</p>
             </div>
             <span id="contador-aprobadas"
               class="bg-emerald-600 text-white font-black px-3.5 py-1.5 rounded-full text-sm">0</span>
@@ -469,13 +454,11 @@
           <div id="display-mod-aprobadas" class="space-y-3 max-h-[450px] overflow-y-auto"></div>
         </div>
 
-        <!-- DISPLAY 3: DENEGADAS -->
-        <div class="caja-panel bg-white p-6 rounded-3xl border-2 border-red-400 shadow-sm space-y-4">
+        <div class="caja-panel bg-white p-6 rounded-3xl shadow-sm space-y-4">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-black text-red-950">❌ 3. Actividades Denegadas</h2>
-              <p class="text-xs text-stone-600">Ejemplos negativos bloqueados (el modelo aprende a rechazar patrones
-                similares).</p>
+              <p class="text-xs text-stone-600">Bloqueadas con aviso de rechazo enviado por WhatsApp al publicador.</p>
             </div>
             <span id="contador-denegadas"
               class="bg-red-600 text-white font-black px-3.5 py-1.5 rounded-full text-sm">0</span>
@@ -488,72 +471,101 @@
 
   </main>
 
-  <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA PARA MÓVIL (ESTILO APP PARA PERSONAS MAYORES) -->
+  <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA PARA MÓVIL -->
   <nav id="nav-inferior-movil"
-    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-900 text-white border-t border-stone-700 grid grid-cols-4 shadow-2xl">
+    class="md:hidden fixed bottom-0 inset-x-0 z-40 text-white border-t border-blue-800 grid grid-cols-4 shadow-2xl">
     <button type="button" data-movil-tab="planes"
-      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-orange-400 font-black text-xs">
+      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-amber-300 font-black text-xs">
       <span class="text-xl">📅</span>
       <span>Planes</span>
     </button>
     <button type="button" data-movil-tab="mapa"
-      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-stone-300 font-bold text-xs">
+      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-blue-100 font-bold text-xs">
       <span class="text-xl">🗺️</span>
       <span>Mapa</span>
     </button>
     <button type="button" data-movil-tab="misplanes"
-      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-stone-300 font-bold text-xs">
+      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-blue-100 font-bold text-xs">
       <span class="text-xl">✅</span>
       <span>Mis Planes</span>
     </button>
     <button type="button" data-movil-tab="cuenta"
-      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-stone-300 font-bold text-xs">
+      class="btn-movil-nav py-2.5 flex flex-col items-center justify-center text-blue-100 font-bold text-xs">
       <span class="text-xl">👤</span>
       <span>Cuenta</span>
     </button>
   </nav>
 
-  <!-- MODAL LOGIN / REGISTRO (USUARIO: id, nombre, email, telefono, tipoUsuario) -->
+  <!-- MODAL SIMPLE: CAMBIAR FECHA Y HORA -->
+  <div id="modal-cambiar-hora" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div class="bg-white text-stone-900 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border-2 border-blue-700">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-black text-xl">🕒 Cambiar Fecha y Hora</h3>
+        <button type="button" id="btn-cerrar-cambiar-hora"
+          class="w-10 h-10 rounded-full bg-blue-100 font-black text-xl">✕</button>
+      </div>
+      <p id="nombre-evento-cambiar-hora"
+        class="text-sm font-black text-blue-900 bg-blue-50 p-3 rounded-2xl border border-blue-200"></p>
+      <form id="form-cambiar-hora" class="space-y-3">
+        <input type="hidden" id="id-evento-cambiar-hora" value="" />
+        <div>
+          <label class="block text-sm font-bold mb-1">Nueva fecha y hora de inicio *</label>
+          <input type="datetime-local" id="nueva-hora-inicio" required
+            class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white font-bold" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold mb-1">Nueva fecha y hora de fin *</label>
+          <input type="datetime-local" id="nueva-hora-fin" required
+            class="w-full border-2 border-blue-300 rounded-xl p-3 bg-white font-bold" />
+        </div>
+        <button type="submit"
+          class="w-full bg-amber-400 hover:bg-amber-500 text-stone-950 font-black py-3.5 rounded-2xl shadow">
+          ✅ Guardar Nueva Hora
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN / REGISTRO -->
   <div id="modal-login" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="bg-white text-stone-900 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border-2 border-blue-700">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 class="font-black text-xl">Entrar / Registrarme</h3>
         <button type="button" id="btn-cerrar-login"
-          class="w-10 h-10 rounded-full bg-stone-100 font-black text-xl">✕</button>
+          class="w-10 h-10 rounded-full bg-blue-100 font-black text-xl">✕</button>
       </div>
-      <p id="mensaje-motivo-registro"
-        class="text-sm text-stone-700 bg-amber-50 border border-amber-300 p-3 rounded-2xl">
+      <p id="mensaje-motivo-registro" class="text-sm text-blue-950 bg-blue-50 border border-blue-300 p-3 rounded-2xl">
         Escribe tus datos una sola vez para apuntarte a planes o entrar con tu rol.
       </p>
       <form id="form-login" class="space-y-3">
         <div>
           <label class="block text-sm font-bold mb-1">Tu nombre *</label>
           <input type="text" id="login-nombre" required placeholder="Ej: Antonio García"
-            class="w-full border-2 border-stone-300 rounded-xl p-3" />
+            class="w-full border-2 border-blue-300 rounded-xl p-3" />
         </div>
         <div>
           <label class="block text-sm font-bold mb-1">Tu correo electrónico (Email) *</label>
           <input type="email" id="login-email" required placeholder="antonio@ejemplo.com"
-            class="w-full border-2 border-stone-300 rounded-xl p-3" />
+            class="w-full border-2 border-blue-300 rounded-xl p-3" />
         </div>
         <div>
           <label class="block text-sm font-bold mb-1">Tu teléfono WhatsApp *</label>
-          <div class="flex items-center border-2 border-stone-300 rounded-xl overflow-hidden bg-white">
-            <span class="bg-stone-100 text-stone-900 font-black px-3.5 py-3 border-r border-stone-300 select-none">🇪🇸
+          <div class="flex items-center border-2 border-blue-300 rounded-xl overflow-hidden bg-white">
+            <span class="bg-blue-50 text-blue-950 font-black px-3.5 py-3 border-r border-blue-300 select-none">🇪🇸
               +34</span>
             <input type="tel" id="login-telefono" required placeholder="600 11 22 33" class="w-full p-3 outline-none" />
           </div>
         </div>
         <div>
           <label class="block text-sm font-bold mb-1">¿Cómo entras hoy? *</label>
-          <select id="login-tipo-usuario" class="w-full border-2 border-stone-300 rounded-xl p-3 font-bold bg-white">
+          <select id="login-tipo-usuario" class="w-full border-2 border-blue-300 rounded-xl p-3 font-bold bg-white">
             <option value="REGISTRADO">🏡 Vecino / Turista (Apuntarme a planes)</option>
             <option value="PUBLICADOR">📢 Publicador (Negocio / Ayuntamiento)</option>
             <option value="MODERADOR">🛡️ Moderador (Revisión de actividades)</option>
           </select>
         </div>
         <button type="submit"
-          class="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3.5 rounded-2xl shadow">
+          class="w-full bg-blue-700 hover:bg-blue-800 text-white font-black py-3.5 rounded-2xl shadow">
           Guardar y Entrar
         </button>
       </form>
@@ -562,15 +574,15 @@
 
   <!-- MODAL DE DUDAS -> WHATSAPP -->
   <div id="modal-dudas" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="bg-white text-stone-900 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border-2 border-blue-700">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 id="titulo-modal-dudas" class="font-black text-lg">Preguntar por WhatsApp</h3>
         <button type="button" id="btn-cerrar-dudas"
-          class="w-10 h-10 rounded-full bg-stone-100 font-black text-xl">✕</button>
+          class="w-10 h-10 rounded-full bg-blue-100 font-black text-xl">✕</button>
       </div>
       <p class="text-sm text-stone-700">Escribe tu duda abajo y pulsa el botón verde para abrir WhatsApp:</p>
       <textarea id="input-pregunta" rows="3" placeholder="Ej: ¿A qué hora empieza exactamente?"
-        class="w-full border-2 border-stone-300 rounded-2xl p-3"></textarea>
+        class="w-full border-2 border-blue-300 rounded-2xl p-3"></textarea>
       <a id="link-whatsapp-listo" href="#" target="_blank" rel="noopener noreferrer"
         class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-4 rounded-2xl text-center block shadow">
         💬 Abrir WhatsApp y Enviar
@@ -580,16 +592,19 @@
 
   <!-- MODAL DE VALORACIONES -->
   <div id="modal-resenas" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="bg-white text-stone-900 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border-2 border-blue-700">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 id="titulo-modal-resenas" class="font-black text-lg">Opiniones</h3>
+        <div>
+          <h3 id="titulo-modal-resenas" class="font-black text-lg">Opiniones</h3>
+          <p id="subtitulo-ia-negocio" class="text-xs font-bold text-emerald-800"></p>
+        </div>
         <button type="button" id="btn-cerrar-resenas"
-          class="w-10 h-10 rounded-full bg-stone-100 font-black text-xl">✕</button>
+          class="w-10 h-10 rounded-full bg-blue-100 font-black text-xl">✕</button>
       </div>
       <div id="lista-resenas-modal"
-        class="max-h-44 overflow-y-auto space-y-2 text-sm bg-stone-50 p-3 rounded-2xl border"></div>
+        class="max-h-44 overflow-y-auto space-y-2 text-sm bg-blue-50 p-3 rounded-2xl border"></div>
       <form id="form-nueva-resena" class="space-y-3">
-        <select id="select-estrellas" class="w-full border-2 border-stone-300 rounded-xl p-2.5 font-bold bg-white">
+        <select id="select-estrellas" class="w-full border-2 border-blue-300 rounded-xl p-2.5 font-bold bg-white">
           <option value="5">⭐⭐⭐⭐⭐ Excelente (5)</option>
           <option value="4">⭐⭐⭐⭐ Muy bien (4)</option>
           <option value="3">⭐⭐⭐ Normal (3)</option>
@@ -597,20 +612,19 @@
           <option value="1">⭐ Mal (1)</option>
         </select>
         <input type="text" id="input-texto-resena" required placeholder="Escribe tu opinión aquí..."
-          class="w-full border-2 border-stone-300 rounded-xl p-3" />
-        <button type="submit" class="w-full bg-orange-600 text-white font-black py-3 rounded-2xl">Enviar
-          Opinión</button>
+          class="w-full border-2 border-blue-300 rounded-xl p-3" />
+        <button type="submit" class="w-full bg-blue-700 text-white font-black py-3 rounded-2xl">Enviar Opinión</button>
       </form>
     </div>
   </div>
 
   <!-- MODAL VER INSCRITOS (PUBLICADOR) -->
   <div id="modal-inscritos" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="bg-white text-stone-900 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border-2 border-blue-700">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 id="titulo-modal-inscritos" class="font-black text-lg">Personas Apuntadas</h3>
         <button type="button" id="btn-cerrar-inscritos"
-          class="w-10 h-10 rounded-full bg-stone-100 font-black text-xl">✕</button>
+          class="w-10 h-10 rounded-full bg-blue-100 font-black text-xl">✕</button>
       </div>
       <div id="lista-modal-inscritos" class="max-h-60 overflow-y-auto space-y-2 text-sm"></div>
     </div>
@@ -618,7 +632,7 @@
 
   <!-- TOAST AVISO GRANDE Y CLARO -->
   <div id="toast-alerta"
-    class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md bg-stone-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center gap-3">
+    class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md bg-blue-950 text-white p-4 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center gap-3">
     <span class="text-2xl">📲</span>
     <p id="toast-mensaje" class="text-sm font-bold leading-snug"></p>
   </div>
@@ -660,13 +674,13 @@
         nombre: "Ayuntamiento de Lucainena",
         esMio: true,
         pueblo: "Lucainena de las Torres",
-        actividadesPrevias: 18,
+        telefonoPublicador: "+34611001100",
+        actividadesAprobadas: 18,
         cuentaVerificada: true,
-        instagramUrl: "https://instagram.com/ayto_lucainena",
-        facebookUrl: "https://facebook.com/ayto.lucainena",
         fiabilidad: 3,
         resenas: [
-          { usuario: "Carmen L.", estrellas: 5, texto: "Siempre muy bien organizado." }
+          { usuario: "Carmen L.", estrellas: 5, texto: "Siempre muy bien organizado." },
+          { usuario: "Antonio R.", estrellas: 5, texto: "Puntuales y atentos." }
         ]
       },
       "Mesón El Mirador": {
@@ -674,24 +688,33 @@
         nombre: "Mesón El Mirador",
         esMio: true,
         pueblo: "Senés",
-        actividadesPrevias: 9,
-        cuentaVerificada: true,
-        instagramUrl: "https://instagram.com/mesonelmirador",
-        facebookUrl: "",
-        fiabilidad: 3,
+        telefonoPublicador: "+34622002200",
+        actividadesAprobadas: 5,
+        cuentaVerificada: false,
+        fiabilidad: 2,
         resenas: [
           { usuario: "Lucía P.", estrellas: 5, texto: "Comida casera riquísima." }
         ]
       },
-      "Club Deportivo Velefique": {
+      "Taller Artesano Uleila (Nuevo)": {
         id: 3,
+        nombre: "Taller Artesano Uleila (Nuevo)",
+        esMio: true,
+        pueblo: "Uleila del Campo",
+        telefonoPublicador: "+34633003300",
+        actividadesAprobadas: 0,
+        cuentaVerificada: false,
+        fiabilidad: 1,
+        resenas: []
+      },
+      "Club Deportivo Velefique": {
+        id: 4,
         nombre: "Club Deportivo Velefique",
         esMio: false,
         pueblo: "Velefique",
-        actividadesPrevias: 11,
+        telefonoPublicador: "+34644004400",
+        actividadesAprobadas: 11,
         cuentaVerificada: true,
-        instagramUrl: "",
-        facebookUrl: "https://facebook.com/cdvelefique",
         fiabilidad: 3,
         resenas: [
           { usuario: "Javier M.", estrellas: 5, texto: "Muy buen ambiente." }
@@ -699,7 +722,32 @@
       }
     };
 
-    // Actividades iniciales con estados: "aprobada", "pendiente", "denegada"
+    function evaluarFiabilidadNegocio(nombreNegocio) {
+      const info = cuentasNegocio[nombreNegocio];
+      if (!info) return { nivel: 1, esDeConfianza: false, media: "0.0", motivo: "Cuenta nueva (Nivel 1)" };
+
+      const totalRes = info.resenas.length;
+      const mediaNum = totalRes > 0 ? info.resenas.reduce((acc, r) => acc + r.estrellas, 0) / totalRes : 0;
+
+      let nivel = 1;
+      if (info.cuentaVerificada && info.actividadesAprobadas >= 8 && mediaNum >= 4.5) {
+        nivel = 3;
+      } else if (info.actividadesAprobadas >= 2 || (totalRes >= 1 && mediaNum >= 4.0)) {
+        nivel = 2;
+      }
+
+      info.fiabilidad = nivel;
+      const esDeConfianza = nivel >= 2;
+      return {
+        nivel,
+        esDeConfianza,
+        media: mediaNum.toFixed(1),
+        motivo: esDeConfianza
+          ? `Referencia Nivel ${nivel}/3 · Pase directo (0 tokens)`
+          : `Referencia Nivel 1/3 · Requiere revisión`
+      };
+    }
+
     const actividades = [
       {
         id: 1,
@@ -713,9 +761,12 @@
         asistentes: 18,
         aforo: 30,
         listaInscritos: [{ nombre: "Carmen López", email: "carmen@ejemplo.com", telefono: "+34611002233" }],
+        fechaInicioISO: "2026-11-28T09:30",
+        fechaFinISO: "2026-11-28T11:30",
         fecha: "Sábado · 09:30h",
         estadoModeracion: "aprobada",
-        motivoIA: "Foto real del entorno + Entidad verificada",
+        ahorroTokens: true,
+        motivoIA: "Pase directo por Referencia Nivel 3/3 (0 tokens gastados)",
         imagen: "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=800&q=80"
       },
       {
@@ -730,9 +781,12 @@
         asistentes: 85,
         aforo: 150,
         listaInscritos: [{ nombre: "Elena Navarro", email: "elena@ejemplo.com", telefono: "+34633112233" }],
+        fechaInicioISO: "2026-11-28T20:30",
+        fechaFinISO: "2026-11-28T23:30",
         fecha: "Sábado · 20:30h",
         estadoModeracion: "aprobada",
-        motivoIA: "Cartel festivo verificado",
+        ahorroTokens: true,
+        motivoIA: "Pase directo por Referencia Nivel 3/3 (0 tokens gastados)",
         imagen: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
       },
       {
@@ -747,33 +801,39 @@
         asistentes: 32,
         aforo: 40,
         listaInscritos: [{ nombre: "Lucía Pérez", email: "lucia@ejemplo.com", telefono: "+34655334455" }],
+        fechaInicioISO: "2026-11-29T13:30",
+        fechaFinISO: "2026-11-29T16:00",
         fecha: "Domingo · 13:30h",
         estadoModeracion: "aprobada",
-        motivoIA: "Gastronomía local verificada",
+        ahorroTokens: true,
+        motivoIA: "Pase directo por Referencia Nivel 2/3 (0 tokens gastados)",
         imagen: "https://images.unsplash.com/photo-1515443961218-a51367888e4b?auto=format&fit=crop&w=800&q=80"
       },
       {
         id: 4,
         nombre: "Merienda Vecinal y Taller de Esparto",
         pueblo: "Uleila del Campo",
-        negocio: "Mesón El Mirador",
+        negocio: "Taller Artesano Uleila (Nuevo)",
         categoria: "Comercio",
         descripcion: "Taller abierto para aprender a trenzar esparto con merienda tradicional.",
         coords: [37.1852, -2.2041],
         dePago: false,
-        asistentes: 5,
+        asistentes: 0,
         aforo: 25,
         listaInscritos: [],
+        fechaInicioISO: "2026-11-29T17:00",
+        fechaFinISO: "2026-11-29T19:00",
         fecha: "Domingo · 17:00h",
         estadoModeracion: "pendiente",
-        motivoIA: "Pendiente de validación visual humana",
+        ahorroTokens: false,
+        motivoIA: "Cuenta Nivel 1/3 · Esperando validación del Moderador",
         imagen: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=800&q=80"
       },
       {
         id: 5,
         nombre: "Anuncio Publicitario Externo Sin Relación",
         pueblo: "Tabernas",
-        negocio: "Cuenta Nueva",
+        negocio: "Cuenta Externa",
         categoria: "Comercio",
         descripcion: "Promoción comercial ajena a la comarca con selfie en primer plano.",
         coords: [37.0500, -2.3911],
@@ -781,9 +841,12 @@
         asistentes: 0,
         aforo: 10,
         listaInscritos: [],
+        fechaInicioISO: "2026-11-30T10:00",
+        fechaFinISO: "2026-11-30T12:00",
         fecha: "Lunes · 10:00h",
         estadoModeracion: "denegada",
-        motivoIA: "Spam detectado: retrato sin contexto de evento local",
+        ahorroTokens: false,
+        motivoIA: "Rechazada · Aviso enviado por WhatsApp al publicador",
         imagen: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80"
       }
     ];
@@ -798,6 +861,7 @@
     let mapaLeaflet = null;
     let capaMarcadores = null;
     let muestrasAprendidasModelo = 4;
+    let eventosAhorradosTokens = 3;
 
     function formatearTelefonoConPrefijo(rawTel) {
       const limpio = rawTel.trim().replace(/\s+/g, "");
@@ -814,25 +878,54 @@
       return `${dias[d.getDay()]} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}h`;
     }
 
-    // Cambio entre los 3 modelos simplistas para personas mayores
-    document.querySelectorAll(".btn-tema").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tema = btn.dataset.tema;
-        document.body.classList.remove("tema-clasico", "tema-contraste", "tema-grande");
-        document.body.classList.add(tema);
+    function notificarDecisionPublicadorWhatsApp(act, decision) {
+      const infoNegocio = cuentasNegocio[act.negocio];
+      const telPublicador = (infoNegocio && infoNegocio.telefonoPublicador)
+        ? infoNegocio.telefonoPublicador
+        : (usuarioRegistrado ? usuarioRegistrado.telefono : "+34600998877");
 
-        document.querySelectorAll(".btn-tema").forEach(b => {
-          b.classList.remove("bg-orange-600", "text-white", "font-black");
-          b.classList.add("text-stone-200", "font-bold");
+      const evalRef = evaluarFiabilidadNegocio(act.negocio);
+
+      const mensajeWhatsApp = decision === "APROBADA"
+        ? `✅ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido APROBADA y ya es visible para los vecinos. (Nivel de referencia actual: ${evalRef.nivel}/3).`
+        : `❌ Hola ${act.negocio}, tu actividad "${act.nombre}" en ${act.pueblo} ha sido DENEGADA por no cumplir las normas de publicación comarcal.`;
+
+      const logEl = document.getElementById("stat-ultimo-whatsapp-pub");
+      if (logEl) {
+        logEl.textContent = `Para ${telPublicador}: "${mensajeWhatsApp}"`;
+      }
+
+      window.ultimoWhatsAppPublicador = {
+        telefono: telPublicador,
+        negocio: act.negocio,
+        actividad: act.nombre,
+        decision: decision,
+        mensaje: mensajeWhatsApp
+      };
+      mostrarToast(`📲 WhatsApp enviado a ${act.negocio} (${telPublicador}): ${decision}`);
+    }
+
+    // Cambio entre Letra Normal y Letra Grande
+    document.querySelectorAll(".btn-letra").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const modo = btn.dataset.letra;
+        if (modo === "grande") {
+          document.body.classList.add("letra-grande");
+        } else {
+          document.body.classList.remove("letra-grande");
+        }
+
+        document.querySelectorAll(".btn-letra").forEach(b => {
+          b.classList.remove("bg-amber-400", "text-stone-950", "font-black");
+          b.classList.add("text-white", "font-bold");
         });
-        btn.classList.add("bg-orange-600", "text-white", "font-black");
-        btn.classList.remove("text-stone-200", "font-bold");
+        btn.classList.add("bg-amber-400", "text-stone-950", "font-black");
+        btn.classList.remove("text-white", "font-bold");
 
         if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 150);
       });
     });
 
-    // Control de visibilidad estricta por ROL (Moderador solo ve su panel)
     function actualizarVistaPorRol() {
       const vistaComarca = document.getElementById("vista-general-comarca");
       const vistaModerador = document.getElementById("vista-exclusiva-moderador");
@@ -843,7 +936,6 @@
       const tipo = usuarioRegistrado ? usuarioRegistrado.tipoUsuario : "INVITADO";
 
       if (tipo === "MODERADOR") {
-        // SOLO el moderador ve esta zona
         vistaComarca.classList.add("hidden");
         vistaModerador.classList.remove("hidden");
         badgeRol.textContent = `🛡️ Moderador: ${usuarioRegistrado.nombre}`;
@@ -862,20 +954,17 @@
       } else if (tipo === "REGISTRADO") {
         panelPublicador.classList.add("hidden");
         badgeRol.textContent = `🏡 ${usuarioRegistrado.nombre}`;
-        subtituloUser.textContent = `Hola ${usuarioRegistrado.nombre}, pulsa el botón naranja en cualquier plan para apuntarte.`;
+        subtituloUser.textContent = `Hola ${usuarioRegistrado.nombre}, pulsa el botón azul en cualquier plan para apuntarte.`;
       } else {
         panelPublicador.classList.add("hidden");
         badgeRol.textContent = "👤 Invitado";
-        subtituloUser.textContent = "Elige un plan de abajo y pulsa el botón naranja para apuntarte.";
+        subtituloUser.textContent = "Elige un plan de abajo y pulsa el botón azul para apuntarte.";
       }
 
       pintarActividades();
       if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 150);
     }
 
-    // =====================================================================
-    // DISPLAYS DEL PANEL DE MODERADOR (PENDIENTES / APROBADAS / DENEGADAS)
-    // =====================================================================
     function pintarDisplaysModerador() {
       const contPendientes = document.getElementById("display-mod-pendientes");
       const contAprobadas = document.getElementById("display-mod-aprobadas");
@@ -888,25 +977,26 @@
       document.getElementById("contador-pendientes").textContent = pendientes.length;
       document.getElementById("contador-aprobadas").textContent = aprobadas.length;
       document.getElementById("contador-denegadas").textContent = denegadas.length;
+      document.getElementById("stat-tokens-ahorrados").textContent = `${eventosAhorradosTokens} eventos`;
 
-      // 1. Pendientes
       contPendientes.innerHTML = "";
       if (pendientes.length === 0) {
         contPendientes.innerHTML = `
-          <div class="col-span-full bg-stone-50 border border-stone-200 rounded-2xl p-6 text-center text-sm text-stone-600">
-            🎉 No hay actividades pendientes ahora mismo. Todas han sido revisadas.
+          <div class="col-span-full bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center text-sm text-stone-600">
+            🎉 No hay actividades pendientes ahora mismo. Las cuentas con Referencia Nivel 2 o 3 pasan automáticamente sin gastar tokens.
           </div>
         `;
       } else {
         pendientes.forEach(act => {
+          const evalRef = evaluarFiabilidadNegocio(act.negocio);
           contPendientes.innerHTML += `
             <article class="border-2 border-amber-400 bg-amber-50/40 rounded-2xl overflow-hidden flex flex-col justify-between">
               <div>
                 <img src="${act.imagen}" alt="${act.nombre}" class="w-full h-40 object-cover" />
                 <div class="p-4 space-y-1.5">
-                  <span class="bg-amber-200 text-amber-950 text-xs font-black px-2.5 py-0.5 rounded-full">⏳ Pendiente de revisión</span>
+                  <span class="bg-amber-200 text-amber-950 text-xs font-black px-2.5 py-0.5 rounded-full">⏳ Nivel Referencia ${evalRef.nivel}/3</span>
                   <h3 class="font-black text-base text-stone-900">${act.nombre}</h3>
-                  <p class="text-xs font-bold text-stone-600">📍 ${act.pueblo} · ${act.negocio}</p>
+                  <p class="text-xs font-bold text-stone-600">📍 ${act.pueblo} · 🕒 ${act.fecha}</p>
                   <p class="text-xs text-stone-700">${act.descripcion}</p>
                 </div>
               </div>
@@ -923,22 +1013,27 @@
         });
       }
 
-      // 2. Aprobadas
       contAprobadas.innerHTML = "";
       aprobadas.forEach(act => {
+        const badgeToken = act.ahorroTokens
+          ? `<span class="bg-emerald-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full">⚡ 0 TOKENS (Confianza)</span>`
+          : `<span class="bg-blue-950 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">✓ Validada por Moderador</span>`;
+
         contAprobadas.innerHTML += `
           <div class="p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl flex items-center gap-3">
             <img src="${act.imagen}" alt="${act.nombre}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
             <div class="min-w-0 flex-1">
-              <p class="font-black text-sm text-stone-900 truncate">${act.nombre}</p>
-              <p class="text-xs text-stone-600">${act.pueblo} · ${act.negocio}</p>
-              <p class="text-[11px] font-bold text-emerald-800 mt-0.5">🤖 Aprendizaje: ${act.motivoIA || "Validada por moderador"}</p>
+              <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                <p class="font-black text-sm text-stone-900 truncate">${act.nombre}</p>
+                ${badgeToken}
+              </div>
+              <p class="text-xs text-stone-600">${act.pueblo} · 🕒 ${act.fecha}</p>
+              <p class="text-[11px] font-bold text-emerald-800 mt-0.5">${act.motivoIA || "Validada"}</p>
             </div>
           </div>
         `;
       });
 
-      // 3. Denegadas
       contDenegadas.innerHTML = "";
       denegadas.forEach(act => {
         contDenegadas.innerHTML += `
@@ -947,35 +1042,26 @@
             <div class="min-w-0 flex-1">
               <p class="font-black text-sm text-stone-900 truncate">${act.nombre}</p>
               <p class="text-xs text-stone-600">${act.pueblo} · ${act.negocio}</p>
-              <p class="text-[11px] font-bold text-red-800 mt-0.5">🤖 Patrón bloqueado: ${act.motivoIA || "Denegada por moderador"}</p>
+              <p class="text-[11px] font-bold text-red-800 mt-0.5">${act.motivoIA || "Denegada"}</p>
             </div>
           </div>
         `;
       });
     }
 
-    function registrarAprendizajeModelo(act, aprobada) {
+    function registrarAprendizajeModelo() {
       muestrasAprendidasModelo++;
       document.getElementById("stat-muestras-aprendidas").textContent = muestrasAprendidasModelo;
       const nuevaPrecision = Math.min(99, 91 + Math.floor(muestrasAprendidasModelo / 2));
       document.getElementById("stat-precision-modelo").textContent = `${nuevaPrecision}%`;
-
-      const regla = aprobada
-        ? `"Evento en ${act.pueblo} (${act.categoria}) con foto válida → Aprobar"`
-        : `"Contenido similar a '${act.nombre}' → Denegar automáticamente"`;
-      document.getElementById("stat-ultimo-patron").textContent = regla;
     }
 
-    // =====================================================================
-    // TARJETAS DE ACTIVIDADES (DISEÑO SIMPLE PARA PERSONAS MAYORES)
-    // =====================================================================
     function pintarActividades() {
       const grid = document.getElementById("grid-actividades");
       grid.innerHTML = "";
 
       const esPublicador = usuarioRegistrado && usuarioRegistrado.tipoUsuario === "PUBLICADOR";
 
-      // En la vista pública solo se muestran las aprobadas (salvo el publicador viendo las suyas pendientes)
       const lista = actividades.filter(a => {
         if (a.estadoModeracion === "denegada") return false;
         if (a.estadoModeracion === "pendiente" && !esPublicador) return false;
@@ -984,7 +1070,7 @@
 
       if (lista.length === 0) {
         grid.innerHTML = `
-          <div class="col-span-full bg-white p-8 rounded-3xl text-center border border-stone-200">
+          <div class="col-span-full bg-white p-8 rounded-3xl text-center border-2 border-blue-300">
             <p class="text-lg font-bold">No hay actividades en este pueblo ahora mismo.</p>
             <p class="text-sm text-stone-600 mt-1">Pulsa "Todos" arriba para ver los planes de toda la comarca.</p>
           </div>
@@ -997,18 +1083,24 @@
         const sinPlazas = libres === 0;
         const yaApuntado = misInscripcionesIds.includes(act.id);
         const esMia = esPublicador && Boolean(cuentasNegocio[act.negocio]?.esMio);
+        const evalRef = evaluarFiabilidadNegocio(act.negocio);
 
         let botonesHTML = "";
 
         if (esMia) {
           botonesHTML = `
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" data-action="ver-inscritos" data-id="${act.id}" class="bg-stone-900 text-white font-bold py-3 px-3 rounded-2xl text-sm">
-                👥 Ver Apuntados (${act.asistentes})
+            <div class="space-y-2">
+              <button type="button" data-action="cambiar-hora" data-id="${act.id}" class="w-full bg-amber-400 hover:bg-amber-300 text-stone-950 font-black py-3 px-3 rounded-2xl text-sm shadow-sm">
+                🕒 Cambiar Hora
               </button>
-              <button type="button" data-action="eliminar-evento" data-id="${act.id}" class="bg-red-600 text-white font-bold py-3 px-3 rounded-2xl text-sm">
-                🗑️ Borrar
-              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" data-action="ver-inscritos" data-id="${act.id}" class="bg-blue-950 text-white font-bold py-2.5 px-3 rounded-2xl text-xs">
+                  👥 Apuntados (${act.asistentes})
+                </button>
+                <button type="button" data-action="eliminar-evento" data-id="${act.id}" class="bg-red-600 text-white font-bold py-2.5 px-3 rounded-2xl text-xs">
+                  🗑️ Borrar
+                </button>
+              </div>
             </div>
           `;
         } else {
@@ -1018,7 +1110,7 @@
           } else if (yaApuntado) {
             btnPrincipal = `<button type="button" data-action="desapuntar" data-id="${act.id}" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-3.5 px-4 rounded-2xl">✅ Ya estás apuntado (Quitar)</button>`;
           } else {
-            btnPrincipal = `<button type="button" data-action="apuntar" data-id="${act.id}" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-3.5 px-4 rounded-2xl shadow">👉 Apuntarme (Quedan ${libres})</button>`;
+            btnPrincipal = `<button type="button" data-action="apuntar" data-id="${act.id}" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-black py-3.5 px-4 rounded-2xl shadow">👉 Apuntarme (Quedan ${libres})</button>`;
           }
 
           botonesHTML = `
@@ -1028,8 +1120,8 @@
                 <button type="button" data-action="dudas" data-id="${act.id}" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-bold py-2.5 px-3 rounded-xl text-sm">
                   💬 Dudas WhatsApp
                 </button>
-                <button type="button" data-action="ver-resenas" data-negocio="${act.negocio}" class="bg-stone-100 hover:bg-stone-200 text-stone-900 font-bold py-2.5 px-3 rounded-xl text-sm">
-                  ⭐ Opiniones
+                <button type="button" data-action="ver-resenas" data-negocio="${act.negocio}" class="bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold py-2.5 px-3 rounded-xl text-sm">
+                  ⭐ Ref. ${evalRef.nivel}/3
                 </button>
               </div>
             </div>
@@ -1037,22 +1129,24 @@
         }
 
         const badgeEstado = act.estadoModeracion === "pendiente"
-          ? `<span class="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">⏳ En revisión</span>`
-          : `<span class="absolute top-3 right-3 bg-white/95 text-stone-900 text-xs font-black px-3 py-1 rounded-full">${act.dePago ? "💶 De pago" : "🎟️ Gratis"}</span>`;
+          ? `<span class="absolute top-3 right-3 bg-amber-400 text-stone-950 text-xs font-black px-3 py-1 rounded-full">⏳ En revisión (Nivel 1)</span>`
+          : `<span class="absolute top-3 right-3 bg-white/95 text-blue-950 text-xs font-black px-3 py-1 rounded-full">${act.dePago ? "💶 De pago" : "🎟️ Gratis"}</span>`;
 
         const card = document.createElement("article");
-        card.className = "tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm border border-stone-200 flex flex-col justify-between";
+        card.className = "tarjeta-plan bg-white rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between";
         card.innerHTML = `
           <div>
             <div class="relative">
               <img src="${act.imagen}" alt="${act.nombre}" class="w-full h-48 object-cover" />
-              <span class="absolute top-3 left-3 bg-stone-900/90 text-white text-xs font-bold px-3 py-1 rounded-full">${act.categoria}</span>
+              <span class="absolute top-3 left-3 bg-blue-950/90 text-white text-xs font-bold px-3 py-1 rounded-full">${act.categoria}</span>
               ${badgeEstado}
             </div>
             <div class="p-5 space-y-2">
               <p class="text-sm font-black text-orange-700">📍 ${act.pueblo} · 🕒 ${act.fecha}</p>
               <h3 class="font-black text-xl leading-snug">${act.nombre}</h3>
-              <p class="text-xs font-bold text-stone-500">Organiza: ${act.negocio}</p>
+              <p class="text-xs font-bold text-stone-500">
+                Organiza: ${act.negocio} · <span class="text-emerald-800">Ref. ${evalRef.nivel}/3</span>
+              </p>
               <p class="text-base text-stone-700">${act.descripcion}</p>
             </div>
           </div>
@@ -1071,7 +1165,7 @@
       badge.textContent = misInscripcionesIds.length;
 
       if (misInscripcionesIds.length === 0) {
-        ul.innerHTML = `<li class="p-3 rounded-2xl bg-stone-50 text-stone-500 text-center">Todavía no te has apuntado a ningún plan.</li>`;
+        ul.innerHTML = `<li class="p-3 rounded-2xl bg-blue-50 text-stone-600 text-center">Todavía no te has apuntado a ningún plan.</li>`;
         return;
       }
 
@@ -1079,9 +1173,9 @@
         const act = actividades.find(a => a.id === id);
         if (!act) return;
         ul.innerHTML += `
-          <li class="p-3 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-between gap-2">
+          <li class="p-3 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between gap-2">
             <div>
-              <p class="font-black text-stone-900">${act.nombre}</p>
+              <p class="font-black">${act.nombre}</p>
               <p class="text-xs text-stone-600">${act.pueblo} · ${act.fecha}</p>
             </div>
             <button type="button" data-action="desapuntar" data-id="${act.id}" class="bg-red-100 text-red-900 font-bold px-3 py-2 rounded-xl text-xs shrink-0">
@@ -1100,26 +1194,31 @@
 
       Object.keys(cuentasNegocio).filter(k => cuentasNegocio[k].esMio).forEach(nombre => {
         const info = cuentasNegocio[nombre];
+        const evalRef = evaluarFiabilidadNegocio(nombre);
+
         const opt = document.createElement("option");
         opt.value = nombre;
-        opt.textContent = nombre;
+        opt.textContent = `${nombre} (${evalRef.esDeConfianza ? `Ref. ${evalRef.nivel}/3 · Directo` : "Ref. 1/3 · Revisión"})`;
         sel.appendChild(opt);
 
+        const badgeColor = evalRef.esDeConfianza
+          ? "bg-emerald-100 text-emerald-900"
+          : "bg-amber-100 text-amber-900";
+
         cont.innerHTML += `
-          <div class="p-3 bg-stone-50 rounded-2xl border border-stone-200 flex justify-between items-center">
+          <div class="p-3 bg-blue-50/70 rounded-2xl border border-blue-200 flex justify-between items-center gap-2">
             <div>
               <p class="font-black">${nombre}</p>
-              <p class="text-xs text-stone-600">📍 ${info.pueblo}</p>
+              <p class="text-xs text-stone-600">📍 ${info.pueblo} · ${evalRef.motivo}</p>
             </div>
-            <span class="bg-emerald-100 text-emerald-900 text-xs font-bold px-2.5 py-1 rounded-lg">Activo</span>
+            <span class="${badgeColor} text-xs font-black px-2.5 py-1 rounded-lg shrink-0">
+              Ref. ${evalRef.nivel}/3
+            </span>
           </div>
         `;
       });
     }
 
-    // =====================================================================
-    // MAPA OPENSTREETMAP CENTRADO EN LA MANCOMUNIDAD
-    // =====================================================================
     function initMapa() {
       mapaLeaflet = L.map("mapa-comarca", {
         center: CENTRO_MANCOMUNIDAD,
@@ -1128,415 +1227,487 @@
         maxZoom: 19
       });
 
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(mapaLeaflet);
+      }).addTo(mapaLeaflet);
 
-        const capaPueblos = L.layerGroup().addTo(mapaLeaflet);
-        capaMarcadores = L.layerGroup().addTo(mapaLeaflet);
+      const capaPueblos = L.layerGroup().addTo(mapaLeaflet);
+      capaMarcadores = L.layerGroup().addTo(mapaLeaflet);
 
-        Object.entries(municipiosMancomunidad).forEach(([nombre, coords]) => {
-          const icon = L.divIcon({
-            className: "",
-            html: `<div class="pin-pueblo-base"></div>`,
-            iconSize: [11, 11],
-            iconAnchor: [5, 5]
-          });
-          L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
+      Object.entries(municipiosMancomunidad).forEach(([nombre, coords]) => {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div class="pin-pueblo-base"></div>`,
+          iconSize: [11, 11],
+          iconAnchor: [5, 5]
         });
+        L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
+      });
 
-        centrarMapaMancomunidad();
+      centrarMapaMancomunidad();
       actualizarPinesMapa();
-      }
+    }
 
     function centrarMapaMancomunidad() {
-          if (!mapaLeaflet) return;
-          mapaLeaflet.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
-        }
+      if (!mapaLeaflet) return;
+      mapaLeaflet.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
+    }
 
     function actualizarPinesMapa() {
-          if (!capaMarcadores) return;
-          capaMarcadores.clearLayers();
+      if (!capaMarcadores) return;
+      capaMarcadores.clearLayers();
 
-          actividades.filter(a => a.estadoModeracion === "aprobada").forEach(act => {
-            if (puebloActivo !== "Todos" && act.pueblo !== puebloActivo) return;
-            const icon = L.divIcon({
-              className: "",
-              html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
-              iconSize: [48, 48],
-              iconAnchor: [24, 24]
-            });
-            L.marker(act.coords, { icon })
-              .addTo(capaMarcadores)
-              .bindPopup(`<b>${act.nombre}</b><br/>📍 ${act.pueblo}<br/>🕒 ${act.fecha}`);
-          });
-        }
+      actividades.filter(a => a.estadoModeracion === "aprobada").forEach(act => {
+        if (puebloActivo !== "Todos" && act.pueblo !== puebloActivo) return;
+        const icon = L.divIcon({
+          className: "",
+          html: `<div class="pin-actividad-foto"><img src="${act.imagen}" alt="${act.nombre}" /></div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+        L.marker(act.coords, { icon })
+          .addTo(capaMarcadores)
+          .bindPopup(`<b>${act.nombre}</b><br/>📍 ${act.pueblo}<br/>🕒 ${act.fecha}`);
+      });
+    }
 
-    // =====================================================================
-    // EVENTOS DE INTERACCIÓN Y FORMULARIOS
-    // =====================================================================
     function rellenarSelectoresMunicipios() {
-          const nombres = Object.keys(municipiosMancomunidad).sort();
-          ["input-pueblo", "neg-pueblo"].forEach(id => {
-            const sel = document.getElementById(id);
-            sel.innerHTML = "";
-            nombres.forEach(p => {
-              const opt = document.createElement("option");
-              opt.value = p;
-              opt.textContent = p;
-              if (p === "Lucainena de las Torres") opt.selected = true;
-              sel.appendChild(opt);
-            });
-          });
-          document.getElementById("input-fecha-inicio").value = "2026-11-29T12:00";
-          document.getElementById("input-fecha-fin").value = "2026-11-29T14:00";
-        }
+      const nombres = Object.keys(municipiosMancomunidad).sort();
+      ["input-pueblo", "neg-pueblo"].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = "";
+        nombres.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p;
+          opt.textContent = p;
+          if (p === "Lucainena de las Torres") opt.selected = true;
+          sel.appendChild(opt);
+        });
+      });
+      document.getElementById("input-fecha-inicio").value = "2026-11-29T12:00";
+      document.getElementById("input-fecha-fin").value = "2026-11-29T14:00";
+    }
 
     document.getElementById("input-imagen-archivo").addEventListener("change", (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            imagenSubidaBase64 = ev.target.result;
-            document.getElementById("img-preview-subida").src = imagenSubidaBase64;
-            document.getElementById("nombre-archivo-subido").textContent = file.name;
-            document.getElementById("contenedor-preview-subida").classList.remove("hidden");
-          };
-          reader.readAsDataURL(file);
-        });
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        imagenSubidaBase64 = ev.target.result;
+        document.getElementById("img-preview-subida").src = imagenSubidaBase64;
+        document.getElementById("nombre-archivo-subido").textContent = file.name;
+        document.getElementById("contenedor-preview-subida").classList.remove("hidden");
+      };
+      reader.readAsDataURL(file);
+    });
 
-      document.getElementById("grupo-pueblos").addEventListener("click", (e) => {
-        const btn = e.target.closest(".btn-pueblo");
-        if (!btn) return;
-        puebloActivo = btn.dataset.pueblo;
+    document.getElementById("grupo-pueblos").addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-pueblo");
+      if (!btn) return;
+      puebloActivo = btn.dataset.pueblo;
 
-        document.querySelectorAll(".btn-pueblo").forEach(b => {
-          b.classList.remove("bg-stone-900", "text-white");
-          b.classList.add("bg-stone-100", "text-stone-900");
-        });
-        btn.classList.add("bg-stone-900", "text-white");
-        btn.classList.remove("bg-stone-100", "text-stone-900");
-
-        if (mapaLeaflet) {
-          if (puebloActivo === "Todos") centrarMapaMancomunidad();
-          else if (coordsPueblos[puebloActivo]) mapaLeaflet.setView(coordsPueblos[puebloActivo].center, 14);
-        }
-        pintarActividades();
-        actualizarPinesMapa();
+      document.querySelectorAll(".btn-pueblo").forEach(b => {
+        b.classList.remove("bg-blue-950", "text-white");
+        b.classList.add("bg-blue-100", "text-blue-950");
       });
+      btn.classList.add("bg-blue-950", "text-white");
+      btn.classList.remove("bg-blue-100", "text-blue-950");
 
-      document.getElementById("btn-centrar-mancomunidad").addEventListener("click", centrarMapaMancomunidad);
+      if (mapaLeaflet) {
+        if (puebloActivo === "Todos") centrarMapaMancomunidad();
+        else if (coordsPueblos[puebloActivo]) mapaLeaflet.setView(coordsPueblos[puebloActivo].center, 14);
+      }
+      pintarActividades();
+      actualizarPinesMapa();
+    });
 
-      // Botones de acceso a roles
-      document.getElementById("btn-abrir-cuenta").addEventListener("click", () => {
+    document.getElementById("btn-centrar-mancomunidad").addEventListener("click", centrarMapaMancomunidad);
+
+    document.getElementById("btn-abrir-cuenta").addEventListener("click", () => {
+      document.getElementById("modal-login").classList.remove("hidden");
+    });
+
+    document.getElementById("btn-acceso-publicador").addEventListener("click", () => {
+      if (!usuarioRegistrado) {
+        document.getElementById("login-tipo-usuario").value = "PUBLICADOR";
         document.getElementById("modal-login").classList.remove("hidden");
-      });
-
-      document.getElementById("btn-acceso-publicador").addEventListener("click", () => {
-        if (!usuarioRegistrado) {
-          document.getElementById("login-tipo-usuario").value = "PUBLICADOR";
-          document.getElementById("modal-login").classList.remove("hidden");
-        } else {
-          usuarioRegistrado.tipoUsuario = "PUBLICADOR";
-          actualizarVistaPorRol();
-        }
-      });
-
-      document.getElementById("btn-acceso-moderador").addEventListener("click", () => {
-        if (!usuarioRegistrado || usuarioRegistrado.tipoUsuario !== "MODERADOR") {
-          document.getElementById("login-tipo-usuario").value = "MODERADOR";
-          document.getElementById("mensaje-motivo-registro").textContent =
-            "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades.";
-          document.getElementById("modal-login").classList.remove("hidden");
-        } else {
-          actualizarVistaPorRol();
-        }
-      });
-
-      document.getElementById("btn-salir-publicador").addEventListener("click", () => {
-        if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+      } else {
+        usuarioRegistrado.tipoUsuario = "PUBLICADOR";
         actualizarVistaPorRol();
-      });
+      }
+    });
 
-      document.getElementById("btn-salir-moderador").addEventListener("click", () => {
-        if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+    document.getElementById("btn-acceso-moderador").addEventListener("click", () => {
+      if (!usuarioRegistrado || usuarioRegistrado.tipoUsuario !== "MODERADOR") {
+        document.getElementById("login-tipo-usuario").value = "MODERADOR";
+        document.getElementById("mensaje-motivo-registro").textContent =
+          "Esta zona es exclusiva para el Moderador. Identifícate con rol Moderador para revisar actividades.";
+        document.getElementById("modal-login").classList.remove("hidden");
+      } else {
         actualizarVistaPorRol();
-      });
+      }
+    });
 
-      document.getElementById("btn-cerrar-login").addEventListener("click", () => {
-        document.getElementById("modal-login").classList.add("hidden");
-      });
+    document.getElementById("btn-salir-publicador").addEventListener("click", () => {
+      if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+      actualizarVistaPorRol();
+    });
 
-      document.getElementById("form-login").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const nombre = document.getElementById("login-nombre").value.trim();
-        const email = document.getElementById("login-email").value.trim();
-        const telefono = formatearTelefonoConPrefijo(document.getElementById("login-telefono").value);
-        const tipoUsuario = document.getElementById("login-tipo-usuario").value;
+    document.getElementById("btn-salir-moderador").addEventListener("click", () => {
+      if (usuarioRegistrado) usuarioRegistrado.tipoUsuario = "REGISTRADO";
+      actualizarVistaPorRol();
+    });
 
-        usuarioRegistrado = { id: Date.now(), nombre, email, telefono, tipoUsuario };
-        document.getElementById("modal-login").classList.add("hidden");
-        actualizarVistaPorRol();
+    document.getElementById("btn-cerrar-login").addEventListener("click", () => {
+      document.getElementById("modal-login").classList.add("hidden");
+    });
 
-        if (accionPendienteTrasRegistro) {
-          const idAct = accionPendienteTrasRegistro;
-          accionPendienteTrasRegistro = null;
-          ejecutarApuntarse(idAct);
-        } else {
-          mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
-        }
-      });
+    document.getElementById("form-login").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById("login-nombre").value.trim();
+      const email = document.getElementById("login-email").value.trim();
+      const telefono = formatearTelefonoConPrefijo(document.getElementById("login-telefono").value);
+      const tipoUsuario = document.getElementById("login-tipo-usuario").value;
 
-      function ejecutarApuntarse(id) {
+      usuarioRegistrado = { id: Date.now(), nombre, email, telefono, tipoUsuario };
+      document.getElementById("modal-login").classList.add("hidden");
+      actualizarVistaPorRol();
+
+      if (accionPendienteTrasRegistro) {
+        const idAct = accionPendienteTrasRegistro;
+        accionPendienteTrasRegistro = null;
+        ejecutarApuntarse(idAct);
+      } else {
+        mostrarToast(`Bienvenido/a ${nombre} (${tipoUsuario})`);
+      }
+    });
+
+    function ejecutarApuntarse(id) {
+      const act = actividades.find(a => a.id === id);
+      if (!act || act.asistentes >= act.aforo) return;
+      if (!misInscripcionesIds.includes(id)) {
+        act.asistentes++;
+        misInscripcionesIds.push(id);
+        act.listaInscritos.push({
+          nombre: usuarioRegistrado.nombre,
+          email: usuarioRegistrado.email,
+          telefono: usuarioRegistrado.telefono
+        });
+      }
+      pintarMisInscripciones();
+      pintarActividades();
+      mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuarioRegistrado.telefono}.`);
+    }
+
+    document.getElementById("btn-mostrar-form-evento").addEventListener("click", () => {
+      document.getElementById("form-nuevo-negocio").classList.add("hidden");
+      document.getElementById("form-publicar").classList.toggle("hidden");
+    });
+    document.getElementById("btn-cancelar-form-actividad").addEventListener("click", () => {
+      document.getElementById("form-publicar").classList.add("hidden");
+    });
+
+    document.getElementById("btn-mostrar-form-negocio").addEventListener("click", () => {
+      document.getElementById("form-publicar").classList.add("hidden");
+      document.getElementById("form-nuevo-negocio").classList.toggle("hidden");
+    });
+    document.getElementById("btn-cancelar-negocio").addEventListener("click", () => {
+      document.getElementById("form-nuevo-negocio").classList.add("hidden");
+    });
+
+    document.getElementById("form-nuevo-negocio").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById("neg-nombre").value.trim();
+      const pueblo = document.getElementById("neg-pueblo").value;
+      if (!nombre) return;
+      cuentasNegocio[nombre] = {
+        id: Date.now(),
+        nombre,
+        esMio: true,
+        pueblo,
+        telefonoPublicador: usuarioRegistrado ? usuarioRegistrado.telefono : "+34600112233",
+        actividadesAprobadas: 0,
+        cuentaVerificada: false,
+        fiabilidad: 1,
+        instagramUrl: document.getElementById("neg-instagram").value.trim(),
+        facebookUrl: document.getElementById("neg-facebook").value.trim(),
+        resenas: []
+      };
+      document.getElementById("form-nuevo-negocio").reset();
+      document.getElementById("form-nuevo-negocio").classList.add("hidden");
+      pintarNegociosPublicador();
+      mostrarToast(`✅ Negocio "${nombre}" guardado con Referencia Nivel 1/3.`);
+    });
+
+    document.getElementById("form-publicar").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const titulo = document.getElementById("input-titulo").value.trim();
+      const categoria = document.getElementById("input-categoria").value;
+      const negocio = document.getElementById("input-negocio-select").value;
+      const pueblo = document.getElementById("input-pueblo").value;
+      const aforo = Number(document.getElementById("input-aforo").value) || 40;
+      const dePago = document.getElementById("input-depago").value === "true";
+      const fechaInicio = document.getElementById("input-fecha-inicio").value;
+      const fechaFin = document.getElementById("input-fecha-fin").value;
+      const desc = document.getElementById("input-desc").value.trim();
+      const baseCoords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
+
+      const evalRef = evaluarFiabilidadNegocio(negocio);
+      const pasaSinRevision = evalRef.esDeConfianza;
+
+      const nuevoEvento = {
+        id: Date.now(),
+        nombre: titulo,
+        pueblo,
+        negocio,
+        categoria,
+        descripcion: desc,
+        coords: baseCoords,
+        dePago,
+        asistentes: 0,
+        aforo,
+        listaInscritos: [],
+        fechaInicioISO: fechaInicio,
+        fechaFinISO: fechaFin,
+        fecha: formatearFechaBonita(fechaInicio),
+        estadoModeracion: pasaSinRevision ? "aprobada" : "pendiente",
+        ahorroTokens: pasaSinRevision,
+        motivoIA: pasaSinRevision
+          ? `Pase directo por Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados)`
+          : `Cuenta Nivel 1/3 · Pendiente de revisión por Moderador`,
+        imagen: imagenSubidaBase64 || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
+      };
+
+      actividades.unshift(nuevoEvento);
+
+      if (pasaSinRevision) {
+        eventosAhorradosTokens++;
+        if (cuentasNegocio[negocio]) cuentasNegocio[negocio].actividadesAprobadas++;
+        notificarDecisionPublicadorWhatsApp(nuevoEvento, "APROBADA");
+        mostrarToast(`⚡ ¡Publicada al instante! "${negocio}" tiene Referencia Nivel ${evalRef.nivel}/3 (0 tokens gastados).`);
+      } else {
+        mostrarToast(`⏳ Enviada a revisión: "${negocio}" es Nivel 1/3. Te avisaremos por WhatsApp cuando el Moderador la apruebe.`);
+      }
+
+      imagenSubidaBase64 = "";
+      document.getElementById("form-publicar").reset();
+      document.getElementById("contenedor-preview-subida").classList.add("hidden");
+      document.getElementById("form-publicar").classList.add("hidden");
+      pintarActividades();
+      actualizarPinesMapa();
+    });
+
+    // MODAL SIMPLE DE CAMBIAR FECHA Y HORA
+    document.getElementById("btn-cerrar-cambiar-hora").addEventListener("click", () => {
+      document.getElementById("modal-cambiar-hora").classList.add("hidden");
+    });
+
+    document.getElementById("form-cambiar-hora").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = Number(document.getElementById("id-evento-cambiar-hora").value);
+      const act = actividades.find(a => a.id === id);
+      if (!act) return;
+
+      const nuevaInicio = document.getElementById("nueva-hora-inicio").value;
+      const nuevaFin = document.getElementById("nueva-hora-fin").value;
+
+      act.fechaInicioISO = nuevaInicio;
+      act.fechaFinISO = nuevaFin;
+      act.fecha = formatearFechaBonita(nuevaInicio);
+
+      document.getElementById("modal-cambiar-hora").classList.add("hidden");
+      pintarActividades();
+      pintarMisInscripciones();
+      actualizarPinesMapa();
+
+      const numApuntados = act.listaInscritos.length;
+      const aviso = numApuntados > 0
+        ? `🕒 Hora actualizada a "${act.fecha}". Se ha enviado aviso por WhatsApp a los ${numApuntados} apuntados.`
+        : `🕒 Hora actualizada a "${act.fecha}".`;
+      mostrarToast(aviso);
+    });
+
+    // Delegación global de acciones
+    document.body.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      if (action === "cambiar-hora") {
+        const id = Number(btn.dataset.id);
         const act = actividades.find(a => a.id === id);
-        if (!act || act.asistentes >= act.aforo) return;
-        if (!misInscripcionesIds.includes(id)) {
-          act.asistentes++;
-          misInscripcionesIds.push(id);
-          act.listaInscritos.push({
-            nombre: usuarioRegistrado.nombre,
-            email: usuarioRegistrado.email,
-            telefono: usuarioRegistrado.telefono
-          });
+        if (!act) return;
+
+        document.getElementById("id-evento-cambiar-hora").value = act.id;
+        document.getElementById("nombre-evento-cambiar-hora").textContent = `${act.nombre} (${act.pueblo})`;
+        document.getElementById("nueva-hora-inicio").value = act.fechaInicioISO || "2026-11-29T12:00";
+        document.getElementById("nueva-hora-fin").value = act.fechaFinISO || "2026-11-29T14:00";
+        document.getElementById("modal-cambiar-hora").classList.remove("hidden");
+      }
+
+      if (action === "apuntar") {
+        const id = Number(btn.dataset.id);
+        if (!usuarioRegistrado) {
+          accionPendienteTrasRegistro = id;
+          document.getElementById("login-tipo-usuario").value = "REGISTRADO";
+          document.getElementById("modal-login").classList.remove("hidden");
+          return;
         }
+        ejecutarApuntarse(id);
+      }
+
+      if (action === "desapuntar") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        misInscripcionesIds = misInscripcionesIds.filter(i => i !== id);
+        act.asistentes = Math.max(0, act.asistentes - 1);
         pintarMisInscripciones();
         pintarActividades();
-        mostrarToast(`✅ ¡Apuntado a "${act.nombre}"! Te avisaremos por WhatsApp al ${usuarioRegistrado.telefono}.`);
+        mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
       }
 
-      // Formularios Publicador
-      document.getElementById("btn-mostrar-form-evento").addEventListener("click", () => {
-        document.getElementById("form-nuevo-negocio").classList.add("hidden");
-        document.getElementById("form-publicar").classList.toggle("hidden");
-      });
-      document.getElementById("btn-cancelar-form-actividad").addEventListener("click", () => {
-        document.getElementById("form-publicar").classList.add("hidden");
-      });
-
-      document.getElementById("btn-mostrar-form-negocio").addEventListener("click", () => {
-        document.getElementById("form-publicar").classList.add("hidden");
-        document.getElementById("form-nuevo-negocio").classList.toggle("hidden");
-      });
-      document.getElementById("btn-cancelar-negocio").addEventListener("click", () => {
-        document.getElementById("form-nuevo-negocio").classList.add("hidden");
-      });
-
-      document.getElementById("form-nuevo-negocio").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const nombre = document.getElementById("neg-nombre").value.trim();
-        const pueblo = document.getElementById("neg-pueblo").value;
-        if (!nombre) return;
-        cuentasNegocio[nombre] = {
-          id: Date.now(),
-          nombre,
-          esMio: true,
-          pueblo,
-          instagramUrl: document.getElementById("neg-instagram").value.trim(),
-          facebookUrl: document.getElementById("neg-facebook").value.trim(),
-          resenas: []
-        };
-        document.getElementById("form-nuevo-negocio").reset();
-        document.getElementById("form-nuevo-negocio").classList.add("hidden");
-        pintarNegociosPublicador();
-        mostrarToast(`✅ Negocio "${nombre}" guardado.`);
-      });
-
-      document.getElementById("form-publicar").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const titulo = document.getElementById("input-titulo").value.trim();
-        const categoria = document.getElementById("input-categoria").value;
-        const negocio = document.getElementById("input-negocio-select").value;
-        const pueblo = document.getElementById("input-pueblo").value;
-        const aforo = Number(document.getElementById("input-aforo").value) || 40;
-        const dePago = document.getElementById("input-depago").value === "true";
-        const fechaInicio = document.getElementById("input-fecha-inicio").value;
-        const desc = document.getElementById("input-desc").value.trim();
-        const baseCoords = municipiosMancomunidad[pueblo] || CENTRO_MANCOMUNIDAD;
-
-        actividades.unshift({
-          id: Date.now(),
-          nombre: titulo,
-          pueblo,
-          negocio,
-          categoria,
-          descripcion: desc,
-          coords: baseCoords,
-          dePago,
-          asistentes: 0,
-          aforo,
-          listaInscritos: [],
-          fecha: formatearFechaBonita(fechaInicio),
-          estadoModeracion: "pendiente",
-          motivoIA: "Pendiente de validación por el Moderador",
-          imagen: imagenSubidaBase64 || "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=800&q=80"
-        });
-
-        imagenSubidaBase64 = "";
-        document.getElementById("form-publicar").reset();
-        document.getElementById("contenedor-preview-subida").classList.add("hidden");
-        document.getElementById("form-publicar").classList.add("hidden");
-        pintarActividades();
-        mostrarToast(`⏳ Actividad "${titulo}" enviada a la bandeja de Pendientes del Moderador.`);
-      });
-
-      // Delegación global de acciones
-      document.body.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-action]");
-        if (!btn) return;
-        const action = btn.dataset.action;
-
-        if (action === "apuntar") {
-          const id = Number(btn.dataset.id);
-          if (!usuarioRegistrado) {
-            accionPendienteTrasRegistro = id;
-            document.getElementById("login-tipo-usuario").value = "REGISTRADO";
-            document.getElementById("modal-login").classList.remove("hidden");
-            return;
-          }
-          ejecutarApuntarse(id);
-        }
-
-        if (action === "desapuntar") {
-          const id = Number(btn.dataset.id);
-          const act = actividades.find(a => a.id === id);
-          if (!act) return;
-          misInscripcionesIds = misInscripcionesIds.filter(i => i !== id);
-          act.asistentes = Math.max(0, act.asistentes - 1);
-          pintarMisInscripciones();
-          pintarActividades();
-          mostrarToast(`❌ Te has desapuntado de "${act.nombre}".`);
-        }
-
-        if (action === "dudas") {
-          const id = Number(btn.dataset.id);
-          const act = actividades.find(a => a.id === id);
-          if (!act) return;
-          eventoChatActual = act;
-          document.getElementById("titulo-modal-dudas").textContent = `Duda: ${act.nombre}`;
-          document.getElementById("input-pregunta").value = "";
-          actualizarEnlaceWhatsApp();
-          document.getElementById("modal-dudas").classList.remove("hidden");
-        }
-
-        if (action === "ver-resenas" || action === "valorar-hecha") {
-          negocioResenaActual = btn.dataset.negocio;
-          abrirModalResenas(negocioResenaActual);
-        }
-
-        if (action === "ver-inscritos") {
-          const id = Number(btn.dataset.id);
-          const act = actividades.find(a => a.id === id);
-          if (!act) return;
-          const cont = document.getElementById("lista-modal-inscritos");
-          cont.innerHTML = act.listaInscritos.length === 0
-            ? `<p class="text-stone-500 text-center py-4">Aún no hay nadie apuntado.</p>`
-            : act.listaInscritos.map((p, i) => `<div class="p-3 bg-stone-50 rounded-xl border"><b>${i + 1}. ${p.nombre}</b><br/><span class="text-xs text-stone-600">${p.email} · ${p.telefono}</span></div>`).join("");
-          document.getElementById("modal-inscritos").classList.remove("hidden");
-        }
-
-        if (action === "eliminar-evento") {
-          const id = Number(btn.dataset.id);
-          const idx = actividades.findIndex(a => a.id === id);
-          if (idx !== -1) {
-            actividades.splice(idx, 1);
-            pintarActividades();
-            actualizarPinesMapa();
-            mostrarToast("🗑️ Evento eliminado.");
-          }
-        }
-
-        // ACCIONES DEL MODERADOR (APRENDE EL MODELO)
-        if (action === "mod-aprobar") {
-          const id = Number(btn.dataset.id);
-          const act = actividades.find(a => a.id === id);
-          if (!act) return;
-          act.estadoModeracion = "aprobada";
-          act.motivoIA = "Aprobada por Moderador → Patrón positivo aprendido";
-          registrarAprendizajeModelo(act, true);
-          pintarDisplaysModerador();
-          actualizarPinesMapa();
-          mostrarToast(`✅ Aprobada "${act.nombre}". El modelo ha aprendido este patrón positivo.`);
-        }
-
-        if (action === "mod-denegar") {
-          const id = Number(btn.dataset.id);
-          const act = actividades.find(a => a.id === id);
-          if (!act) return;
-          act.estadoModeracion = "denegada";
-          act.motivoIA = "Denegada por Moderador → Patrón negativo aprendido";
-          registrarAprendizajeModelo(act, false);
-          pintarDisplaysModerador();
-          actualizarPinesMapa();
-          mostrarToast(`❌ Denegada "${act.nombre}". El modelo ha registrado este rechazo.`);
-        }
-      });
-
-      function actualizarEnlaceWhatsApp() {
-        if (!eventoChatActual) return;
-        const txt = document.getElementById("input-pregunta").value.trim();
-        const msg = `Hola, tengo una duda sobre "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}): ${txt}`;
-        document.getElementById("link-whatsapp-listo").href = `https://wa.me/${TELEFONO_BOT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+      if (action === "dudas") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        eventoChatActual = act;
+        document.getElementById("titulo-modal-dudas").textContent = `Duda: ${act.nombre}`;
+        document.getElementById("input-pregunta").value = "";
+        actualizarEnlaceWhatsApp();
+        document.getElementById("modal-dudas").classList.remove("hidden");
       }
-      document.getElementById("input-pregunta").addEventListener("input", actualizarEnlaceWhatsApp);
-      document.getElementById("btn-cerrar-dudas").addEventListener("click", () => document.getElementById("modal-dudas").classList.add("hidden"));
-      document.getElementById("btn-cerrar-inscritos").addEventListener("click", () => document.getElementById("modal-inscritos").classList.add("hidden"));
 
-      function abrirModalResenas(nombreNeg) {
-        const info = cuentasNegocio[nombreNeg] || { resenas: [] };
-        document.getElementById("titulo-modal-resenas").textContent = `Opiniones: ${nombreNeg}`;
-        const lista = document.getElementById("lista-resenas-modal");
-        lista.innerHTML = info.resenas.length === 0
-          ? `<p class="text-stone-500 text-center">Sin opiniones todavía.</p>`
-          : info.resenas.map(r => `<div class="p-2.5 bg-white rounded-xl border"><b>${r.usuario}</b> (${"⭐".repeat(r.estrellas)})<p>${r.texto}</p></div>`).join("");
-        document.getElementById("modal-resenas").classList.remove("hidden");
-      }
-      document.getElementById("btn-cerrar-resenas").addEventListener("click", () => document.getElementById("modal-resenas").classList.add("hidden"));
-      document.getElementById("form-nueva-resena").addEventListener("submit", (e) => {
-        e.preventDefault();
-        if (!negocioResenaActual) return;
-        const estrellas = Number(document.getElementById("select-estrellas").value);
-        const texto = document.getElementById("input-texto-resena").value.trim();
-        const usuario = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino";
-        if (!cuentasNegocio[negocioResenaActual]) cuentasNegocio[negocioResenaActual] = { resenas: [] };
-        cuentasNegocio[negocioResenaActual].resenas.unshift({ usuario, estrellas, texto });
-        document.getElementById("input-texto-resena").value = "";
+      if (action === "ver-resenas" || action === "valorar-hecha") {
+        negocioResenaActual = btn.dataset.negocio;
         abrirModalResenas(negocioResenaActual);
-        mostrarToast("⭐ ¡Gracias! Tu opinión se ha guardado.");
-      });
-
-      // Navegación inferior en móvil (scroll suave a cada bloque)
-      document.querySelectorAll(".btn-movil-nav").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const tab = btn.dataset.movilTab;
-          document.querySelectorAll(".btn-movil-nav").forEach(b => b.classList.remove("text-orange-400", "font-black"));
-          btn.classList.add("text-orange-400", "font-black");
-
-          if (tab === "cuenta") {
-            document.getElementById("modal-login").classList.remove("hidden");
-          } else if (tab === "mapa") {
-            document.getElementById("tab-contenido-mapa").scrollIntoView({ behavior: "smooth" });
-            if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 200);
-          } else if (tab === "misplanes") {
-            document.getElementById("tab-contenido-misplanes").scrollIntoView({ behavior: "smooth" });
-          } else {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        });
-      });
-
-      function mostrarToast(txt) {
-        const t = document.getElementById("toast-alerta");
-        document.getElementById("toast-mensaje").textContent = txt;
-        t.classList.remove("hidden");
-        setTimeout(() => t.classList.add("hidden"), 5000);
       }
 
-      // Arranque
-      rellenarSelectoresMunicipios();
-      pintarMisInscripciones();
-      actualizarVistaPorRol();
-      initMapa();
+      if (action === "ver-inscritos") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+        const cont = document.getElementById("lista-modal-inscritos");
+        cont.innerHTML = act.listaInscritos.length === 0
+          ? `<p class="text-stone-500 text-center py-4">Aún no hay nadie apuntado.</p>`
+          : act.listaInscritos.map((p, i) => `<div class="p-3 bg-blue-50 rounded-xl border"><b>${i + 1}. ${p.nombre}</b><br/><span class="text-xs text-stone-600">${p.email} · ${p.telefono}</span></div>`).join("");
+        document.getElementById("modal-inscritos").classList.remove("hidden");
+      }
+
+      if (action === "eliminar-evento") {
+        const id = Number(btn.dataset.id);
+        const idx = actividades.findIndex(a => a.id === id);
+        if (idx !== -1) {
+          actividades.splice(idx, 1);
+          pintarActividades();
+          actualizarPinesMapa();
+          mostrarToast("🗑️ Evento eliminado.");
+        }
+      }
+
+      if (action === "mod-aprobar") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+
+        act.estadoModeracion = "aprobada";
+        if (cuentasNegocio[act.negocio]) {
+          cuentasNegocio[act.negocio].actividadesAprobadas += 2;
+        }
+        const evalRef = evaluarFiabilidadNegocio(act.negocio);
+        act.motivoIA = `Aprobada por Moderador · Negocio sube a Referencia Nivel ${evalRef.nivel}/3`;
+
+        registrarAprendizajeModelo();
+        notificarDecisionPublicadorWhatsApp(act, "APROBADA");
+        pintarDisplaysModerador();
+        actualizarPinesMapa();
+      }
+
+      if (action === "mod-denegar") {
+        const id = Number(btn.dataset.id);
+        const act = actividades.find(a => a.id === id);
+        if (!act) return;
+
+        act.estadoModeracion = "denegada";
+        act.motivoIA = "Denegada por Moderador · Aviso enviado por WhatsApp al publicador";
+
+        registrarAprendizajeModelo();
+        notificarDecisionPublicadorWhatsApp(act, "DENEGADA");
+        pintarDisplaysModerador();
+        actualizarPinesMapa();
+      }
+    });
+
+    function actualizarEnlaceWhatsApp() {
+      if (!eventoChatActual) return;
+      const txt = document.getElementById("input-pregunta").value.trim();
+      const msg = `Hola, tengo una duda sobre "${eventoChatActual.nombre}" (${eventoChatActual.pueblo}): ${txt}`;
+      document.getElementById("link-whatsapp-listo").href = `https://wa.me/${TELEFONO_BOT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+    }
+    document.getElementById("input-pregunta").addEventListener("input", actualizarEnlaceWhatsApp);
+    document.getElementById("btn-cerrar-dudas").addEventListener("click", () => document.getElementById("modal-dudas").classList.add("hidden"));
+    document.getElementById("btn-cerrar-inscritos").addEventListener("click", () => document.getElementById("modal-inscritos").classList.add("hidden"));
+
+    function abrirModalResenas(nombreNeg) {
+      const info = cuentasNegocio[nombreNeg] || { resenas: [] };
+      const evalRef = evaluarFiabilidadNegocio(nombreNeg);
+      document.getElementById("titulo-modal-resenas").textContent = `Opiniones: ${nombreNeg}`;
+      document.getElementById("subtitulo-ia-negocio").textContent = evalRef.motivo;
+
+      const lista = document.getElementById("lista-resenas-modal");
+      lista.innerHTML = info.resenas.length === 0
+        ? `<p class="text-stone-500 text-center">Sin opiniones todavía.</p>`
+        : info.resenas.map(r => `<div class="p-2.5 bg-white rounded-xl border"><b>${r.usuario}</b> (${"⭐".repeat(r.estrellas)})<p>${r.texto}</p></div>`).join("");
+      document.getElementById("modal-resenas").classList.remove("hidden");
+    }
+    document.getElementById("btn-cerrar-resenas").addEventListener("click", () => document.getElementById("modal-resenas").classList.add("hidden"));
+    document.getElementById("form-nueva-resena").addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!negocioResenaActual) return;
+      const estrellas = Number(document.getElementById("select-estrellas").value);
+      const texto = document.getElementById("input-texto-resena").value.trim();
+      const usuario = usuarioRegistrado ? usuarioRegistrado.nombre : "Vecino";
+      if (!cuentasNegocio[negocioResenaActual]) {
+        cuentasNegocio[negocioResenaActual] = { actividadesAprobadas: 0, resenas: [] };
+      }
+      cuentasNegocio[negocioResenaActual].resenas.unshift({ usuario, estrellas, texto });
+      document.getElementById("input-texto-resena").value = "";
+      abrirModalResenas(negocioResenaActual);
+      pintarActividades();
+      mostrarToast("⭐ ¡Gracias! Tu opinión actualiza la referencia del negocio.");
+    });
+
+    document.querySelectorAll(".btn-movil-nav").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.movilTab;
+        document.querySelectorAll(".btn-movil-nav").forEach(b => b.classList.remove("text-amber-300", "font-black"));
+        btn.classList.add("text-amber-300", "font-black");
+
+        if (tab === "cuenta") {
+          document.getElementById("modal-login").classList.remove("hidden");
+        } else if (tab === "mapa") {
+          document.getElementById("tab-contenido-mapa").scrollIntoView({ behavior: "smooth" });
+          if (mapaLeaflet) setTimeout(() => mapaLeaflet.invalidateSize(), 200);
+        } else if (tab === "misplanes") {
+          document.getElementById("tab-contenido-misplanes").scrollIntoView({ behavior: "smooth" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    });
+
+    function mostrarToast(txt) {
+      const t = document.getElementById("toast-alerta");
+      document.getElementById("toast-mensaje").textContent = txt;
+      t.classList.remove("hidden");
+      setTimeout(() => t.classList.add("hidden"), 5500);
+    }
+
+    rellenarSelectoresMunicipios();
+    pintarMisInscripciones();
+    actualizarVistaPorRol();
+    initMapa();
   </script>
 </body>
 
