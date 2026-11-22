@@ -6,11 +6,44 @@ import { esEventoFinalizado, getEventTimestamp } from "../utils/eventUtils.js";
 
 const N8N_CHAT_WEBHOOK_URL = (import.meta.env?.VITE_N8N_CHAT_WEBHOOK_URL || "").trim();
 
-const SUGERENCIAS_RAPIDAS = [
-  "¿Qué planes próximos hay?",
-  "Actividades gratis",
-  "Planes en Lucainena de las Torres",
+const FAQS_STORAGE_KEY = "pueblovivo_chat_faqs_v1";
+
+const FAQS_INICIALES = [
+  { texto: "¿Qué planes próximos hay?", count: 12 },
+  { texto: "¿Qué actividades gratis hay este fin de semana?", count: 9 },
+  { texto: "¿Cómo me apunto a un evento o taller?", count: 7 },
+  { texto: "¿Qué pueblos tienen eventos publicados?", count: 5 },
+  { texto: "¿Cómo publico mi comercio o actividad?", count: 4 },
 ];
+
+function cargarFaqs() {
+  try {
+    const raw = window.localStorage.getItem(FAQS_STORAGE_KEY);
+    if (!raw) return FAQS_INICIALES;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return FAQS_INICIALES;
+    return parsed.filter((f) => f && typeof f.texto === "string" && typeof f.count === "number");
+  } catch {
+    return FAQS_INICIALES;
+  }
+}
+
+function registrarPreguntaFaq(listaActual, textoPregunta) {
+  const limpia = String(textoPregunta || "").trim();
+  if (limpia.length < 6) return listaActual;
+  const clave = normalizarTexto(limpia);
+  const idx = listaActual.findIndex((f) => normalizarTexto(f.texto) === clave);
+  const siguiente =
+    idx >= 0
+      ? listaActual.map((f, i) => (i === idx ? { ...f, count: f.count + 1 } : f))
+      : [...listaActual, { texto: limpia, count: 1 }];
+  try {
+    window.localStorage.setItem(FAQS_STORAGE_KEY, JSON.stringify(siguiente));
+  } catch {
+    // Ignorar errores de almacenamiento (modo privado / cuota)
+  }
+  return siguiente;
+}
 
 function crearSessionId() {
   return `web_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -230,6 +263,9 @@ export default function EventsChatWidget() {
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [mensajes, setMensajes] = useState([MENSAJE_BIENVENIDA]);
+  const [faqs, setFaqs] = useState(cargarFaqs);
+
+  const topFaqs = [...faqs].sort((a, b) => b.count - a.count).slice(0, 3);
 
   const msgSeqRef = useRef(0);
   const nextMsgId = (prefix) => `${prefix}_${Date.now()}_${++msgSeqRef.current}`;
@@ -273,6 +309,7 @@ export default function EventsChatWidget() {
 
     const userMsg = { id: nextMsgId("u"), autor: "user", texto };
     setMensajes((prev) => [...prev, userMsg]);
+    setFaqs((prev) => registrarPreguntaFaq(prev, texto));
     setInput("");
 
     if (!isOnline) {
@@ -426,18 +463,38 @@ export default function EventsChatWidget() {
               </div>
             ))}
 
-            {mensajes.length === 1 && !enviando && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {SUGERENCIAS_RAPIDAS.map((sug) => (
-                  <button
-                    key={sug}
-                    type="button"
-                    onClick={() => enviarTexto(sug)}
-                    className="btn-cerrar-modal text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 px-3 py-1.5 rounded-full transition"
-                  >
-                    {sug}
-                  </button>
-                ))}
+            {mensajes.length === 1 && !enviando && topFaqs.length > 0 && (
+              <div className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden mt-1">
+                <div className="px-3.5 py-2 bg-blue-50/80 border-b border-blue-100 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-950">
+                    Preguntas frecuentes (FAQs)
+                  </span>
+                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
+                    Top 3 más hechas
+                  </span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {topFaqs.map((faq, idx) => (
+                    <button
+                      key={faq.texto}
+                      type="button"
+                      onClick={() => enviarTexto(faq.texto)}
+                      className="w-full text-left px-3.5 py-2.5 hover:bg-blue-50/60 transition flex items-start justify-between gap-2.5 group"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-[#16324F] text-white text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-stone-800 group-hover:text-blue-950 leading-snug">
+                          {faq.texto}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-700 shrink-0 mt-0.5">
+                        {faq.count}×
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -484,7 +541,7 @@ export default function EventsChatWidget() {
         aria-expanded={abierto}
         aria-label={abierto ? "Cerrar asistente de eventos" : "Abrir asistente de eventos"}
         className={`${
-          abierto ? "hidden sm:inline-flex" : "hidden md:inline-flex"
+          abierto ? "hidden sm:inline-flex" : "inline-flex"
         } items-center gap-2 bg-[#16324F] hover:bg-[#1E4268] text-white font-bold px-4 py-3 rounded shadow-lg border border-amber-400 transition`}
       >
         <IconMessage className="w-5 h-5 shrink-0" />
