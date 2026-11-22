@@ -107,13 +107,51 @@ export class EventoService {
       statsPorEvento.set(evId, prev)
     }
 
+    const sinImagen = filters.sinImagen === true || filters.sinImagen === 'true'
+    const ahoraMs = Date.now()
+    const fmtMadrid = (fecha) => {
+      if (!fecha) return null
+      const d = fecha instanceof Date ? fecha : new Date(fecha)
+      if (Number.isNaN(d.getTime())) return null
+      return d.toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    }
+
     return eventos.map((ev) => {
       const st = statsPorEvento.get(Number(ev.id))
-      return {
+      const aforo = Number(ev.aforo || 0)
+      const asistentes = Number(ev.asistentes || 0)
+      const finMs = ev.fechaFin ? new Date(ev.fechaFin).getTime() : NaN
+      const base = {
         ...ev,
+        categoria: TIPO_EVENTO_CATEGORIA[Number(ev.tipoEvento)] || 'Actividad',
+        organizador: ev.negocio?.nombre || null,
+        plazasLibres: aforo > 0 ? Math.max(0, aforo - asistentes) : null,
+        yaFinalizado: !Number.isNaN(finMs) && finMs <= ahoraMs,
+        fechaInicioMadrid: fmtMadrid(ev.fechaInicio),
+        fechaFinMadrid: fmtMadrid(ev.fechaFin),
         totalValoraciones: st ? st.total : 0,
         mediaEstrellas: st && st.total > 0 ? Number((st.suma / st.total).toFixed(1)) : null,
       }
+      if (sinImagen) {
+        delete base.imagen
+        if (base.negocio && typeof base.negocio === 'object') {
+          base.negocio = {
+            id: base.negocio.id,
+            nombre: base.negocio.nombre,
+            pueblo: base.negocio.pueblo,
+            webUrl: base.negocio.webUrl || '',
+            instagramUrl: base.negocio.instagramUrl || '',
+          }
+        }
+      }
+      return base
     })
   }
 
