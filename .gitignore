@@ -1,10 +1,24 @@
 # Dependencies
 node_modules/
+.venv/
+venv/
+env/
 
-# Build outputs
+# Python cache & artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build outputs & caches
 dist/
 dist-ssr/
 build/
+coverage/
+.vite/
 
 # Environment variables
 .env
