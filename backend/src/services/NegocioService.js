@@ -20,6 +20,31 @@ const ALIAS_URLS_NEGOCIO = {
 
 const CAMPOS_URL_NEGOCIO = ['instagramUrl', 'facebookUrl', 'twitterUrl', 'webUrl']
 
+function notificarWebhookN8n(url, payload) {
+  if (!url) return
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(5000),
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    console.warn('[NegocioService] Error enviando notificación a n8n:', err?.message || err)
+  })
+}
+
+function notificarModeracionNegocio(negocio, estado, motivo) {
+  if (!env.n8n.notifyBusinessUrl || !negocio?.propietario?.telefono) return
+  notificarWebhookN8n(env.n8n.notifyBusinessUrl, {
+    negocioNombre: negocio.nombre,
+    propietarioTelefono: negocio.propietario.telefono,
+    pueblo: negocio.pueblo || '',
+    origen: 'moderacion_negocio',
+    estado,
+    motivo,
+    urlWeb: env.frontendUrl,
+  })
+}
+
 function filtrarCamposNegocio(data = {}) {
   const limpio = {}
   for (const [alias, canonico] of Object.entries(ALIAS_URLS_NEGOCIO)) {
@@ -129,12 +154,23 @@ export class NegocioService {
   async aprobarNegocio(negocioId) {
     const negocio = await this.obtenerNegocioPorId(negocioId)
     const nuevaFiabilidad = Math.max(40, Number(negocio.fiabilidad || 0))
-    return this.negocioRepository.update(negocioId, { fiabilidad: nuevaFiabilidad })
+    const actualizado = await this.negocioRepository.update(negocioId, { fiabilidad: nuevaFiabilidad })
+    notificarModeracionNegocio(
+      negocio,
+      'aprobado',
+      'Tu comercio ha sido verificado y aprobado por un moderador.'
+    )
+    return actualizado
   }
 
   async denegarNegocio(negocioId) {
-    await this.obtenerNegocioPorId(negocioId)
+    const negocio = await this.obtenerNegocioPorId(negocioId)
     await this.negocioRepository.delete(negocioId)
+    notificarModeracionNegocio(
+      negocio,
+      'denegado',
+      'Tu solicitud de comercio no ha superado la revisión de moderación.'
+    )
     return { deleted: true, negocioId: Number(negocioId) }
   }
 

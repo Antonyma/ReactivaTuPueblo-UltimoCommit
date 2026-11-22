@@ -86,8 +86,8 @@ export class WhatsappService {
       case 'notificaciones': {
         const historial = await this.eventoRepository.findHistorialByUsuario(usuario.id)
         return {
-          canal: 'whatsapp',
-          rol: USUARIOS.REGISTRADO,
+          canal: datos?.canal || 'whatsapp',
+          rol: usuario.tipoUsuario,
           accion,
           notificacionesPendientes: historial.map((h) => ({
             eventoId: h.evento.id,
@@ -95,6 +95,40 @@ export class WhatsappService {
             fechaInicio: h.evento.fechaInicio,
             confirmadaPorWhatsapp: h.confirmadaPorWhatsapp,
           })),
+        }
+      }
+
+      case 'inscribirse': {
+        if (!eventoId) {
+          throw AppError.badRequest('Se requiere eventoId para inscribirse en una actividad')
+        }
+        if (!this.eventoService) {
+          throw AppError.badRequest('Servicio de eventos no disponible para inscribirse')
+        }
+        const resultado = await this.eventoService.inscribirse(eventoId, usuario.id)
+        return {
+          canal: datos?.canal || 'whatsapp',
+          rol: usuario.tipoUsuario,
+          accion,
+          mensaje: `¡Inscripción confirmada en "${resultado.nombreEvento}"!`,
+          resultado,
+        }
+      }
+
+      case 'desapuntarse': {
+        if (!eventoId) {
+          throw AppError.badRequest('Se requiere eventoId para desapuntarse de una actividad')
+        }
+        if (!this.eventoService) {
+          throw AppError.badRequest('Servicio de eventos no disponible para desapuntarse')
+        }
+        const resultado = await this.eventoService.desapuntarse(eventoId, usuario.id)
+        return {
+          canal: datos?.canal || 'whatsapp',
+          rol: usuario.tipoUsuario,
+          accion,
+          mensaje: `Has cancelado tu inscripción en "${resultado.nombreEvento}".`,
+          resultado,
         }
       }
 
@@ -111,6 +145,16 @@ export class WhatsappService {
   }
 
   async #procesarFlujoPublicador(usuario, { accion, eventoId, datos }) {
+    if (
+      accion === 'notificaciones' ||
+      accion === 'confirmar_asistencia' ||
+      accion === 'confirmar_cambios' ||
+      accion === 'inscribirse' ||
+      accion === 'desapuntarse'
+    ) {
+      return this.#procesarFlujoRegistrado(usuario, { accion, eventoId, datos })
+    }
+
     if (accion === 'listar_pendientes_confirmacion') {
       const pendientes = await this.#obtenerPendientesDePropietario(usuario.id)
       return {
