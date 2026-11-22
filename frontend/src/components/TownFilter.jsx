@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { useApp } from "../context/useApp.js";
-import { municipiosMancomunidad } from "../constants/comarca.js";
 
 const PUEBLOS_DESTACADOS = [
   { id: "Todos", nombre: "Todos" },
@@ -13,16 +12,16 @@ const PUEBLOS_DESTACADOS = [
 const DESTACADOS_SET = new Set(PUEBLOS_DESTACADOS.map((p) => p.id));
 
 export default function TownFilter() {
-  const { puebloActivo, setPuebloActivo } = useApp();
+  const { puebloActivo, setPuebloActivo, municipiosMap } = useApp();
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const pueblosExtra = useMemo(
     () =>
-      Object.keys(municipiosMancomunidad)
+      Object.keys(municipiosMap)
         .filter((nombre) => !DESTACADOS_SET.has(nombre))
         .sort((a, b) => a.localeCompare(b, "es"))
         .map((nombre) => ({ id: nombre, nombre })),
-    []
+    [municipiosMap]
   );
 
   const listaVisible = useMemo(() => {

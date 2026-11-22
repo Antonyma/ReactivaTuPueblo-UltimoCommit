@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useApp } from "../context/useApp.js";
 import {
-  municipiosMancomunidad,
   CENTRO_MANCOMUNIDAD,
   ZOOM_MANCOMUNIDAD,
   coordsPueblos,
@@ -14,7 +13,7 @@ export default function MapView() {
   const mapInstanceRef = useRef(null);
   const capaMarcadoresRef = useRef(null);
 
-  const { actividades, puebloActivo, letraGrande } = useApp();
+  const { actividades, puebloActivo, letraGrande, municipiosMap } = useApp();
 
   // Inicializar mapa de OpenStreetMap con Leaflet
   useEffect(() => {
@@ -150,7 +149,7 @@ export default function MapView() {
     if (!mapInstanceRef.current || typeof window.L === "undefined") return;
     const map = mapInstanceRef.current;
     const L = window.L;
-    map.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
+    map.fitBounds(L.latLngBounds(Object.values(municipiosMap)), { padding: [20, 20] });
   };
 
   return (

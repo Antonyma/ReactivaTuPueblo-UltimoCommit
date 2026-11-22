@@ -1,0 +1,17 @@
+{
+  "centro": [37.145, -2.315],
+  "zoom": 10,
+  "municipios": [
+    { "nombre": "Alcudia de Monteagud", "lat": 37.2361, "lng": -2.2669, "destacado": false },
+    { "nombre": "Benitagla", "lat": 37.2314, "lng": -2.2389, "destacado": false },
+    { "nombre": "Benizalón", "lat": 37.2119, "lng": -2.2414, "destacado": false },
+    { "nombre": "Castro de Filabres", "lat": 37.1847, "lng": -2.4403, "destacado": false },
+    { "nombre": "Lucainena de las Torres", "lat": 37.0412, "lng": -2.2015, "destacado": true },
+    { "nombre": "Senés", "lat": 37.2045, "lng": -2.3468, "destacado": true },
+    { "nombre": "Tahal", "lat": 37.2281, "lng": -2.2856, "destacado": false },
+    { "nombre": "Turrillas", "lat": 37.0297, "lng": -2.2633, "destacado": false },
+    { "nombre": "Uleila del Campo", "lat": 37.1852, "lng": -2.2041, "destacado": true },
+    { "nombre": "Velefique", "lat": 37.1941, "lng": -2.4032, "destacado": true }
+  ]
+}
+

@@ -1,9 +1,17 @@
 import { Router } from 'express'
 import { env } from '../config/env.js'
 import { AppError } from '../middlewares/errorHandler.js'
+import { createRateLimiter } from '../middlewares/rateLimitMiddleware.js'
 import { requireRole } from '../middlewares/roleMiddleware.js'
 import { requireBodyFields, validateIntParam } from '../middlewares/validateMiddleware.js'
 import { USUARIOS } from '../models/index.js'
+
+const scraperIaLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  keyPrefix: 'negocio_scraper_ia',
+  message: 'Has lanzado demasiados escaneos con IA seguidos. Espera unos minutos.',
+})
 
 export function createNegocioRoutes(negocioController, { requireAuth, optionalAuth }) {
   const router = Router()
@@ -34,6 +42,7 @@ export function createNegocioRoutes(negocioController, { requireAuth, optionalAu
   // Escaneo bajo demanda de redes sociales de un negocio (propietario o moderador)
   router.post(
     '/:id/escanear-redes',
+    scraperIaLimiter,
     requireAuth,
     requireRole(USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
@@ -41,6 +50,7 @@ export function createNegocioRoutes(negocioController, { requireAuth, optionalAu
   )
   router.post(
     '/:id/escanear-redes/stream',
+    scraperIaLimiter,
     requireAuth,
     requireRole(USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),

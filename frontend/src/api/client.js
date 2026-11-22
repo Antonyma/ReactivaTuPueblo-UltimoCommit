@@ -258,3 +258,7 @@ export const usuariosApi = {
   obtenerHistorial: (id) => apiFetch(`/usuarios/${id}/historial`),
   listarAdmins: () => apiFetch('/usuarios/admins'),
 }
+
+export const municipiosApi = {
+  listar: () => apiFetch('/municipios'),
+}

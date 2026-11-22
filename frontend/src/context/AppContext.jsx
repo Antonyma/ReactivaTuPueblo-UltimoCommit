@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   authApi,
   eventosApi,
+  municipiosApi,
   negociosApi,
   usuariosApi,
   getAuthToken,
@@ -57,6 +58,7 @@ export function AppProvider({ children }) {
   const [cargando, setCargando] = useState(true);
   const [letraGrande, setLetraGrande] = useState(false);
   const [puebloActivo, setPuebloActivo] = useState("Todos");
+  const [municipiosMap, setMunicipiosMap] = useState(municipiosMancomunidad);
   const [misInscripcionesIds, setMisInscripcionesIds] = useState([]);
   const [misValoracionesEventoIds, setMisValoracionesEventoIds] = useState([]);
   const [inscripcionesPendientesIds, setInscripcionesPendientesIds] = useState([]);
@@ -212,10 +214,15 @@ export function AppProvider({ children }) {
         }
       }
 
-      const [eventosRes, negociosRes] = await Promise.all([
+      const [eventosRes, negociosRes, municipiosRes] = await Promise.all([
         eventosApi.listar(),
         negociosApi.listar(),
+        municipiosApi.listar().catch(() => null),
       ]);
+
+      if (municipiosRes?.data?.mapaCoords && Object.keys(municipiosRes.data.mapaCoords).length > 0) {
+        setMunicipiosMap(municipiosRes.data.mapaCoords);
+      }
 
       const listaEventosBase = (eventosRes?.data || []).map(mapEventoFromApi);
 
@@ -1144,6 +1151,7 @@ export function AppProvider({ children }) {
       setLetraGrande,
       puebloActivo,
       setPuebloActivo,
+      municipiosMap,
       misInscripcionesIds,
       misValoracionesEventoIds,
       inscripcionesPendientesIds,
@@ -1205,6 +1213,7 @@ export function AppProvider({ children }) {
       cargando,
       letraGrande,
       puebloActivo,
+      municipiosMap,
       misInscripcionesIds,
       misValoracionesEventoIds,
       inscripcionesPendientesIds,

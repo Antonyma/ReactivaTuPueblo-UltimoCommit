@@ -1,7 +1,15 @@
 import { Router } from 'express'
+import { createRateLimiter } from '../middlewares/rateLimitMiddleware.js'
 import { requireRole } from '../middlewares/roleMiddleware.js'
 import { requireBodyFields, validateIntParam } from '../middlewares/validateMiddleware.js'
 import { USUARIOS } from '../models/index.js'
+
+const dudasIaLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 15,
+  keyPrefix: 'evento_dudas_ia',
+  message: 'Demasiadas consultas seguidas al asistente IA. Espera un minuto.',
+})
 
 export function createEventoRoutes(
   eventoController,
@@ -72,6 +80,7 @@ export function createEventoRoutes(
   )
   router.post(
     '/:id/dudas',
+    dudasIaLimiter,
     requireAuth,
     requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),

@@ -6,6 +6,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js'
 import { createApiRouter } from './routes/index.js'
 
 const app = express()
+app.set('trust proxy', 1)
 const container = createContainer()
 
 const corsOptions =

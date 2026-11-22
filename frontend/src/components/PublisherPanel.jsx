@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useApp } from "../context/useApp.js";
-import { municipiosMancomunidad, evaluarFiabilidadNegocio } from "../constants/comarca.js";
+import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
 import { parseCoords } from "../api/mappers.js";
 import { useNow } from "../hooks/useNow.js";
 import { esEventoFinalizado, getDefaultEventDateRange } from "../utils/eventUtils.js";
@@ -61,6 +61,7 @@ export default function PublisherPanel() {
   const {
     actividades,
     cuentasNegocio,
+    municipiosMap,
     cambiarRol,
     publicarEvento,
     crearNegocio,
@@ -255,7 +256,7 @@ export default function PublisherPanel() {
     setNegocioDetalleNombre(null);
   };
 
-  const pueblosArray = useMemo(() => Object.keys(municipiosMancomunidad).sort(), []);
+  const pueblosArray = useMemo(() => Object.keys(municipiosMap).sort(), [municipiosMap]);
   const eventosDeMisNegocios = useMemo(
     () => actividades.filter((a) => cuentasNegocio[a.negocio]?.esMio),
     [actividades, cuentasNegocio]
