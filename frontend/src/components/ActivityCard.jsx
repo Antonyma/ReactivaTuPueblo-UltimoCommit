@@ -72,13 +72,18 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
     </span>
   );
 
+  const ocupacionPct =
+    !esAforoLibre && act.aforo > 0
+      ? Math.min(100, Math.round((Number(act.asistentes || 0) / Number(act.aforo)) * 100))
+      : 0;
+
   return (
     <article
       id={`actividad-card-${act.id}`}
-      className="tarjeta-plan bg-white rounded overflow-hidden flex flex-col justify-between scroll-mt-24 transition-colors duration-150"
+      className="tarjeta-plan bg-white rounded-2xl overflow-hidden flex flex-col justify-between scroll-mt-24"
     >
       <div>
-        <div className="relative border-b border-[#E5E2DC]">
+        <div className="relative border-b border-[#E5E2DC] overflow-hidden">
           <img
             src={act.imagen || DEFAULT_IMAGE}
             alt={act.nombre}
@@ -89,9 +94,13 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
                 e.currentTarget.src = DEFAULT_IMAGE;
               }
             }}
-            className="w-full h-44 sm:h-48 object-cover bg-stone-100"
+            className="w-full h-48 sm:h-52 object-cover bg-stone-100"
           />
-          <span className="absolute top-3 left-3 bg-[#2F5233] text-white text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-sm">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/40 to-transparent"
+            aria-hidden="true"
+          />
+          <span className="absolute top-3 left-3 bg-[#2F5233]/95 backdrop-blur-xs text-white text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
             {act.categoria}
           </span>
           <div className="absolute top-3 right-3">{badgeEstado}</div>
@@ -153,9 +162,32 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
           </p>
 
           {esRecomendada && act.motivoRecomendacion && (
-            <p className="text-xs font-semibold text-[#16324F] bg-[#F4F3EF] border-l-4 border-[#C85A17] px-3 py-1.5 line-clamp-2">
+            <p className="text-xs font-semibold text-[#16324F] bg-[#F4F3EF] border-l-4 border-[#C85A17] rounded-r-lg px-3 py-1.5 line-clamp-2">
               {act.motivoRecomendacion}
             </p>
+          )}
+
+          {!estaTerminado && !esAforoLibre && (
+            <div className="pt-1 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#5E564D]">
+                <span>Plazas ocupadas</span>
+                <span>
+                  {act.asistentes}/{act.aforo}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-[#EAE8E1] overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    sinPlazas
+                      ? "bg-[#7F1D1D]"
+                      : ocupacionPct >= 75
+                        ? "bg-[#C85A17]"
+                        : "bg-[#3D5A3C]"
+                  }`}
+                  style={{ width: `${ocupacionPct}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>

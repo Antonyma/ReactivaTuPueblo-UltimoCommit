@@ -38,11 +38,11 @@ export default function TownFilter() {
     <section
       id="seccion-filtros"
       aria-label="Filtro por municipio"
-      className="caja-panel bg-white p-3.5 sm:p-4 rounded space-y-3"
+      className="caja-panel bg-white p-3.5 sm:p-4 rounded-2xl space-y-3"
     >
       <div className="flex items-center justify-between gap-2 flex-wrap border-b border-[#E5E2DC] pb-2">
         <p className="text-xs font-extrabold uppercase tracking-wider text-[#5E564D]">
-          Municipios
+          Explorar por municipio
         </p>
         <button
           type="button"
@@ -53,7 +53,16 @@ export default function TownFilter() {
           {mostrarTodos ? "Ver menos pueblos" : `Ver los ${pueblosExtra.length + 4} pueblos`}
         </button>
       </div>
-      <div className="flex flex-wrap gap-1.5" id="grupo-pueblos" role="group" aria-label="Municipios">
+      <div
+        className={`flex gap-2 ${
+          mostrarTodos
+            ? "flex-wrap"
+            : "overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
+        }`}
+        id="grupo-pueblos"
+        role="group"
+        aria-label="Municipios"
+      >
         {listaVisible.map((p) => {
           const isActive = puebloActivo === p.id;
           return (
@@ -62,9 +71,9 @@ export default function TownFilter() {
               type="button"
               aria-pressed={isActive}
               onClick={() => setPuebloActivo(p.id)}
-              className={`btn-pueblo px-3.5 py-2 rounded text-sm font-bold border transition ${
+              className={`btn-pueblo shrink-0 px-3.5 py-2 rounded-xl text-sm font-bold border transition ${
                 isActive
-                  ? "bg-[#3D5A3C] text-white border-[#3D5A3C]"
+                  ? "bg-[#3D5A3C] text-white border-[#3D5A3C] shadow-sm"
                   : "bg-[#F4F3EF] hover:bg-[#E8E5DD] text-[#16324F] border-[#D6D3CD]"
               }`}
             >

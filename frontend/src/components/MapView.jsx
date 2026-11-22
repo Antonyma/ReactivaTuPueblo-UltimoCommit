@@ -163,7 +163,7 @@ export default function MapView() {
   };
 
   return (
-    <div id="tab-contenido-mapa" className="caja-panel bg-white p-4 rounded border-t-4 border-t-[#16324F] space-y-3">
+    <div id="tab-contenido-mapa" className="caja-panel bg-white p-4 sm:p-5 rounded-2xl border-t-4 border-t-[#16324F] space-y-3 scroll-mt-24">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-lg inline-flex items-center gap-2">
           <IconMap className="w-5 h-5 text-[#3D5A3C] shrink-0" />
@@ -172,13 +172,19 @@ export default function MapView() {
         <button
           type="button"
           onClick={centrarTodos}
-          className="inline-flex items-center gap-1.5 bg-[#16324F] text-amber-300 text-xs font-bold px-3 py-1.5 rounded hover:bg-[#1E4268] transition shrink-0"
+          className="inline-flex items-center gap-1.5 bg-[#16324F] text-amber-300 text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-[#1E4268] transition shrink-0"
         >
           <IconTarget className="w-4 h-4" />
           <span>Ver todos</span>
         </button>
       </div>
       <div id="mapa-comarca" ref={mapContainerRef}></div>
+      <p className="text-xs text-[#5E564D] font-semibold flex items-center justify-between gap-2">
+        <span>Pulsa un pin para ir a su actividad</span>
+        <span className="bg-[#F4F3EF] text-[#16324F] px-2 py-0.5 rounded-md font-bold shrink-0">
+          {marcadoresVisibles.length} {marcadoresVisibles.length === 1 ? "pin" : "pines"}
+        </span>
+      </p>
     </div>
   );
 }

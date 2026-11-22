@@ -3,7 +3,7 @@ import { useApp } from "../context/useApp.js";
 import { IconCalendar, IconCheck, IconMap, IconMessage, IconUser } from "./Icons.jsx";
 
 export default function MobileNav() {
-  const { setModalLogin, usuario } = useApp();
+  const { setModalLogin, usuario, misInscripcionesIds } = useApp();
   const [tabActivo, setTabActivo] = useState("planes");
   const mostrarChat = usuario?.tipoUsuario !== "MODERADOR";
 
@@ -64,11 +64,18 @@ export default function MobileNav() {
       <button
         type="button"
         onClick={() => handleTabClick("misplanes")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
+        className={`btn-movil-nav relative py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
           tabActivo === "misplanes" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
-        <IconCheck className="w-5 h-5" />
+        <div className="relative">
+          <IconCheck className="w-5 h-5" />
+          {misInscripcionesIds.length > 0 && (
+            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C85A17] text-white text-[10px] font-black flex items-center justify-center">
+              {misInscripcionesIds.length}
+            </span>
+          )}
+        </div>
         <span>Mis Planes</span>
       </button>
 

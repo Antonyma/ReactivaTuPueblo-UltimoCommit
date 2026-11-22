@@ -33,7 +33,7 @@ export default function MyPlans() {
   }, [actividades, misInscripcionesIds, ahoraMs]);
 
   return (
-    <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded border-t-4 border-t-[#3D5A3C] space-y-4">
+    <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded-2xl border-t-4 border-t-[#3D5A3C] space-y-4 scroll-mt-24">
       <div className="flex items-center justify-between gap-2 border-b border-[#E5E2DC] pb-2.5">
         <h2 className="font-bold text-lg inline-flex items-center gap-2">
           <IconCalendar className="w-5 h-5 text-[#3D5A3C] shrink-0" />
@@ -41,15 +41,15 @@ export default function MyPlans() {
         </h2>
         <span
           id="badge-total-inscritos"
-          className="bg-[#3D5A3C] text-white font-bold text-xs px-2.5 py-0.5 rounded-sm shrink-0"
+          className="bg-[#3D5A3C] text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shrink-0"
         >
           {planesActivos.length}
         </span>
       </div>
 
-      <ul id="lista-inscripciones" className="divide-y divide-[#EFECE6] text-sm">
+      <ul id="lista-inscripciones" className="space-y-2 text-sm">
         {planesActivos.length === 0 ? (
-          <li className="py-3 text-stone-500 text-center text-xs">
+          <li className="py-4 px-3 rounded-xl bg-[#FAF9F6] border border-dashed border-[#D6D3CD] text-stone-500 text-center text-xs">
             Todavía no te has apuntado a ningún plan próximo.
           </li>
         ) : (
@@ -58,7 +58,7 @@ export default function MyPlans() {
             return (
               <li
                 key={act.id}
-                className="py-2.5 flex items-center justify-between gap-2"
+                className="p-3 rounded-xl bg-[#FAF9F6] border border-[#E5E2DC] flex items-center justify-between gap-2"
               >
                 <div className="min-w-0">
                   <p className="font-bold truncate text-[#16324F]">{act.nombre}</p>
@@ -66,7 +66,7 @@ export default function MyPlans() {
                     {act.pueblo} · {act.fecha}
                   </p>
                   {pendienteSync && (
-                    <span className="inline-block mt-1 text-[11px] font-bold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-sm">
+                    <span className="inline-block mt-1 text-[11px] font-bold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-md">
                       Guardado sin red · Pendiente
                     </span>
                   )}
@@ -74,7 +74,7 @@ export default function MyPlans() {
                 <button
                   type="button"
                   onClick={() => desapuntarse(act.id)}
-                  className="bg-white hover:bg-rose-50 text-[#7F1D1D] border border-rose-300 font-bold px-2.5 py-1.5 rounded text-xs shrink-0"
+                  className="bg-white hover:bg-rose-50 text-[#7F1D1D] border border-rose-300 font-bold px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition"
                 >
                   Quitar
                 </button>

@@ -34,15 +34,18 @@ export default function Navbar() {
   };
 
   return (
-    <header className="text-white sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
+    <header className="text-white sticky top-0 z-40 shadow-md">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded bg-[#3D5A3C] border border-white/25 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#3D5A3C] border border-white/25 flex items-center justify-center shrink-0 shadow-sm">
             <IconMountain className="w-5 h-5 text-amber-300" />
           </div>
           <div className="min-w-0">
             <span className="font-serif font-extrabold text-xl sm:text-2xl block leading-none tracking-tight truncate">
               PuebloVivo
+            </span>
+            <span className="hidden sm:block text-[11px] font-semibold text-amber-200/90 tracking-wide uppercase mt-0.5">
+              Agenda Rural · Comarca
             </span>
           </div>
         </div>
