@@ -42,9 +42,42 @@ HEADERS = {
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
 }
 
+# Palabras clave expandidas para detectar enlaces relevantes en webs y búsquedas.
+# Cubren: eventos, ofertas, promociones, hostelería, turismo, comercio, cultura, deportes.
 PALABRAS_SUBENLACE = (
-    "evento", "eventos", "agenda", "oferta", "ofertas", "promo", "promocion",
-    "actividad", "actividades", "taller", "talleres", "concierto", "menu", "carta",
+    # Eventos / agenda
+    "evento", "eventos", "agenda", "calendario", "programacion", "programación",
+    "fiesta", "fiestas", "feria", "romeria", "romería", "festival", "concierto",
+    "espectaculo", "espectáculo", "actuacion", "actuación", "verbena",
+    # Ofertas / promociones / comercio
+    "oferta", "ofertas", "promo", "promocion", "promoción", "descuento", "descuentos",
+    "rebaja", "rebajas", "oferta_especial", "ofertaespecial", "promociones",
+    "pack", "paquete", "packs", "paquetes", "2x1", "3x2",
+    # Hostelería / gastronomía
+    "menu", "menú", "carta", "degustacion", "degustación", "cata", "maridaje",
+    "especialidad", "especialidades", "recomendacion", "recomendación", "plato",
+    "almuerzo", "cena", "desayuno", "brunch", "tapeo", "tapas", "pinchos",
+    # Turismo / experiencias
+    "turismo", "viaje", "viajes", "excursion", "excursión", "ruta", "rutas",
+    "senderismo", "visita", "visitas", "tour", "guia", "guía", "experiencia",
+    "escapada", "escapadas", "estancia", "alojamiento", "hotel", "casa_rural",
+    # Actividades / talleres / deportes
+    "actividad", "actividades", "taller", "talleres", "curso", "cursos",
+    "clase", "clases", "entrenamiento", "campus", "campamento",
+    "deporte", "deportes", "carrera", "marcha", "trail", "btt", "ciclismo",
+    # Comunicación / llamada a la acción
+    "apuntate", "apúntate", "inscripciones", "inscripcion", "inscripción",
+    "plazas", "plaza", "reserva", "reservas", "reservar", "booking",
+    "compra", "comprar", "entrada", "entradas", "ticket", "tickets",
+    # Temporalidad / urgencia
+    "novedad", "novedades", "nuevo", "nueva", "lanzamiento", "estreno",
+    "especial", "especiales", "destacado", "destacados", "recomendado",
+    "este_fin_semana", "este_fin_de_semana", "fin_semana", "fin_de_semana",
+    "este_sabado", "este_sábado", "este_domingo", "manana", "mañana",
+    "proximo", "próximo", "proxima", "próxima", "proximos", "próximos",
+    "puente", "festivo", "vacaciones", "verano", "navidad", "semana_santa",
+    # General
+    "actualidad", "noticias", "blog", "promociones", "ofertas",
 )
 
 PARAMS_TRACKING = {
@@ -716,10 +749,23 @@ def recolectar_contenido_fuente(
         if not posts and red_social != "Instagram":
             queries: list[str] = []
             if dominio and handle:
-                queries.append(f'site:{dominio} "{handle}" (oferta OR evento OR promocion OR taller OR concierto OR menu OR actividad)')
+                # Query amplia: eventos + ofertas + hostelería + turismo + actividades
+                queries.append(
+                    f'site:{dominio} "{handle}" '
+                    '(oferta OR ofertas OR promo OR promocion OR promociones OR descuento OR rebaja '
+                    'OR evento OR eventos OR agenda OR fiesta OR feria OR festival OR concierto '
+                    'OR taller OR talleres OR curso OR actividad OR actividades '
+                    'OR menu OR menú OR carta OR degustacion OR cata OR maridaje '
+                    'OR viaje OR viajes OR excursion OR excursión OR ruta OR rutas OR turismo '
+                    'OR experiencia OR escapada OR pack OR paquete OR 2x1 '
+                    'OR novedad OR nuevo OR especial OR plazas OR reserva OR inscripciones)'
+                )
                 queries.append(f'site:{dominio}/{handle}')
             if dominio and nombre_negocio:
-                queries.append(f'site:{dominio} "{nombre_negocio}" "{pueblo}"')
+                queries.append(
+                    f'site:{dominio} "{nombre_negocio}" "{pueblo}" '
+                    '(oferta OR evento OR promocion OR agenda OR menu OR viaje OR excursion OR taller OR actividad OR novedad OR especial)'
+                )
             posts = _buscar_posts_red(
                 queries, url_perfil=url_norm, limite=MAX_POSTS_POR_RED
             )
@@ -891,9 +937,13 @@ def scrapear_redes_negocio(
     system_prompt = (
         "Eres un extractor experto de eventos, ofertas, promociones y actividades locales para comercios "
         "de pueblos de Almería (ReactivaTuPueblo). Analiza el contenido público de las redes sociales y web "
-        "del negocio y extrae ÚNICAMENTE eventos, actividades, ofertas temporales, talleres, conciertos o "
-        "promociones concretas futuras o vigentes (NO inventes nada, NO extraigas información genérica de "
-        "horario habitual salvo que sea una oferta/evento especial).\n"
+        "del negocio y extrae TODO lo que sea: eventos, fiestas, ferias, conciertos, talleres, cursos, "
+        "ofertas temporales, promociones, descuentos, menús especiales, degustaciones, catas, maridajes, "
+        "viajes organizados, excursiones, rutas, experiencias turísticas, paquetes, estancias, "
+        "actividades deportivas, campamentos, campus, y cualquier comunicación con fecha concreta "
+        "(futura o vigente) que invite a participar, comprar, reservar o asistir.\n"
+        "NO inventes nada. NO extraigas horario habitual genérico (ej. 'abrimos de 9 a 21') salvo que "
+        "sea una oferta/evento especial con fecha (ej. 'este sábado menú especial', 'puente de diciembre pack 2x1').\n"
         f"Fecha actual de referencia: {hoy_str} (zona horaria Europe/Madrid).\n"
         "Devuelve EXCLUSIVAMENTE un JSON con la forma:\n"
         '{"eventos": [{"nombre": "...", "descripcion": "...", "tipoEvento": 4, '
