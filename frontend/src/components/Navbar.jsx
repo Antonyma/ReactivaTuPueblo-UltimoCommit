@@ -95,14 +95,25 @@ export default function Navbar() {
           </span>
 
           {enRutaAdmin ? (
-            <button
-              type="button"
-              onClick={() => navegarA("/")}
-              className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-4 py-2.5 rounded-xl text-sm shrink-0"
-            >
-              <IconArrowLeft className="w-4 h-4" />
-              <span>Web pública</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => navegarA("/")}
+                className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-4 py-2.5 rounded-xl text-sm shrink-0"
+              >
+                <IconArrowLeft className="w-4 h-4" />
+                <span>Web pública</span>
+              </button>
+              {usuario && (
+                <button
+                  type="button"
+                  onClick={cerrarSesion}
+                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                >
+                  <span>Cerrar sesión</span>
+                </button>
+              )}
+            </>
           ) : (
             <>
               {esModerador && (
@@ -201,17 +212,29 @@ export default function Navbar() {
           </div>
 
           {enRutaAdmin ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMenuAbierto(false);
-                navegarA("/");
-              }}
-              className="w-full inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold py-3.5 px-4 rounded-2xl text-base"
-            >
-              <IconArrowLeft className="w-5 h-5" />
-              <span>Volver a la web pública</span>
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAbierto(false);
+                  navegarA("/");
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold py-3.5 px-4 rounded-2xl text-base"
+              >
+                <IconArrowLeft className="w-5 h-5" />
+                <span>Volver a la web pública</span>
+              </button>
+              {usuario && (
+                <button
+                  type="button"
+                  onClick={cerrarSesion}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 px-4 rounded-2xl text-base shadow"
+                >
+                  <IconArrowLeft className="w-5 h-5" />
+                  <span>Cerrar sesión</span>
+                </button>
+              )}
+            </div>
           ) : (
             <div className="space-y-2">
               {esModerador && (

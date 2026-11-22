@@ -198,13 +198,15 @@ export function AppProvider({ children }) {
         try {
           const meRes = await authApi.me();
           const rawMe = meRes?.data?.usuario;
-          if (rawMe) {
+          if (rawMe && getAuthToken() === token) {
             usuarioActualizado = {
               ...rawMe,
               tipoUsuario: normalizeRoleForUi(rawMe.tipoUsuario),
             };
             setAuthSession(token, usuarioActualizado);
             setUsuario(usuarioActualizado);
+          } else if (getAuthToken() !== token) {
+            usuarioActualizado = null;
           }
         } catch (meErr) {
           if (meErr?.status === 401) {
@@ -488,8 +490,9 @@ export function AppProvider({ children }) {
     }
   };
 
-  const logoutUsuario = () => {
+  const logoutUsuario = useCallback(() => {
     setAuthSession(null, null);
+    usuarioRef.current = null;
     outboxRepository.clear();
     cacheRepository.clear();
     setUsuario(null);
@@ -504,8 +507,11 @@ export function AppProvider({ children }) {
       }
       return next;
     });
+    if (normalizarRuta(window.location.pathname) === "/admin") {
+      navegarA("/");
+    }
     mostrarToast("Has cerrado sesión.");
-  };
+  }, [mostrarToast, navegarA]);
 
   const cambiarRol = (nuevoRol) => {
     if (usuario && usuario.tipoUsuario === nuevoRol) return;

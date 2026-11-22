@@ -251,7 +251,7 @@ export default function EventsChatWidget() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [abierto]);
 
-  if (usuario?.tipo === "MODERADOR") {
+  if (usuario?.tipoUsuario === "MODERADOR") {
     return null;
   }
 
@@ -309,7 +309,7 @@ export default function EventsChatWidget() {
           sessionId: usuario?.id ? `user_${usuario.id}` : sessionId,
           usuarioId: usuario?.id ?? null,
           usuarioNombre: usuario?.nombre || "Visitante",
-          usuarioRol: usuario?.tipo || "VISITANTE",
+          usuarioRol: usuario?.tipoUsuario || "VISITANTE",
           authToken,
         }),
       });
