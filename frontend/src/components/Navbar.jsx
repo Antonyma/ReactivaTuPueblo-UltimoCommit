@@ -47,9 +47,6 @@ export default function Navbar() {
             <span className="font-serif font-extrabold text-xl sm:text-2xl block leading-none tracking-tight truncate">
               PuebloVivo
             </span>
-            <span className="hidden sm:block text-[11px] font-semibold text-amber-200/90 tracking-wide uppercase mt-0.5">
-              Agenda Rural · Comarca
-            </span>
           </div>
         </div>
 
