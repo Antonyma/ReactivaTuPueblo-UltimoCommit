@@ -7,3 +7,9 @@ requests
 beautifulsoup4
 lxml
 edge-tts
+httpx 
+openai 
+ddgs 
+apify-client 
+scrapegraphai
+tzdata
