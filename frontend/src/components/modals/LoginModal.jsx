@@ -32,12 +32,12 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 bg-blue-50 p-1 rounded-2xl border border-blue-200">
+      <div className="grid grid-cols-2 gap-1.5 bg-[#F4F3EF] p-1 rounded border border-[#D6D3CD]">
         <button
           type="button"
           onClick={() => setModo("login")}
-          className={`py-2 rounded-xl text-sm font-black ${
-            modo === "login" ? "bg-blue-700 text-white shadow" : "text-blue-950"
+          className={`py-2 rounded-sm text-sm font-bold ${
+            modo === "login" ? "bg-[#16324F] text-white" : "text-[#16324F]"
           }`}
         >
           Entrar
@@ -45,15 +45,15 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
         <button
           type="button"
           onClick={() => setModo("register")}
-          className={`py-2 rounded-xl text-sm font-black ${
-            modo === "register" ? "bg-blue-700 text-white shadow" : "text-blue-950"
+          className={`py-2 rounded-sm text-sm font-bold ${
+            modo === "register" ? "bg-[#16324F] text-white" : "text-[#16324F]"
           }`}
         >
           Registrarme
         </button>
       </div>
 
-      <p className="text-xs sm:text-sm text-blue-950 bg-blue-50 border border-blue-300 p-2.5 rounded-2xl">
+      <p className="text-xs sm:text-sm text-[#16324F] bg-[#F4F3EF] border-l-4 border-[#3D5A3C] p-2.5 rounded-sm">
         {motivo ||
           (modo === "login"
             ? "Introduce tu nombre y contraseña para acceder."
@@ -72,7 +72,7 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
             placeholder="Ej: Antonio García"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full border-2 border-blue-300 rounded-xl p-2.5 text-base"
+            className="w-full border border-[#C9C4BA] focus:border-[#16324F] outline-none rounded p-2.5 text-base"
           />
         </div>
 
@@ -89,7 +89,7 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
                 placeholder="antonio@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border-2 border-blue-300 rounded-xl p-2.5 text-base"
+                className="w-full border border-[#C9C4BA] focus:border-[#16324F] outline-none rounded p-2.5 text-base"
               />
             </div>
 
@@ -97,8 +97,8 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
               <label htmlFor="login-telefono" className="block text-sm font-bold mb-1">
                 Teléfono WhatsApp *
               </label>
-              <div className="flex items-center border-2 border-blue-300 rounded-xl overflow-hidden bg-white">
-                <span className="bg-blue-50 text-blue-950 font-black px-3 py-2.5 border-r border-blue-300 select-none text-sm sm:text-base">
+              <div className="flex items-center border border-[#C9C4BA] focus-within:border-[#16324F] rounded overflow-hidden bg-white">
+                <span className="bg-[#F4F3EF] text-[#16324F] font-bold px-3 py-2.5 border-r border-[#C9C4BA] select-none text-sm sm:text-base">
                   +34
                 </span>
                 <input
@@ -129,7 +129,7 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
             placeholder="Mínimo 6 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full border-2 border-blue-300 rounded-xl p-2.5 text-base"
+            className="w-full border border-[#C9C4BA] focus:border-[#16324F] outline-none rounded p-2.5 text-base"
           />
         </div>
 
@@ -142,10 +142,10 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
               id="login-tipo"
               value={tipoUsuario}
               onChange={(e) => setTipoUsuario(e.target.value)}
-              className="w-full border-2 border-blue-300 rounded-xl p-2.5 font-bold bg-white text-base"
+              className="w-full border border-[#C9C4BA] focus:border-[#16324F] outline-none rounded p-2.5 font-bold bg-white text-base"
             >
-              <option value="REGISTRADO">Usuario (Apuntarme a planes)</option>
-              <option value="PUBLICADOR">Publicador (Negocio / Ayuntamiento)</option>
+              <option value="REGISTRADO">Visitante</option>
+              <option value="PUBLICADOR">Publicador</option>
             </select>
           </div>
         )}
@@ -153,7 +153,7 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
         <button
           type="submit"
           disabled={enviando}
-          className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-black py-3 rounded-2xl shadow mt-1"
+          className="w-full bg-[#C85A17] hover:bg-[#AD4B10] disabled:opacity-60 text-white font-bold py-2.5 rounded mt-1"
         >
           {enviando ? "Conectando..." : modo === "login" ? "Entrar" : "Crear Cuenta y Entrar"}
         </button>
@@ -166,7 +166,7 @@ function LoginFormContent({ defaultTipo, motivo, usuario, onLogin, onRegister, o
             onLogout();
             onClose();
           }}
-          className="w-full bg-stone-200 hover:bg-stone-300 text-stone-900 font-bold py-2.5 rounded-2xl text-sm"
+          className="w-full bg-[#F4F3EF] hover:bg-[#E8E5DD] text-[#16324F] border border-[#D6D3CD] font-bold py-2 rounded text-sm"
         >
           Cerrar sesión ({usuario.nombre})
         </button>
@@ -189,7 +189,7 @@ export default function LoginModal() {
       onClose={cerrarModal}
       title="Acceso a PuebloVivo"
       maxWidthClass="max-w-md"
-      containerClassName="bg-white text-stone-900 rounded-3xl w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl border-2 border-blue-700 space-y-3"
+      containerClassName="bg-white text-stone-900 rounded w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl border border-[#16324F] border-t-4 border-t-[#3D5A3C] space-y-3"
     >
       {modalLogin.open && (
         <LoginFormContent

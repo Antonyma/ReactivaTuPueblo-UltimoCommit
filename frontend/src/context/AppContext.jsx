@@ -784,7 +784,11 @@ export function AppProvider({ children }) {
         ...prev,
         [mapped.nombre]: mapped,
       }));
-      mostrarToast(`Comercio "${mapped.nombre}" enviado. Queda pendiente hasta que un moderador lo confirme.`);
+      mostrarToast(
+        mapped.pendiente
+          ? `Comercio "${mapped.nombre}" enviado. Queda pendiente hasta que un moderador lo confirme.`
+          : `Comercio "${mapped.nombre}" verificado y confirmado por el filtro IA.`
+      );
     } catch (err) {
       if (isNetworkFailure(err)) {
         encolarNegocioOffline();

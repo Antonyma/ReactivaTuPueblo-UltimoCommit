@@ -17,9 +17,7 @@ export default function Navbar() {
   const enRutaAdmin = rutaActual === "/admin";
   const esModerador = usuario?.tipoUsuario === "MODERADOR";
 
-  const rolTexto = usuario
-    ? `${usuario.nombre} · [${usuario.tipoUsuario}]`
-    : "Invitado · [NO_REGISTRADO]";
+  const rolTexto = usuario ? usuario.nombre : "Visitante";
 
   const abrirCuenta = () => {
     setMenuAbierto(false);

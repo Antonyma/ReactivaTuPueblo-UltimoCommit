@@ -1,3 +1,4 @@
+import { env } from '../config/env.js'
 import { AppError } from '../middlewares/errorHandler.js'
 
 const CAMPOS_EDITABLES_NEGOCIO = [
@@ -45,6 +46,41 @@ function validarUrlsSeguras(obj = {}) {
   }
 }
 
+async function moderarNegocioConIa(campos = {}) {
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (env.aiAgentsApiKey) {
+      headers['X-API-Key'] = env.aiAgentsApiKey
+    }
+    const redes = [campos.instagramUrl, campos.facebookUrl, campos.twitterUrl, campos.webUrl]
+      .filter(Boolean)
+      .join(' ')
+    const descripcion = [
+      campos.pueblo ? `Comercio local en ${campos.pueblo}.` : 'Comercio local.',
+      redes ? `Redes/Web: ${redes}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    const res = await fetch(`${env.aiAgentsUrl}/agents/moderate/event-title`, {
+      method: 'POST',
+      headers,
+      signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({
+        titulo: campos.nombre,
+        descripcion,
+        categoria: 'Comercio',
+      }),
+    })
+    if (!res.ok) {
+      return null
+    }
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 export class NegocioService {
   constructor({ negocioRepository }) {
     this.negocioRepository = negocioRepository
@@ -68,9 +104,26 @@ export class NegocioService {
   async crearNegocio(data, propietarioId) {
     const camposLimpios = filtrarCamposNegocio(data)
     validarUrlsSeguras(camposLimpios)
+
+    let fiabilidadInicial = 0
+    const resIa = await moderarNegocioConIa(camposLimpios)
+    if (resIa) {
+      const tieneFalta =
+        Boolean(resIa.contiene_palabras_malsonantes) ||
+        Boolean(resIa.contiene_amenazas_o_violencia)
+      if (tieneFalta || resIa.aprobada === false) {
+        throw AppError.badRequest(
+          resIa.motivo || 'El comercio no supera el filtro de moderación.'
+        )
+      }
+      if (resIa.aprobada === true && resIa.coherente_con_categoria === true) {
+        fiabilidadInicial = 40
+      }
+    }
+
     return this.negocioRepository.create({
       ...camposLimpios,
-      fiabilidad: 0,
+      fiabilidad: fiabilidadInicial,
       propietarioId: Number(propietarioId),
       propietario: { id: Number(propietarioId) },
     })
