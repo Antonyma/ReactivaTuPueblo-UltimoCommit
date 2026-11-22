@@ -65,11 +65,6 @@ export function AppProvider({ children }) {
   const [ultimaActualizacion, setUltimaActualizacion] = useState(
     () => cacheRepository.loadSnapshot().updatedAt
   );
-  const [muestrasAprendidasModelo, setMuestrasAprendidasModelo] = useState(4);
-  const [eventosAhorradosTokens, setEventosAhorradosTokens] = useState(0);
-  const [ultimoWhatsAppPublicador, setUltimoWhatsAppPublicador] = useState(
-    "Listo para notificar aprobación o rechazo al publicador."
-  );
 
   const {
     isOnline,
@@ -163,7 +158,6 @@ export function AppProvider({ children }) {
     const ops = outboxRepository.getAll();
     const projected = applyOutboxProjection(baseState, ops, usuarioActivo);
     setActividades(projected.actividades);
-    setEventosAhorradosTokens(projected.actividades.filter((e) => e.ahorroTokens).length);
     setCuentasNegocio(projected.cuentasNegocio);
     setMisInscripcionesIds(projected.misInscripcionesIds);
     setInscripcionesPendientesIds(projected.inscripcionesPendientesIds);
@@ -729,7 +723,6 @@ export function AppProvider({ children }) {
       setActividades((prev) => [nuevoEvento, ...prev]);
 
       if (nuevoEvento.estadoModeracion === "aprobada") {
-        setEventosAhorradosTokens((prev) => prev + 1);
         mostrarToast(
           nuevoEvento.motivoIA || `Publicada al instante. "${nuevoData.negocio}" tiene pase directo.`
         );
@@ -955,8 +948,6 @@ export function AppProvider({ children }) {
           a.id === id ? { ...a, estadoModeracion: "aprobada", motivoIA: motivo } : a
         )
       );
-      setMuestrasAprendidasModelo((prev) => prev + 1);
-      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" aprobada y visible para los vecinos.`);
       mostrarToast(`Actividad "${act.nombre}" aprobada.`);
     } catch (err) {
       mostrarToast(err.message);
@@ -975,8 +966,6 @@ export function AppProvider({ children }) {
           a.id === id ? { ...a, estadoModeracion: "denegada", motivoIA: motivo } : a
         )
       );
-      setMuestrasAprendidasModelo((prev) => prev + 1);
-      setUltimoWhatsAppPublicador(`Actividad "${act.nombre}" denegada.`);
       mostrarToast(`Actividad "${act.nombre}" denegada.`);
     } catch (err) {
       mostrarToast(err.message);
@@ -1162,9 +1151,6 @@ export function AppProvider({ children }) {
       puedeInstalarPwa,
       appInstalada,
       instalarPwa,
-      muestrasAprendidasModelo,
-      eventosAhorradosTokens,
-      ultimoWhatsAppPublicador,
       toast,
       mostrarToast,
       modalLogin,
@@ -1226,9 +1212,6 @@ export function AppProvider({ children }) {
       puedeInstalarPwa,
       appInstalada,
       instalarPwa,
-      muestrasAprendidasModelo,
-      eventosAhorradosTokens,
-      ultimoWhatsAppPublicador,
       toast,
       mostrarToast,
       modalLogin,

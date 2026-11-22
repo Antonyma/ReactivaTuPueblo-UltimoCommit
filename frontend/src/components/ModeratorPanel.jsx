@@ -2,13 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useApp } from "../context/useApp.js";
 import { evaluarFiabilidadNegocio } from "../constants/comarca.js";
 import {
-  IconArrowLeft,
   IconCheck,
   IconClock,
   IconClose,
   IconMapPin,
   IconPlus,
-  IconShield,
   IconUser,
 } from "./Icons.jsx";
 
@@ -16,15 +14,10 @@ export default function ModeratorPanel() {
   const {
     actividades,
     cuentasNegocio,
-    muestrasAprendidasModelo,
-    eventosAhorradosTokens,
-    ultimoWhatsAppPublicador,
     aprobarActividad,
     denegarActividad,
     aprobarNegocio,
     denegarNegocio,
-    logoutUsuario,
-    navegarA,
     crearAdmin,
     listarAdmins,
     isOnline,
@@ -83,8 +76,6 @@ export default function ModeratorPanel() {
     (n) => n.pendiente && !n.pendienteSync
   );
 
-  const precision = Math.min(99, 91 + Math.floor(muestrasAprendidasModelo / 2));
-
   return (
     <section id="vista-exclusiva-moderador" className="space-y-6">
       {!isOnline && (
@@ -92,63 +83,6 @@ export default function ModeratorPanel() {
           Estás sin conexión a internet. Los comercios o eventos creados sin red aún no han llegado al servidor y aparecerán aquí automáticamente cuando el dispositivo recupere cobertura y sincronice. Las acciones de moderación requieren conexión.
         </div>
       )}
-      {/* Banner Resumen Métricas */}
-      <div className="caja-panel panel-moderador-banner bg-blue-950 text-white p-4 sm:p-6 rounded-3xl shadow-lg space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-blue-800 pb-4">
-          <div className="min-w-0">
-            <span className="bg-amber-400 text-stone-950 text-xs font-black uppercase px-3 py-1 rounded-full inline-block">
-              Acceso Exclusivo · Rol Moderador
-            </span>
-            <h1 className="text-xl sm:text-3xl font-black mt-2 flex items-center gap-2">
-              <IconShield className="w-6 h-6 sm:w-7 sm:h-7 text-amber-400 shrink-0" />
-              <span>Panel de Moderación, Referencia y Aprendizaje</span>
-            </h1>
-            <p className="text-sm text-blue-100 mt-1">
-              Los negocios con <strong>Referencia Nivel 2 o 3</strong> pasan directos con{" "}
-              <strong>0 tokens</strong>. Solo revisas cuentas nuevas (Nivel 1), entrenando el modelo y
-              notificando por WhatsApp al publicador.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => navegarA("/")}
-              className="inline-flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-800 text-white font-bold px-4 py-3 rounded-2xl text-sm border border-blue-700"
-            >
-              <IconArrowLeft className="w-4 h-4" />
-              <span>Web pública</span>
-            </button>
-            <button
-              type="button"
-              onClick={logoutUsuario}
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-950 font-black px-5 py-3 rounded-2xl text-sm shadow"
-            >
-              <span>Cerrar sesión</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
-            <p className="text-xs text-blue-200 uppercase font-bold">Muestras aprendidas por el modelo</p>
-            <p className="text-3xl font-black text-amber-400 mt-1">{muestrasAprendidasModelo}</p>
-            <p className="text-xs text-blue-100 mt-1">
-              Precisión actual: <strong className="text-emerald-300">{precision}%</strong>
-            </p>
-          </div>
-          <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
-            <p className="text-xs text-blue-200 uppercase font-bold">Tokens ahorrados por Referencia</p>
-            <p className="text-3xl font-black text-emerald-300 mt-1">{eventosAhorradosTokens} eventos</p>
-            <p className="text-xs text-blue-100 mt-1">Negocios Nivel 2/3 pasan directos</p>
-          </div>
-          <div className="bg-blue-900/70 p-4 rounded-2xl border border-blue-700">
-            <p className="text-xs text-blue-200 uppercase font-bold">Último WhatsApp enviado al Publicador</p>
-            <p className="text-xs font-bold text-amber-200 mt-1.5 leading-snug">
-              {ultimoWhatsAppPublicador}
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* ALTA DE NUEVOS ADMINISTRADORES */}
       <div className="caja-panel bg-white p-4 sm:p-6 rounded-3xl shadow-sm space-y-5">

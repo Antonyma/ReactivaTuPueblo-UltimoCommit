@@ -7,6 +7,7 @@ import { esEventoFinalizado, getDefaultEventDateRange } from "../utils/eventUtil
 import { comprimirImagenArchivo } from "../utils/imageCompressor.js";
 import LocationPickerModal from "./modals/LocationPickerModal.jsx";
 import BusinessStatsChart from "./publisher/BusinessStatsChart.jsx";
+import PublisherMetricsSummary from "./publisher/PublisherMetricsSummary.jsx";
 import {
   IconArrowLeft,
   IconCheck,
@@ -254,6 +255,10 @@ export default function PublisherPanel() {
   };
 
   const pueblosArray = useMemo(() => Object.keys(municipiosMancomunidad).sort(), []);
+  const eventosDeMisNegocios = useMemo(
+    () => actividades.filter((a) => cuentasNegocio[a.negocio]?.esMio),
+    [actividades, cuentasNegocio]
+  );
   const eventosDelNegocio = useMemo(
     () => (negocioDetalle ? actividades.filter((a) => a.negocio === negocioDetalle.nombre) : []),
     [negocioDetalle, actividades]
@@ -322,6 +327,16 @@ export default function PublisherPanel() {
           </button>
         </div>
       </div>
+
+      {/* Métricas globales del publicador */}
+      {!negocioDetalle && (
+        <PublisherMetricsSummary
+          negocios={misNegocios}
+          negociosConfirmadosCount={misNegociosConfirmados.length}
+          eventos={eventosDeMisNegocios}
+          ahoraMs={ahoraMs}
+        />
+      )}
 
       {/* Pestañas de navegación rápida entre lista y detalle */}
       {negocioDetalle && (
@@ -774,8 +789,8 @@ export default function PublisherPanel() {
             </div>
           )}
 
-          {/* Estadísticas de inscripciones por categoría */}
-          <BusinessStatsChart eventos={eventosDelNegocio} />
+          {/* Estadísticas e indicadores del negocio */}
+          <BusinessStatsChart eventos={eventosDelNegocio} ahoraMs={ahoraMs} />
 
           {/* Historial de eventos del negocio */}
           <div className="space-y-3">

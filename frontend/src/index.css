@@ -37,11 +37,6 @@ header,
   box-shadow: 0 8px 20px rgba(29, 78, 216, 0.1) !important;
 }
 
-.panel-moderador-banner {
-  background-color: #0B2545 !important;
-  color: #FFFFFF !important;
-}
-
 button[data-action="apuntar"] {
   background-color: #1D4ED8 !important;
   color: #FFFFFF !important;
