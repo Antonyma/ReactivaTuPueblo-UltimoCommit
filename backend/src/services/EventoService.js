@@ -44,6 +44,18 @@ function esUrlImagenSegura(url) {
   )
 }
 
+function notificarWebhookN8n(url, payload) {
+  if (!url) return
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(5000),
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    console.warn('[EventoService] Error enviando notificación a n8n:', err?.message || err)
+  })
+}
+
 async function moderarEventoConIa(data, fiabilidadNegocio = 0) {
   try {
     const headers = { 'Content-Type': 'application/json' }
@@ -270,7 +282,36 @@ export class EventoService {
       throw AppError.badRequest('fechaFin debe ser posterior a fechaInicio')
     }
 
-    return this.eventoRepository.update(eventoId, camposLimpios)
+    const actualizado = await this.eventoRepository.update(eventoId, camposLimpios)
+
+    const huboCambioRelevante =
+      camposLimpios.fechaInicio !== undefined ||
+      camposLimpios.fechaFin !== undefined ||
+      camposLimpios.nombre !== undefined ||
+      camposLimpios.pueblo !== undefined
+
+    if (huboCambioRelevante && env.n8n.notifyEventChangeUrl) {
+      const inscritos = await this.eventoRepository.findInscritos(eventoId).catch(() => [])
+      if (inscritos.length > 0) {
+        const detalle =
+          camposLimpios.fechaInicio !== undefined
+            ? `Nuevo horario: ${new Date(inicioEfectivo).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}`
+            : 'Se han actualizado los detalles del evento.'
+        notificarWebhookN8n(env.n8n.notifyEventChangeUrl, {
+          eventoId: Number(eventoId),
+          eventoNombre: actualizado?.nombre || evento.nombre,
+          pueblo: actualizado?.pueblo || evento.pueblo,
+          tipoCambio: 'actualizado',
+          detalle,
+          destinatarios: inscritos.map((i) => ({
+            nombre: i.usuario?.nombre || i.nombre || '',
+            telefono: i.usuario?.telefono || i.telefono || '',
+          })),
+        })
+      }
+    }
+
+    return actualizado
   }
 
   async eliminarEvento(eventoId, propietarioId) {
@@ -279,7 +320,26 @@ export class EventoService {
       throw AppError.forbidden('Solo el publicador propietario puede eliminar este evento')
     }
 
+    const inscritos = env.n8n.notifyEventChangeUrl
+      ? await this.eventoRepository.findInscritos(eventoId).catch(() => [])
+      : []
+
     await this.eventoRepository.delete(eventoId)
+
+    if (inscritos.length > 0 && env.n8n.notifyEventChangeUrl) {
+      notificarWebhookN8n(env.n8n.notifyEventChangeUrl, {
+        eventoId: Number(eventoId),
+        eventoNombre: evento.nombre,
+        pueblo: evento.pueblo,
+        tipoCambio: 'cancelado',
+        detalle: 'El organizador ha cancelado esta actividad.',
+        destinatarios: inscritos.map((i) => ({
+          nombre: i.usuario?.nombre || i.nombre || '',
+          telefono: i.usuario?.telefono || i.telefono || '',
+        })),
+      })
+    }
+
     return { deleted: true, eventoId: Number(eventoId) }
   }
 
@@ -352,19 +412,45 @@ export class EventoService {
   }
 
   async aprobarEvento(eventoId, motivo = 'Aprobada por Moderador') {
-    await this.obtenerEventoPorId(eventoId)
-    return this.eventoRepository.update(eventoId, {
+    const evento = await this.obtenerEventoPorId(eventoId)
+    const actualizado = await this.eventoRepository.update(eventoId, {
       estado: 'aprobada',
       motivo: String(motivo || 'Aprobada por Moderador').trim(),
     })
+    if (env.n8n.notifyBusinessUrl && evento.negocio?.propietario?.telefono) {
+      notificarWebhookN8n(env.n8n.notifyBusinessUrl, {
+        negocioNombre: evento.negocio.nombre,
+        propietarioTelefono: evento.negocio.propietario.telefono,
+        eventoNombre: evento.nombre,
+        pueblo: evento.pueblo,
+        origen: 'moderacion',
+        estado: 'aprobada',
+        motivo: String(motivo || 'Aprobada por Moderador').trim(),
+        urlWeb: env.frontendUrl,
+      })
+    }
+    return actualizado
   }
 
   async denegarEvento(eventoId, motivo = 'Denegada por Moderador') {
-    await this.obtenerEventoPorId(eventoId)
-    return this.eventoRepository.update(eventoId, {
+    const evento = await this.obtenerEventoPorId(eventoId)
+    const actualizado = await this.eventoRepository.update(eventoId, {
       estado: 'denegada',
       motivo: String(motivo || 'Denegada por Moderador').trim(),
     })
+    if (env.n8n.notifyBusinessUrl && evento.negocio?.propietario?.telefono) {
+      notificarWebhookN8n(env.n8n.notifyBusinessUrl, {
+        negocioNombre: evento.negocio.nombre,
+        propietarioTelefono: evento.negocio.propietario.telefono,
+        eventoNombre: evento.nombre,
+        pueblo: evento.pueblo,
+        origen: 'moderacion',
+        estado: 'denegada',
+        motivo: String(motivo || 'Denegada por Moderador').trim(),
+        urlWeb: env.frontendUrl,
+      })
+    }
+    return actualizado
   }
 
   async obtenerInscritos(eventoId, propietarioId) {

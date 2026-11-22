@@ -26,4 +26,8 @@ export const env = {
   whatsapp: {
     verifyToken: (process.env.WHATSAPP_VERIFY_TOKEN || '').trim(),
   },
+  n8n: {
+    notifyEventChangeUrl: (process.env.N8N_NOTIFY_EVENT_CHANGE_URL || '').trim(),
+    notifyBusinessUrl: (process.env.N8N_NOTIFY_BUSINESS_URL || '').trim(),
+  },
 }
