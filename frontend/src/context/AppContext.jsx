@@ -126,6 +126,7 @@ export function AppProvider({ children }) {
   const cuentasNegocioRef = useRef(cuentasNegocio);
   const usuarioRef = useRef(usuario);
   const initialLoadDoneRef = useRef(false);
+  const prevIsOnlineRef = useRef(isOnline);
 
   useEffect(() => {
     resenasPorEventoRef.current = resenasPorEvento;
@@ -266,13 +267,16 @@ export function AppProvider({ children }) {
       if (usuarioActualizado?.id && getAuthToken() && isOnlineRef.current && listaEventosBase.length > 0) {
         const AI_AGENTS_URL =
           (import.meta.env?.VITE_AI_AGENTS_URL || "http://localhost:8000").replace(/\/+$/, "");
+        const ahoraRecMs = Date.now();
+        const soloActivosParaRec = listaEventosBase.filter((e) => !esEventoFinalizado(e, ahoraRecMs));
+        if (soloActivosParaRec.length === 0) return;
         fetch(`${AI_AGENTS_URL}/agents/recommend-activities`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(8000),
           body: JSON.stringify({
             usuario_id: String(usuarioActualizado.id),
-            actividades_disponibles: listaEventosBase,
+            actividades_disponibles: soloActivosParaRec,
             excluir_ya_inscritas: true,
           }),
         })
@@ -296,28 +300,18 @@ export function AppProvider({ children }) {
             if (mapaRecomendadas.size === 0) return;
 
             setActividades((prev) =>
-              prev
-                .map((e) => {
-                  const key = String(e.id);
-                  if (!mapaRecomendadas.has(key)) return e;
-                  return {
-                    ...e,
-                    esRecomendada: true,
-                    motivoRecomendacion: mapaRecomendadas.get(key) || e.motivoRecomendacion,
-                  };
-                })
-                .sort((a, b) => {
-                  if (Boolean(a.esRecomendada) !== Boolean(b.esRecomendada)) {
-                    return a.esRecomendada ? -1 : 1;
-                  }
-                  const rankA = ordenRank.has(String(a.id))
-                    ? ordenRank.get(String(a.id))
-                    : Number.MAX_SAFE_INTEGER;
-                  const rankB = ordenRank.has(String(b.id))
-                    ? ordenRank.get(String(b.id))
-                    : Number.MAX_SAFE_INTEGER;
-                  return rankA - rankB;
-                })
+              prev.map((e) => {
+                const key = String(e.id);
+                if (!mapaRecomendadas.has(key) || esEventoFinalizado(e, Date.now())) return e;
+                return {
+                  ...e,
+                  esRecomendada: true,
+                  ordenRecomendacion: ordenRank.has(key)
+                    ? ordenRank.get(key)
+                    : Number.MAX_SAFE_INTEGER,
+                  motivoRecomendacion: mapaRecomendadas.get(key) || e.motivoRecomendacion,
+                };
+              })
             );
           })
           .catch(() => {
@@ -361,12 +355,12 @@ export function AppProvider({ children }) {
       }
 
       if (result.syncedCount > 0 || result.conflicts.length > 0) {
-        await cargarDatosIniciales(usuario);
+        await cargarDatosIniciales(usuarioRef.current);
       }
     } finally {
       setSincronizando(false);
     }
-  }, [cargarDatosIniciales, mostrarToast, usuario]);
+  }, [cargarDatosIniciales, mostrarToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -375,6 +369,7 @@ export function AppProvider({ children }) {
       if (cancelled) return;
       if (!initialLoadDoneRef.current) {
         initialLoadDoneRef.current = true;
+        prevIsOnlineRef.current = isOnline;
         if (isOnline && outboxRepository.count() > 0) {
           await sincronizarPendientes();
         } else {
@@ -382,7 +377,9 @@ export function AppProvider({ children }) {
         }
         return;
       }
-      if (isOnline) {
+      const volvioOnline = !prevIsOnlineRef.current && isOnline;
+      prevIsOnlineRef.current = isOnline;
+      if (volvioOnline) {
         if (outboxRepository.count() > 0) {
           await sincronizarPendientes();
         } else {

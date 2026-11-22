@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useApp } from "../context/useApp.js";
 import { TIPO_EVENTO_A_CATEGORIA } from "../constants/comarca.js";
 import { useNow } from "../hooks/useNow.js";
-import { getEstadoTemporal } from "../utils/eventUtils.js";
+import { getEstadoTemporal, getEventTimestamp } from "../utils/eventUtils.js";
 import ActivityCard from "./ActivityCard.jsx";
 
 const FILTROS_ESTADO = [
@@ -52,10 +52,47 @@ export default function ActivityList() {
       const est = getEstadoTemporal(act, ahoraMs);
       counts[est] += 1;
       if (filtroEstado === "todos" || est === filtroEstado) {
-        filtrada.push(act);
+        filtrada.push({ act, est });
       }
     }
-    return { conteos: counts, lista: filtrada };
+
+    const prioridadGrupo = ({ act, est }) => {
+      if (est === "finalizados") return 2;
+      if (act.esRecomendada || act.es_recomendada) return 0;
+      return 1;
+    };
+
+    filtrada.sort((a, b) => {
+      const gA = prioridadGrupo(a);
+      const gB = prioridadGrupo(b);
+      if (gA !== gB) return gA - gB;
+
+      if (gA === 0) {
+        const rankA =
+          typeof a.act.ordenRecomendacion === "number"
+            ? a.act.ordenRecomendacion
+            : Number.MAX_SAFE_INTEGER;
+        const rankB =
+          typeof b.act.ordenRecomendacion === "number"
+            ? b.act.ordenRecomendacion
+            : Number.MAX_SAFE_INTEGER;
+        if (rankA !== rankB) return rankA - rankB;
+      }
+
+      if (gA === 2) {
+        const finA = getEventTimestamp(a.act.fechaFinMs, a.act.fechaFinISO) || 0;
+        const finB = getEventTimestamp(b.act.fechaFinMs, b.act.fechaFinISO) || 0;
+        return finB - finA;
+      }
+
+      const iniA =
+        getEventTimestamp(a.act.fechaInicioMs, a.act.fechaInicioISO) || Number.MAX_SAFE_INTEGER;
+      const iniB =
+        getEventTimestamp(b.act.fechaInicioMs, b.act.fechaInicioISO) || Number.MAX_SAFE_INTEGER;
+      return iniA - iniB;
+    });
+
+    return { conteos: counts, lista: filtrada.map((item) => item.act) };
   }, [listaBase, ahoraMs, filtroEstado]);
 
   const hayFiltrosExtra =

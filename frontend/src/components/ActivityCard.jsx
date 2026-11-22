@@ -40,7 +40,7 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
   const inscripcionPendienteSync = inscripcionesPendientesIds.includes(act.id);
   const ahoraMs = useNow(60000);
   const estaTerminado = esEventoFinalizado(act, ahoraMs);
-  const esRecomendada = Boolean(act.esRecomendada || act.es_recomendada);
+  const esRecomendada = !estaTerminado && Boolean(act.esRecomendada || act.es_recomendada);
 
   const handleTerminar = () => {
     if (window.confirm(`¿Marcar "${act.nombre}" como finalizado? Se habilitarán las reseñas.`)) {
