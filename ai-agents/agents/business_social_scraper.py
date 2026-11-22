@@ -61,6 +61,9 @@ CATEGORIAS_VALIDAS = {
     6: "Cultura",
 }
 
+# Solo se analizan las N publicaciones más recientes de cada red social.
+MAX_POSTS_POR_RED = int(os.environ.get("MAX_POSTS_POR_RED", "3") or 3)
+
 
 class EventoDetectado(BaseModel):
     nombre: str = Field(..., min_length=3, max_length=160)
@@ -305,6 +308,30 @@ def _buscar_ddg(queries: list[str], max_results: int = 5) -> list[dict[str, str]
     return resultados
 
 
+def _buscar_posts_red(queries: list[str], limite: int = MAX_POSTS_POR_RED) -> list[dict[str, str]]:
+    """Devuelve como máximo `limite` publicaciones únicas (sin repetir URL ni texto)."""
+    if not queries or limite <= 0:
+        return []
+    posts: list[dict[str, str]] = []
+    urls_vistas: set[str] = set()
+    textos_vistos: set[str] = set()
+    # Pedimos de más por si DDG devuelve repetidos entre consultas.
+    for r in _buscar_ddg(queries, max_results=max(limite * 3, limite)):
+        url_post = normalizar_url(r.get("url", ""))
+        texto_post = normalizar_texto(f"{r.get('titulo', '')} {r.get('resumen', '')}")
+        if not url_post or url_post in urls_vistas:
+            continue
+        if texto_post and texto_post in textos_vistos:
+            continue
+        urls_vistas.add(url_post)
+        if texto_post:
+            textos_vistos.add(texto_post)
+        posts.append(r)
+        if len(posts) >= limite:
+            break
+    return posts
+
+
 def recolectar_contenido_fuente(
     url: str, red_social: str, nombre_negocio: str, pueblo: str
 ) -> dict[str, Any]:
@@ -312,6 +339,7 @@ def recolectar_contenido_fuente(
     url_norm = normalizar_url(url)
     bloques: list[str] = []
     og_image = ""
+    posts: list[dict[str, str]] = []
 
     if red_social == "Web":
         html = _descargar_html(url_norm)
@@ -328,17 +356,7 @@ def recolectar_contenido_fuente(
             if jina:
                 bloques.append(f"=== WEB VIA JINA ({url_norm}) ===\n{jina}")
     else:
-        # Perfil público de red social: metadatos + Jina Reader + DuckDuckGo indexado
-        html = _descargar_html(url_norm, timeout=10.0)
-        if html:
-            txt_meta, _, og_image = _limpiar_html(html, url_norm, max_chars=3000)
-            if txt_meta and len(txt_meta) > 80:
-                bloques.append(f"=== PERFIL {red_social.upper()} ({url_norm}) ===\n{txt_meta}")
-
-        jina = _leer_con_jina(url_norm, max_chars=5500)
-        if jina:
-            bloques.append(f"=== CONTENIDO PÚBLICO {red_social.upper()} ({url_norm}) ===\n{jina}")
-
+        # Perfil público de red social: solo las N publicaciones más recientes (sin repetidas).
         handle = extraer_handle_rrss(url_norm, red_social)
         dominio = {
             "Instagram": "instagram.com",
@@ -353,17 +371,35 @@ def recolectar_contenido_fuente(
         elif dominio and nombre_negocio:
             queries.append(f'site:{dominio} "{nombre_negocio}" "{pueblo}"')
 
-        for r in _buscar_ddg(queries, max_results=5):
-            bloques.append(
-                f"[POST INDEXADO {red_social}] URL: {r['url']}\n"
-                f"Título: {r['titulo']}\nResumen: {r['resumen']}"
-            )
+        posts = _buscar_posts_red(queries, limite=MAX_POSTS_POR_RED)
+
+        # Metadatos del perfil (también aportan la imagen por defecto)
+        html = _descargar_html(url_norm, timeout=10.0)
+        txt_meta = ""
+        if html:
+            txt_meta, _, og_image = _limpiar_html(html, url_norm, max_chars=3000)
+
+        if posts:
+            for r in posts:
+                bloques.append(
+                    f"[POST INDEXADO {red_social}] URL: {r['url']}\n"
+                    f"Título: {r['titulo']}\nResumen: {r['resumen']}"
+                )
+        else:
+            # Sin posts indexados: metadatos del perfil + Jina Reader como respaldo.
+            if txt_meta and len(txt_meta) > 80:
+                bloques.append(f"=== PERFIL {red_social.upper()} ({url_norm}) ===\n{txt_meta}")
+
+            jina = _leer_con_jina(url_norm, max_chars=5500)
+            if jina:
+                bloques.append(f"=== CONTENIDO PÚBLICO {red_social.upper()} ({url_norm}) ===\n{jina}")
 
     return {
         "redSocial": red_social,
         "urlPerfil": url_norm,
         "texto": "\n\n".join(bloques).strip(),
         "imagenDefecto": og_image,
+        "posts": posts,
     }
 
 
@@ -470,6 +506,7 @@ def scrapear_redes_negocio(
             "urlPerfil": normalizar_url(url_post_manual or negocio.get("instagramUrl") or ""),
             "texto": texto_manual.strip(),
             "imagenDefecto": "",
+            "posts": [],
         })
     else:
         total_fuentes = max(1, len(fuentes_activas))
@@ -477,7 +514,7 @@ def scrapear_redes_negocio(
             pct = 15 + int((idx / total_fuentes) * 40)
             _emit(pct, f"Leyendo contenido público de {red}...")
             rec = recolectar_contenido_fuente(url, red, nombre, pueblo)
-            if rec["texto"]:
+            if rec["texto"] or rec.get("posts"):
                 fuentes_recogidas.append(rec)
 
     if not fuentes_recogidas:
@@ -507,10 +544,37 @@ def scrapear_redes_negocio(
         "Si no hay ningún evento u oferta concreta, devuelve {\"eventos\": []}."
     )
 
-    cuerpo_fuentes = "\n\n".join(
-        f"--- FUENTE: {f['redSocial']} ({f['urlPerfil']}) ---\n{f['texto'][:6500]}"
-        for f in fuentes_recogidas
-    )
+    # Deduplicar publicaciones repetidas entre redes (una misma publicación puede aparecer
+    # indexada en varias) y montar el contexto final que se manda a la IA.
+    bloques_fuente: list[str] = []
+    urls_posts_vistos: set[str] = set()
+    textos_posts_vistos: set[str] = set()
+    for f in fuentes_recogidas:
+        lineas_posts: list[str] = []
+        for p in f.get("posts") or []:
+            url_post = normalizar_url(p.get("url", ""))
+            texto_post = normalizar_texto(f"{p.get('titulo', '')} {p.get('resumen', '')}")
+            if url_post and url_post in urls_posts_vistos:
+                continue
+            if texto_post and texto_post in textos_posts_vistos:
+                continue
+            if url_post:
+                urls_posts_vistos.add(url_post)
+            if texto_post:
+                textos_posts_vistos.add(texto_post)
+            lineas_posts.append(
+                f"[POST INDEXADO {f['redSocial']}] URL: {p.get('url', '')}\n"
+                f"Título: {p.get('titulo', '')}\nResumen: {p.get('resumen', '')}"
+            )
+        if lineas_posts:
+            bloques_fuente.append(
+                f"--- FUENTE: {f['redSocial']} ({f['urlPerfil']}) ---\n" + "\n\n".join(lineas_posts)
+            )
+        elif f.get("texto"):
+            bloques_fuente.append(
+                f"--- FUENTE: {f['redSocial']} ({f['urlPerfil']}) ---\n{f['texto'][:6500]}"
+            )
+    cuerpo_fuentes = "\n\n".join(bloques_fuente)
     user_prompt = (
         f"Negocio: {nombre}\n"
         f"Pueblo: {pueblo or 'Almería'}\n\n"

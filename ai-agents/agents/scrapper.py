@@ -88,6 +88,9 @@ APIFY_DIAS_ATRAS = env_int("APIFY_DIAS_ATRAS", 120)       # ventana temporal
 APIFY_CACHE_HORAS = env_int("APIFY_CACHE_HORAS", 12)      # evita pagar dos veces la misma ejecución
 ARCHIVO_CACHE_APIFY = DIR_SALIDA / "apify_facebook_cache.json"
 
+# Solo se analizan las N publicaciones más recientes de cada red social (sin repetidas).
+MAX_POSTS_POR_RED = env_int("MAX_POSTS_POR_RED", 3)
+
 # --- ScrapeGraphAI (scraping dirigido de la web del ayuntamiento) ---
 SCRAPEGRAPH_ACTIVO = env_bool("SCRAPEGRAPH_ACTIVO", True)
 # Orden propio: Gemini y Groq soportan mejor la salida estructurada (json_schema).
@@ -838,16 +841,49 @@ class ApifyFacebookFuente:
         return agrupado
 
 
-def posts_a_bloque(posts: list[dict[str, Any]], fb_url: str, max_chars: int = 9000) -> str:
+def _normalizar_para_dedup(texto: str) -> str:
+    t = unicodedata.normalize("NFD", str(texto or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+
+
+def posts_a_bloque(
+    posts: list[dict[str, Any]],
+    fb_url: str,
+    max_chars: int = 9000,
+    limite: int = MAX_POSTS_POR_RED,
+) -> str:
     """Convierte los posts en un bloque de texto para el LLM, con la fecha de publicación
-    (clave para resolver 'este sábado', 'mañana', etc.)."""
+    (clave para resolver 'este sábado', 'mañana', etc.).
+
+    Solo incluye las `limite` publicaciones más recientes y elimina repetidas
+    (misma URL o mismo texto/OCR).
+    """
+    # Más recientes primero (las fechas de Apify son ISO, comparables como texto).
+    ordenados = sorted(
+        posts,
+        key=lambda p: str(p.get("fecha_publicacion") or ""),
+        reverse=True,
+    )
     trozos: list[str] = []
-    for p in posts:
+    urls_vistas: set[str] = set()
+    textos_vistos: set[str] = set()
+    for p in ordenados:
+        if len(trozos) >= max(1, limite):
+            break
         if not p.get("texto") and not p.get("ocr_imagenes"):
             continue
+        url_post = normalizar_url_facebook(p.get("url") or "") or fb_url
+        clave_texto = _normalizar_para_dedup(f"{p.get('texto') or ''} {p.get('ocr_imagenes') or ''}")
+        if url_post in urls_vistas or (clave_texto and clave_texto in textos_vistos):
+            continue
+        urls_vistas.add(url_post)
+        if clave_texto:
+            textos_vistos.add(clave_texto)
+
         partes = [
             f"[POST FACEBOOK OFICIAL] Publicado: {p.get('fecha_publicacion') or 'desconocido'}",
-            f"URL: {p.get('url') or fb_url}",
+            f"URL: {url_post}",
         ]
         if p.get("texto"):
             partes.append(f"Texto: {p['texto'][:1500]}")
