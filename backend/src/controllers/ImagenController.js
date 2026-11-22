@@ -12,11 +12,12 @@ export class ImagenController {
   }
 
   crear = async (req, res) => {
-    const imagen = await this.imagenService.subirImagen(req.params.id, req.user.id, req.body)
+    const resultado = await this.imagenService.subirImagen(req.params.id, req.user.id, req.body)
+    const total = Array.isArray(resultado) ? resultado.length : 1
     res.status(201).json({
       ok: true,
-      message: 'Imagen añadida correctamente',
-      data: imagen,
+      message: total > 1 ? `${total} imágenes añadidas correctamente` : 'Imagen añadida correctamente',
+      data: resultado,
     })
   }
 

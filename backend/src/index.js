@@ -29,7 +29,7 @@ app.use((_req, res, next) => {
 })
 
 app.use(cors(corsOptions))
-app.use(express.json({ limit: '5mb' }))
+app.use(express.json({ limit: '10mb' }))
 
 app.use('/api', createApiRouter(container))
 

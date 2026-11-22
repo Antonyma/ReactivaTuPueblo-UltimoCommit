@@ -210,8 +210,20 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
         ) : (
           <div className="space-y-2">
             {estaTerminado ? (
-              <div className="w-full text-center bg-[#F4F3EF] text-stone-600 border border-[#D6D3CD] font-bold py-2.5 px-4 rounded text-sm">
-                Evento finalizado
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-center bg-[#F4F3EF] text-stone-600 border border-[#D6D3CD] font-bold py-2.5 px-3 rounded text-xs sm:text-sm flex items-center justify-center">
+                  Evento finalizado
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setModalResenas({ open: true, nombreNegocio: act.negocio, eventoId: act.id })
+                  }
+                  className="inline-flex items-center justify-center gap-1.5 bg-[#16324F] hover:bg-[#1E4268] text-white font-bold py-2.5 px-3 rounded text-xs sm:text-sm transition"
+                >
+                  <IconStar className="w-4 h-4 text-amber-300 shrink-0" filled />
+                  <span>Reseñas y fotos</span>
+                </button>
               </div>
             ) : esAforoLibre ? (
               <div className="w-full text-center bg-[#EFF4F8] text-[#16324F] border border-[#C6D4E1] font-bold py-2.5 px-4 rounded text-sm">

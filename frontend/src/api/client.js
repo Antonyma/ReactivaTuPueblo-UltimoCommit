@@ -146,6 +146,16 @@ export const eventosApi = {
       method: 'POST',
       body: JSON.stringify({ estrellas, texto }),
     }),
+  listarImagenes: (id) => apiFetch(`/eventos/${id}/imagenes`),
+  subirImagenes: (id, imagenes) =>
+    apiFetch(`/eventos/${id}/imagenes`, {
+      method: 'POST',
+      body: JSON.stringify({ imagenes }),
+    }),
+  eliminarImagen: (id, imagenId) =>
+    apiFetch(`/eventos/${id}/imagenes/${imagenId}`, {
+      method: 'DELETE',
+    }),
 }
 
 export const negociosApi = {

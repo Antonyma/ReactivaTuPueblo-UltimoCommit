@@ -37,20 +37,19 @@ export function createEventoRoutes(
     valoracionController.eliminar
   )
 
-  // Imágenes de evento (subir: inscritos o publicador; eliminar: solo publicador propietario)
+  // Imágenes de evento (subir: inscritos o publicador; eliminar: autor de la foto o publicador propietario)
   router.get('/:id/imagenes', validateIntParam('id'), imagenController.listarPorEvento)
   router.post(
     '/:id/imagenes',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
-    requireBodyFields(['imagen']),
     imagenController.crear
   )
   router.delete(
     '/:id/imagenes/:imagenId',
     requireAuth,
-    requireRole(USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     validateIntParam('imagenId'),
     imagenController.eliminar
