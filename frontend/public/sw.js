@@ -6,7 +6,7 @@ const APP_SHELL_ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./favicon.svg",
+  "./favicon.ico",
   "./icons.svg",
 ];
 

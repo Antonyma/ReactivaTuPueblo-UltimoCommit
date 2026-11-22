@@ -4,7 +4,6 @@ import {
   IconArrowLeft,
   IconClose,
   IconMenu,
-  IconMountain,
   IconTextSize,
   IconUser,
 } from "./Icons.jsx";
@@ -37,8 +36,12 @@ export default function Navbar() {
     <header className="text-white sticky top-0 z-40 shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#3D5A3C] border border-white/25 flex items-center justify-center shrink-0 shadow-sm">
-            <IconMountain className="w-5 h-5 text-amber-300" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#3D5A3C] border border-white/25 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+            <img
+              src="./favicon.ico"
+              alt="Logo PuebloVivo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="min-w-0">
             <span className="font-serif font-extrabold text-xl sm:text-2xl block leading-none tracking-tight truncate">
