@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/useApp.js";
 import { IconClose, IconMessage } from "./Icons.jsx";
+import { esEventoFinalizado, getEventTimestamp } from "../utils/eventUtils.js";
 
 const N8N_CHAT_WEBHOOK_URL = (import.meta.env?.VITE_N8N_CHAT_WEBHOOK_URL || "").trim();
 
@@ -82,31 +83,131 @@ function FormattedMessage({ text, isUser }) {
   );
 }
 
+function normalizarTexto(str) {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function formatearEventoLocal(a) {
+  const precio = a.dePago ? "De pago" : "Gratis";
+  const plazas =
+    a.aforo > 0
+      ? ` · ${Math.max(0, a.aforo - (a.asistentesActuales ?? a.asistentes ?? 0))} plazas libres`
+      : "";
+  return `- **${a.nombre}** (${a.categoria || "Actividad"}) — ${a.pueblo}, ${a.fecha} · ${precio}${plazas}`;
+}
+
 function respuestaLocalActividades(pregunta, actividades) {
-  const q = pregunta.toLowerCase();
+  const q = normalizarTexto(pregunta).trim();
+  const ahoraMs = Date.now();
   const aprobadas = (actividades || []).filter((a) => a.estadoModeracion === "aprobada");
-  const coincidencias = aprobadas.filter((a) => {
-    const hay = `${a.nombre} ${a.pueblo} ${a.categoria} ${a.descripcion}`.toLowerCase();
-    return q.split(/\s+/).some((pal) => pal.length > 3 && hay.includes(pal));
-  });
 
-  if (coincidencias.length > 0) {
-    const lista = coincidencias
-      .slice(0, 3)
-      .map(
-        (a) =>
-          `- **${a.nombre}** (${a.categoria}) — ${a.pueblo}, ${a.fecha} · ${a.dePago ? "De pago" : "Gratis"}`
-      )
-      .join("\n");
-    return `He encontrado estas actividades relacionadas:\n${lista}`;
+  if (aprobadas.length === 0) {
+    return "Aún no hay actividades publicadas en este momento. Vuelve a comprobarlo pronto.";
   }
 
-  if (aprobadas.length > 0) {
-    const pueblos = [...new Set(aprobadas.map((a) => a.pueblo).filter(Boolean))].slice(0, 4);
-    return `Ahora mismo hay **${aprobadas.length} actividades** publicadas en la comarca (${pueblos.join(", ")}). Puedes preguntarme por un pueblo concreto, por planes gratis o por categoría.`;
+  const ordenarPorFecha = (lista) =>
+    [...lista].sort((a, b) => {
+      const ta = getEventTimestamp(a.fechaInicioMs, a.fechaInicioISO) || Number.MAX_SAFE_INTEGER;
+      const tb = getEventTimestamp(b.fechaInicioMs, b.fechaInicioISO) || Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
+
+  const proximas = ordenarPorFecha(aprobadas.filter((a) => !esEventoFinalizado(a, ahoraMs)));
+  const base = proximas.length > 0 ? proximas : ordenarPorFecha(aprobadas);
+
+  if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|saludos)\b/.test(q)) {
+    const pueblos = [...new Set(base.map((a) => a.pueblo).filter(Boolean))].slice(0, 4);
+    return `¡Hola! Ahora mismo tengo **${proximas.length} próximos planes** en la comarca (${pueblos.join(", ")}). Pregúntame por próximos eventos, planes gratis o un pueblo concreto y te los enseño.`;
   }
 
-  return "Aún no hay actividades publicadas en este momento. Vuelve a comprobarlo pronto.";
+  let filtradas = base;
+  const etiquetas = [];
+
+  if (/\b(gratis|gratuit\w*|sin coste|libre)\b/.test(q)) {
+    filtradas = filtradas.filter((a) => !a.dePago);
+    etiquetas.push("gratis");
+  } else if (/\b(de pago|pagando|entrada)\b/.test(q)) {
+    filtradas = filtradas.filter((a) => a.dePago);
+    etiquetas.push("de pago");
+  }
+
+  const pueblosDisponibles = [...new Set(aprobadas.map((a) => a.pueblo).filter(Boolean))];
+  const puebloMencionado = pueblosDisponibles.find((p) => q.includes(normalizarTexto(p)));
+  if (puebloMencionado) {
+    filtradas = filtradas.filter((a) => a.pueblo === puebloMencionado);
+    etiquetas.push(`en ${puebloMencionado}`);
+  }
+
+  const categoriasDisponibles = [...new Set(aprobadas.map((a) => a.categoria).filter(Boolean))];
+  const categoriaMencionada = categoriasDisponibles.find((c) => q.includes(normalizarTexto(c)));
+  if (categoriaMencionada) {
+    filtradas = filtradas.filter((a) => a.categoria === categoriaMencionada);
+    etiquetas.push(`de ${categoriaMencionada}`);
+  }
+
+  const esConsultaGeneral =
+    /\b(proxim\w*|por venir|siguiente\w*|que hay|que planes|que hacer|hoy|manana|finde|fin de semana|semana|actividad\w*|evento\w*|plan\w*)\b/.test(
+      q
+    );
+
+  if (etiquetas.length > 0) {
+    if (filtradas.length > 0) {
+      const lista = filtradas.slice(0, 4).map(formatearEventoLocal).join("\n");
+      return `Aquí tienes los planes ${etiquetas.join(" ")}:\n${lista}`;
+    }
+    return `No he encontrado actividades ${etiquetas.join(" ")} ahora mismo. Si quieres, te enseño los próximos planes en el resto de la comarca.`;
+  }
+
+  const stopwords = new Set([
+    "que",
+    "hay",
+    "para",
+    "por",
+    "con",
+    "los",
+    "las",
+    "unos",
+    "unas",
+    "este",
+    "esta",
+    "como",
+    "donde",
+    "cuando",
+    "hacer",
+    "planes",
+    "plan",
+    "venir",
+    "proximos",
+    "proximas",
+    "actividades",
+    "eventos",
+  ]);
+  const tokens = q.split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !stopwords.has(w));
+  if (tokens.length > 0) {
+    const coincidencias = base.filter((a) => {
+      const hay = normalizarTexto(`${a.nombre} ${a.pueblo} ${a.categoria} ${a.descripcion}`);
+      return tokens.some((tok) => hay.includes(tok));
+    });
+    if (coincidencias.length > 0) {
+      const lista = coincidencias.slice(0, 4).map(formatearEventoLocal).join("\n");
+      return `He encontrado estas actividades relacionadas:\n${lista}`;
+    }
+  }
+
+  if (esConsultaGeneral || proximas.length > 0) {
+    const lista = base.slice(0, 4).map(formatearEventoLocal).join("\n");
+    const encabezado =
+      proximas.length > 0
+        ? `Estos son los próximos planes disponibles (${proximas.length} en total):`
+        : "Ahora mismo no hay eventos futuros programados, pero estas son las actividades publicadas:";
+    return `${encabezado}\n${lista}\nPuedes pedirme que filtre por pueblo, categoría o planes gratis.`;
+  }
+
+  const pueblos = pueblosDisponibles.slice(0, 4);
+  return `Ahora mismo hay **${aprobadas.length} actividades** publicadas en la comarca (${pueblos.join(", ")}). Puedes preguntarme por un pueblo concreto, por planes gratis o por categoría.`;
 }
 
 const MENSAJE_BIENVENIDA = {
@@ -186,7 +287,7 @@ export default function EventsChatWidget() {
       const res = await fetch(N8N_CHAT_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(45000),
         body: JSON.stringify({
           message: texto,
           chatInput: texto,
@@ -207,12 +308,14 @@ export default function EventsChatWidget() {
         ...prev,
         { id: nextMsgId("b"), autor: "bot", texto: respuesta },
       ]);
-    } catch {
+    } catch (err) {
+      console.warn("[EventsChatWidget] Fallback local por error en webhook:", err?.message || err);
       setMensajes((prev) => [
         ...prev,
         {
           id: nextMsgId("b"),
           autor: "bot",
+          esFallback: true,
           texto: respuestaLocalActividades(texto, actividades),
         },
       ]);
@@ -278,6 +381,11 @@ export default function EventsChatWidget() {
                   }`}
                 >
                   <FormattedMessage text={m.texto} isUser={m.autor === "user"} />
+                  {m.esFallback && (
+                    <p className="mt-1.5 text-[10px] text-slate-400 font-medium">
+                      Respuesta local (asistente IA temporalmente no disponible)
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
