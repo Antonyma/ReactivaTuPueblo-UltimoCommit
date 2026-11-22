@@ -295,9 +295,10 @@ export class EventoService {
     if (huboCambioRelevante && env.n8n.notifyEventChangeUrl) {
       const inscritos = await this.eventoRepository.findInscritos(eventoId).catch(() => [])
       if (inscritos.length > 0) {
+        const fechaNotificar = actualizado?.fechaInicio || inicioEfectivo
         const detalle =
           camposLimpios.fechaInicio !== undefined
-            ? `Nuevo horario: ${new Date(inicioEfectivo).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}`
+            ? `Nuevo horario: ${new Date(fechaNotificar).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}`
             : 'Se han actualizado los detalles del evento.'
         notificarWebhookN8n(env.n8n.notifyEventChangeUrl, {
           eventoId: Number(eventoId),

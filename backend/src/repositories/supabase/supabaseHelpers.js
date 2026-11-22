@@ -79,6 +79,27 @@ export function escapeIlike(value) {
   return String(value ?? '').replace(/[\\%_]/g, '\\$&')
 }
 
+function parseNaiveMadridToDate(str) {
+  const m = str.trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/)
+  if (!m) return null
+  const [, y, mo, d, h, mi, s = '00'] = m
+  const utcGuess = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s))
+  const madridStr = utcGuess.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+  const m2 = madridStr.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/)
+  if (!m2) return utcGuess
+  const madridAsUtc = Date.UTC(+m2[1], +m2[2] - 1, +m2[3], +m2[4], +m2[5], +m2[6])
+  return new Date(utcGuess.getTime() - (madridAsUtc - utcGuess.getTime()))
+}
+
+function parseFechaConZonaMadrid(value) {
+  if (value instanceof Date) return value
+  const str = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
+    return parseNaiveMadridToDate(str) || new Date(str)
+  }
+  return new Date(str)
+}
+
 /**
  * Convierte un valor de fecha a Date válido o null si no aplica.
  * @param {Date|string|null|undefined} value
@@ -86,7 +107,7 @@ export function escapeIlike(value) {
  */
 export function toDateOrNull(value) {
   if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
+  const date = parseFechaConZonaMadrid(value)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
@@ -97,7 +118,7 @@ export function toDateOrNull(value) {
  */
 export function toIsoString(value) {
   if (value === undefined || value === null || value === '') return undefined
-  const date = value instanceof Date ? value : new Date(value)
+  const date = parseFechaConZonaMadrid(value)
   if (Number.isNaN(date.getTime())) {
     throw AppError.badRequest(`Fecha inválida: ${value}`)
   }
