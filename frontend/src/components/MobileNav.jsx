@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import { useApp } from "../context/useApp.js";
-import { IconCalendar, IconCheck, IconMap, IconUser } from "./Icons.jsx";
+import { IconCalendar, IconCheck, IconMap, IconMessage, IconUser } from "./Icons.jsx";
 
 export default function MobileNav() {
   const { setModalLogin, usuario } = useApp();
   const [tabActivo, setTabActivo] = useState("planes");
+  const mostrarChat = usuario?.tipoUsuario !== "MODERADOR";
 
   const handleTabClick = (tab) => {
+    if (tab === "chat") {
+      window.dispatchEvent(new CustomEvent("pueblovivo:toggle-chat"));
+      return;
+    }
     if (tab === "cuenta") {
       setModalLogin({
         open: true,
@@ -30,12 +35,14 @@ export default function MobileNav() {
   return (
     <nav
       id="nav-inferior-movil"
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 text-white border-t border-blue-800 grid grid-cols-4 shadow-2xl"
+      className={`md:hidden fixed bottom-0 inset-x-0 z-40 text-white border-t border-blue-800 grid ${
+        mostrarChat ? "grid-cols-5" : "grid-cols-4"
+      } shadow-2xl`}
     >
       <button
         type="button"
         onClick={() => handleTabClick("planes")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
           tabActivo === "planes" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
@@ -46,7 +53,7 @@ export default function MobileNav() {
       <button
         type="button"
         onClick={() => handleTabClick("mapa")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
           tabActivo === "mapa" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
@@ -57,7 +64,7 @@ export default function MobileNav() {
       <button
         type="button"
         onClick={() => handleTabClick("misplanes")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
           tabActivo === "misplanes" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >
@@ -65,10 +72,21 @@ export default function MobileNav() {
         <span>Mis Planes</span>
       </button>
 
+      {mostrarChat && (
+        <button
+          type="button"
+          onClick={() => handleTabClick("chat")}
+          className="btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] text-amber-300 font-black"
+        >
+          <IconMessage className="w-5 h-5" />
+          <span>Guía IA</span>
+        </button>
+      )}
+
       <button
         type="button"
         onClick={() => handleTabClick("cuenta")}
-        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-xs ${
+        className={`btn-movil-nav py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] ${
           tabActivo === "cuenta" ? "text-amber-300 font-black" : "text-blue-100 font-bold"
         }`}
       >

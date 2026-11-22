@@ -243,6 +243,12 @@ export default function EventsChatWidget() {
   }, [mensajes, abierto]);
 
   useEffect(() => {
+    const onToggleChat = () => setAbierto((prev) => !prev);
+    window.addEventListener("pueblovivo:toggle-chat", onToggleChat);
+    return () => window.removeEventListener("pueblovivo:toggle-chat", onToggleChat);
+  }, []);
+
+  useEffect(() => {
     if (!abierto) return;
     const onKeyDown = (e) => {
       if (e.key === "Escape") setAbierto(false);
@@ -354,12 +360,18 @@ export default function EventsChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 flex flex-col items-end gap-3">
+    <div
+      className={
+        abierto
+          ? "fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 flex flex-col sm:items-end sm:gap-3"
+          : "fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex flex-col items-end gap-3"
+      }
+    >
       {abierto && (
         <div
           role="dialog"
           aria-label="Asistente de eventos"
-          className="w-[calc(100vw-2rem)] sm:w-96 max-h-[75vh] bg-white rounded-3xl shadow-2xl border-2 border-blue-700 flex flex-col overflow-hidden"
+          className="w-full h-full sm:w-96 sm:h-auto sm:max-h-[75vh] bg-white sm:rounded-3xl shadow-2xl sm:border-2 sm:border-blue-700 flex flex-col overflow-hidden"
         >
           <div className="bg-blue-950 text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
             <div className="inline-flex items-center gap-2 min-w-0">
@@ -471,7 +483,9 @@ export default function EventsChatWidget() {
         onClick={() => setAbierto((prev) => !prev)}
         aria-expanded={abierto}
         aria-label={abierto ? "Cerrar asistente de eventos" : "Abrir asistente de eventos"}
-        className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3.5 rounded-full shadow-lg border-2 border-white transition"
+        className={`${
+          abierto ? "hidden sm:inline-flex" : "hidden md:inline-flex"
+        } items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3.5 rounded-full shadow-lg border-2 border-white transition`}
       >
         <IconMessage className="w-5 h-5 shrink-0" />
         <span className="text-sm">{abierto ? "Cerrar" : "Preguntar"}</span>
