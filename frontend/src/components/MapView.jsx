@@ -11,6 +11,7 @@ import { IconMap, IconTarget } from "./Icons.jsx";
 export default function MapView() {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const capaPueblosRef = useRef(null);
   const capaMarcadoresRef = useRef(null);
 
   const { actividades, puebloActivo, letraGrande, municipiosMap } = useApp();
@@ -48,19 +49,8 @@ export default function MapView() {
     const capaPueblos = L.layerGroup().addTo(map);
     const capaMarcadores = L.layerGroup().addTo(map);
 
-    Object.entries(municipiosMancomunidad).forEach(([nombre, coords]) => {
-      const icon = L.divIcon({
-        className: "",
-        html: `<div class="pin-pueblo-base"></div>`,
-        iconSize: [11, 11],
-        iconAnchor: [5, 5],
-      });
-      L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
-    });
-
-    map.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
-
     mapInstanceRef.current = map;
+    capaPueblosRef.current = capaPueblos;
     capaMarcadoresRef.current = capaMarcadores;
 
     return () => {
@@ -70,6 +60,24 @@ export default function MapView() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || !capaPueblosRef.current || typeof window.L === "undefined") {
+      return;
+    }
+    const L = window.L;
+    const capaPueblos = capaPueblosRef.current;
+    capaPueblos.clearLayers();
+    Object.entries(municipiosMap).forEach(([nombre, coords]) => {
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="pin-pueblo-base"></div>`,
+        iconSize: [11, 11],
+        iconAnchor: [5, 5],
+      });
+      L.marker(coords, { icon }).addTo(capaPueblos).bindTooltip(nombre);
+    });
+  }, [municipiosMap]);
 
   // Redimensionar suavemente si cambia el modo de accesibilidad (letra grande)
   useEffect(() => {
@@ -139,11 +147,13 @@ export default function MapView() {
     const L = window.L;
 
     if (puebloActivo === "Todos") {
-      map.fitBounds(L.latLngBounds(Object.values(municipiosMancomunidad)), { padding: [20, 20] });
+      map.fitBounds(L.latLngBounds(Object.values(municipiosMap)), { padding: [20, 20] });
+    } else if (municipiosMap[puebloActivo]) {
+      map.setView(municipiosMap[puebloActivo], 14);
     } else if (coordsPueblos[puebloActivo]) {
       map.setView(coordsPueblos[puebloActivo].center, coordsPueblos[puebloActivo].zoom);
     }
-  }, [puebloActivo]);
+  }, [puebloActivo, municipiosMap]);
 
   const centrarTodos = () => {
     if (!mapInstanceRef.current || typeof window.L === "undefined") return;
