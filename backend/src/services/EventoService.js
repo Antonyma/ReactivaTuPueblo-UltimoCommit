@@ -288,7 +288,9 @@ export class EventoService {
       camposLimpios.fechaInicio !== undefined ||
       camposLimpios.fechaFin !== undefined ||
       camposLimpios.nombre !== undefined ||
-      camposLimpios.pueblo !== undefined
+      camposLimpios.pueblo !== undefined ||
+      camposLimpios.descripcion !== undefined ||
+      camposLimpios.aforo !== undefined
 
     if (huboCambioRelevante && env.n8n.notifyEventChangeUrl) {
       const inscritos = await this.eventoRepository.findInscritos(eventoId).catch(() => [])
