@@ -215,8 +215,7 @@ MUNICIPIOS: dict[str, dict[str, Any]] = {
             "https://www.lavozdealmeria.com/temas/uleila-del-campo/",
         ],
         "lavoz_tema": "https://www.lavozdealmeria.com/temas/uleila-del-campo/",
-        "facebook_url": "https://www.facebook.com/profile.php?id=100005289423529"
-        "facebook_url": "",
+        "facebook_url": "https://www.facebook.com/profile.php?id=100005289423529",
         "queries_eventos": [
             f'"Uleila del Campo" (fiestas OR programa OR "Santo Cristo" OR evento OR feria) {ANIO_ACTUAL}',
             f'"Uleila del Campo" ("festivo local" OR cultura OR deporte) {ANIO_ACTUAL}',

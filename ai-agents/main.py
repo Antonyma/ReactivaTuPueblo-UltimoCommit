@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Importamos los agentes desde la misma carpeta agents/
-from agents.scrapper import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
+from agents.extractor import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
 from agents.moderador import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma, moderar_eventos_batch
 from agents.imagenes_actividades import nemotron_classifier
 from agents.recommend import recomendar_a_vecinos, recommend_actividades
