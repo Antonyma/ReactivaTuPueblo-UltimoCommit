@@ -37,6 +37,16 @@ export class MockEventoRepository extends EventoRepository {
       result = result.filter((e) => e.negocio?.id === Number(filters.negocioId))
     }
 
+    if (filters.pueblo !== undefined && filters.pueblo !== '') {
+      const puebloLower = String(filters.pueblo).trim().toLowerCase()
+      result = result.filter((e) => String(e.pueblo || '').toLowerCase() === puebloLower)
+    }
+
+    if (filters.estado !== undefined && filters.estado !== '') {
+      const estadoLower = String(filters.estado).trim().toLowerCase()
+      result = result.filter((e) => String(e.estado || '').toLowerCase() === estadoLower)
+    }
+
     return result
   }
 
@@ -109,6 +119,21 @@ export class MockEventoRepository extends EventoRepository {
     this.store.inscripciones.push(inscripcion)
     evento.asistentes += 1
     return inscripcion
+  }
+
+  async desinscribirUsuario(eventoId, usuarioId) {
+    const eId = Number(eventoId)
+    const uId = Number(usuarioId)
+    const idx = this.store.inscripciones.findIndex(
+      (i) => i.eventoId === eId && i.usuarioId === uId
+    )
+    if (idx === -1) return false
+    this.store.inscripciones.splice(idx, 1)
+    const evento = await this.findById(eId)
+    if (evento) {
+      evento.asistentes = Math.max(0, evento.asistentes - 1)
+    }
+    return true
   }
 
   async findInscritos(eventoId) {

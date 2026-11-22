@@ -6,8 +6,16 @@ import { USUARIOS } from '../models/index.js'
 export function createUsuarioRoutes(usuarioController, { requireAuth }) {
   const router = Router()
 
+  router.get(
+    '/admins',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    usuarioController.listarAdmins
+  )
+
   router.post(
     '/:id/solicitar-publicador',
+    requireAuth,
     validateIntParam('id'),
     usuarioController.solicitarPublicador
   )
@@ -15,7 +23,7 @@ export function createUsuarioRoutes(usuarioController, { requireAuth }) {
   router.get(
     '/:id/historial',
     requireAuth,
-    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR),
+    requireRole(USUARIOS.REGISTRADO, USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
     validateIntParam('id'),
     usuarioController.obtenerHistorial
   )

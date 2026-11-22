@@ -1,9 +1,8 @@
-import { AppError } from '../../middlewares/errorHandler.js'
 import { Valoracion } from '../../models/index.js'
 import { ValoracionRepository } from '../contracts/ValoracionRepository.js'
 import { EVENTO_SCHEMA } from './SupabaseEventoRepository.js'
 import { USUARIO_SCHEMA, mapUsuarioFromRow } from './SupabaseUsuarioRepository.js'
-import { toDateOrNull, unwrapSupabaseResult } from './supabaseHelpers.js'
+import { assertPositiveInt, toDateOrNull, unwrapSupabaseResult } from './supabaseHelpers.js'
 
 /**
  * Mapeo centralizado de tabla y columnas en Supabase para `public.valoraciones`.
@@ -65,10 +64,7 @@ export class SupabaseValoracionRepository extends ValoracionRepository {
   }
 
   async findById(id) {
-    const numericId = Number(id)
-    if (!Number.isInteger(numericId) || numericId <= 0) {
-      throw AppError.badRequest('El id de valoración debe ser un entero positivo')
-    }
+    const numericId = assertPositiveInt(id, 'valoración')
 
     const result = await this.client
       .from(VALORACION_SCHEMA.table)
@@ -81,10 +77,7 @@ export class SupabaseValoracionRepository extends ValoracionRepository {
   }
 
   async findByEventoId(eventoId) {
-    const numericEventoId = Number(eventoId)
-    if (!Number.isInteger(numericEventoId) || numericEventoId <= 0) {
-      throw AppError.badRequest('El id de evento debe ser un entero positivo')
-    }
+    const numericEventoId = assertPositiveInt(eventoId, 'evento')
 
     const result = await this.client
       .from(VALORACION_SCHEMA.table)
@@ -93,6 +86,20 @@ export class SupabaseValoracionRepository extends ValoracionRepository {
       .order(VALORACION_SCHEMA.columns.fecha, { ascending: false })
 
     const rows = unwrapSupabaseResult(result, 'Error al listar valoraciones del evento') || []
+    return rows.map(mapValoracionFromRow)
+  }
+
+  async findByEventoIds(eventoIds) {
+    const ids = [...new Set((eventoIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+    if (ids.length === 0) return []
+
+    const result = await this.client
+      .from(VALORACION_SCHEMA.table)
+      .select(VALORACION_SELECT)
+      .in(VALORACION_SCHEMA.columns.eventoId, ids)
+      .order(VALORACION_SCHEMA.columns.fecha, { ascending: false })
+
+    const rows = unwrapSupabaseResult(result, 'Error al listar valoraciones por eventos') || []
     return rows.map(mapValoracionFromRow)
   }
 
@@ -130,10 +137,7 @@ export class SupabaseValoracionRepository extends ValoracionRepository {
   }
 
   async delete(id) {
-    const numericId = Number(id)
-    if (!Number.isInteger(numericId) || numericId <= 0) {
-      throw AppError.badRequest('El id de valoración debe ser un entero positivo')
-    }
+    const numericId = assertPositiveInt(id, 'valoración')
 
     const result = await this.client
       .from(VALORACION_SCHEMA.table)

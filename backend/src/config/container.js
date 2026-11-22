@@ -33,6 +33,7 @@ function buildRepositories() {
   if (env.dataSource === 'supabase') {
     const supabaseClient = createSupabaseClient()
     return {
+      supabaseClient,
       usuarioRepository: new SupabaseUsuarioRepository(supabaseClient),
       negocioRepository: new SupabaseNegocioRepository(supabaseClient),
       eventoRepository: new SupabaseEventoRepository(supabaseClient),
@@ -44,6 +45,7 @@ function buildRepositories() {
   if (env.dataSource === 'mock') {
     const mockStore = createInitialMockStore()
     return {
+      supabaseClient: null,
       usuarioRepository: new MockUsuarioRepository(mockStore),
       negocioRepository: new MockNegocioRepository(mockStore),
       eventoRepository: new MockEventoRepository(mockStore),
@@ -61,21 +63,37 @@ function buildRepositories() {
  * Composition Root (DIP): ensambla repositorios -> servicios -> controladores -> middlewares.
  */
 export function createContainer() {
-  const repositories = buildRepositories()
+  const { supabaseClient, ...repositories } = buildRepositories()
 
-  const authService = new AuthService(repositories)
-  const usuarioService = new UsuarioService(repositories)
-  const negocioService = new NegocioService(repositories)
-  const eventoService = new EventoService(repositories)
-  const valoracionService = new ValoracionService(repositories)
-  const imagenService = new ImagenService(repositories)
-  const iaService = new IaService(repositories)
-  const whatsappService = new WhatsappService({ ...repositories, iaService })
+  const {
+    usuarioRepository,
+    negocioRepository,
+    eventoRepository,
+    valoracionRepository,
+    imagenRepository,
+  } = repositories
+
+  const authService = new AuthService({ usuarioRepository })
+  const usuarioService = new UsuarioService({ usuarioRepository, eventoRepository })
+  const negocioService = new NegocioService({ negocioRepository })
+  const eventoService = new EventoService({
+    eventoRepository,
+    negocioRepository,
+    valoracionRepository,
+  })
+  const valoracionService = new ValoracionService({ valoracionRepository, eventoRepository })
+  const imagenService = new ImagenService({ imagenRepository, eventoRepository })
+  const iaService = new IaService({ eventoRepository, usuarioRepository })
+  const whatsappService = new WhatsappService({
+    usuarioRepository,
+    eventoRepository,
+    iaService,
+  })
 
   const controllers = {
     authController: new AuthController({ authService }),
     usuarioController: new UsuarioController({ usuarioService }),
-    negocioController: new NegocioController({ negocioService }),
+    negocioController: new NegocioController({ negocioService, valoracionService }),
     eventoController: new EventoController({ eventoService }),
     valoracionController: new ValoracionController({ valoracionService }),
     imagenController: new ImagenController({ imagenService }),
@@ -84,8 +102,8 @@ export function createContainer() {
   }
 
   const middlewares = {
-    requireAuth: createAuthMiddleware(repositories.usuarioRepository),
-    optionalAuth: createOptionalAuthMiddleware(repositories.usuarioRepository),
+    requireAuth: createAuthMiddleware(repositories.usuarioRepository, supabaseClient),
+    optionalAuth: createOptionalAuthMiddleware(repositories.usuarioRepository, supabaseClient),
   }
 
   return {

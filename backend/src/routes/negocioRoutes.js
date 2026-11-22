@@ -9,6 +9,7 @@ export function createNegocioRoutes(negocioController, { requireAuth }) {
   // Rutas públicas
   router.get('/', negocioController.listar)
   router.get('/:id', validateIntParam('id'), negocioController.obtenerPorId)
+  router.get('/:id/valoraciones', validateIntParam('id'), negocioController.listarValoraciones)
 
   // Rutas de publicador (CRUD completo y redes sociales)
   router.post(
@@ -38,6 +39,22 @@ export function createNegocioRoutes(negocioController, { requireAuth }) {
     requireRole(USUARIOS.PUBLICADOR),
     validateIntParam('id'),
     negocioController.actualizarRedes
+  )
+
+  // Rutas de moderador (confirmar / denegar comercios)
+  router.patch(
+    '/:id/aprobar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    negocioController.aprobar
+  )
+  router.patch(
+    '/:id/denegar',
+    requireAuth,
+    requireRole(USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    negocioController.denegar
   )
 
   return router

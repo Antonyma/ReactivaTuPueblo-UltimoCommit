@@ -20,11 +20,24 @@ export class MockUsuarioRepository extends UsuarioRepository {
     return this.store.usuarios.find((u) => u.email.toLowerCase() === normalized) || null
   }
 
+  async findByNombre(nombre) {
+    const normalized = String(nombre).toLowerCase().trim()
+    return this.store.usuarios.find((u) => u.nombre.toLowerCase() === normalized) || null
+  }
+
+  async findByAuthId(_authId) {
+    return null
+  }
+
   async findByTelefono(telefono) {
     const normalized = String(telefono).replace(/\s+/g, '')
     return (
       this.store.usuarios.find((u) => u.telefono.replace(/\s+/g, '') === normalized) || null
     )
+  }
+
+  async findByTipoUsuario(tipoUsuario) {
+    return this.store.usuarios.filter((u) => u.tipoUsuario === tipoUsuario)
   }
 
   async create(data) {
@@ -70,13 +83,27 @@ export class MockUsuarioRepository extends UsuarioRepository {
     return true
   }
 
-  async verifyCredentials(email, password) {
-    const normalized = String(email).toLowerCase().trim()
-    const storedPassword = this.store.credenciales.get(normalized)
-    if (!storedPassword || storedPassword !== password) {
-      return null
+  async registerWithAuth({ nombre, email, telefono, password, tipoUsuario }) {
+    const usuario = await this.create({ nombre, email, telefono, password, tipoUsuario })
+    return {
+      usuario,
+      token: `mock_token:${usuario.id}:${usuario.tipoUsuario}`,
     }
-    return this.findByEmail(normalized)
+  }
+
+  async loginWithNombre(nombre, password) {
+    const cleanInput = String(nombre || '').trim()
+    let usuario = await this.findByNombre(cleanInput)
+    if (!usuario && cleanInput.includes('@')) {
+      usuario = await this.findByEmail(cleanInput)
+    }
+    if (!usuario) return null
+    const storedPassword = this.store.credenciales.get(usuario.email.toLowerCase())
+    if (!storedPassword || storedPassword !== password) return null
+    return {
+      usuario,
+      token: `mock_token:${usuario.id}:${usuario.tipoUsuario}`,
+    }
   }
 
   async solicitarPublicador(usuarioId, motivo) {

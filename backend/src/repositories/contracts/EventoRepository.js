@@ -5,6 +5,10 @@ export class EventoRepository extends BaseRepository {
     throw new Error('Método inscribirUsuario() no implementado')
   }
 
+  async desinscribirUsuario(_eventoId, _usuarioId) {
+    throw new Error('Método desinscribirUsuario() no implementado')
+  }
+
   async isUsuarioInscrito(_eventoId, _usuarioId) {
     throw new Error('Método isUsuarioInscrito() no implementado')
   }

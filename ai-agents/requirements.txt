@@ -13,3 +13,12 @@ ddgs
 apify-client 
 scrapegraphai
 tzdata
+fastapi>=0.115.0
+uvicorn>=0.30.0
+google-genai>=1.0.0
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+requests>=2.32.0
+beautifulsoup4>=4.12.0
+lxml>=5.2.0
+Pillow>=10.3.0

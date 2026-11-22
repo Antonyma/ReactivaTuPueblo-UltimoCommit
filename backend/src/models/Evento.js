@@ -27,6 +27,9 @@ export class Evento {
     imagen = '',
     fechaInicio,
     fechaFin,
+    pueblo = '',
+    estado = 'pendiente',
+    motivo = '',
   }) {
     this.id = Number(id)
     this.nombre = String(nombre)
@@ -40,6 +43,9 @@ export class Evento {
     this.imagen = String(imagen)
     this.fechaInicio = fechaInicio instanceof Date ? fechaInicio : new Date(fechaInicio)
     this.fechaFin = fechaFin instanceof Date ? fechaFin : new Date(fechaFin)
+    this.pueblo = String(pueblo)
+    this.estado = String(estado || 'pendiente')
+    this.motivo = String(motivo || '')
   }
 }
 
