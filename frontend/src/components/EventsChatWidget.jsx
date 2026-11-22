@@ -120,7 +120,7 @@ function respuestaLocalActividades(pregunta, actividades) {
 
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|saludos)\b/.test(q)) {
     const pueblos = [...new Set(base.map((a) => a.pueblo).filter(Boolean))].slice(0, 4);
-    return `¡Hola! Ahora mismo tengo **${proximas.length} próximos planes** en la comarca (${pueblos.join(", ")}). Pregúntame por próximos eventos, planes gratis o un pueblo concreto y te los enseño.`;
+    return `¡Hola! Ahora mismo tengo **${proximas.length} próximos planes** en la Mancomunidad de Pueblos del Interior de Almería (${pueblos.join(", ")}). Pregúntame por próximos eventos, planes gratis o un pueblo concreto y te los enseño.`;
   }
 
   let filtradas = base;
@@ -158,7 +158,7 @@ function respuestaLocalActividades(pregunta, actividades) {
       const lista = filtradas.slice(0, 4).map(formatearEventoLocal).join("\n");
       return `Aquí tienes los planes ${etiquetas.join(" ")}:\n${lista}`;
     }
-    return `No he encontrado actividades ${etiquetas.join(" ")} ahora mismo. Si quieres, te enseño los próximos planes en el resto de la comarca.`;
+    return `No he encontrado actividades ${etiquetas.join(" ")} ahora mismo. Si quieres, te enseño los próximos planes en el resto de la mancomunidad.`;
   }
 
   const stopwords = new Set([
@@ -207,14 +207,14 @@ function respuestaLocalActividades(pregunta, actividades) {
   }
 
   const pueblos = pueblosDisponibles.slice(0, 4);
-  return `Ahora mismo hay **${aprobadas.length} actividades** publicadas en la comarca (${pueblos.join(", ")}). Puedes preguntarme por un pueblo concreto, por planes gratis o por categoría.`;
+  return `Ahora mismo hay **${aprobadas.length} actividades** publicadas en la Mancomunidad de Pueblos del Interior de Almería (${pueblos.join(", ")}). Puedes preguntarme por un pueblo concreto, por planes gratis o por categoría.`;
 }
 
 const MENSAJE_BIENVENIDA = {
   id: "welcome",
   autor: "bot",
   texto:
-    "¡Hola! Soy el **Guía de Pueblos**. Pregúntame por planes próximos, horarios, plazas libres o qué hacer en cualquier pueblo de la comarca.",
+    "¡Hola! Soy el **Guía de Pueblos**. Pregúntame por planes próximos, horarios, plazas libres o qué hacer en cualquier pueblo de la Mancomunidad de Pueblos del Interior de Almería.",
 };
 
 export default function EventsChatWidget() {
