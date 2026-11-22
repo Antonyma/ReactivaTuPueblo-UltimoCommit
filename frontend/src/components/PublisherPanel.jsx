@@ -65,6 +65,7 @@ export default function PublisherPanel() {
     crearNegocio,
     actualizarNegocio,
     eliminarNegocio,
+    escanearRedesNegocio,
     eliminarEvento,
     terminarEvento,
     setModalCambiarHora,
@@ -112,6 +113,8 @@ export default function PublisherPanel() {
   const [editWeb, setEditWeb] = useState("");
   const [editCoords, setEditCoords] = useState(null);
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [escaneandoRedes, setEscaneandoRedes] = useState(false);
+  const [resultadoEscaneo, setResultadoEscaneo] = useState(null);
 
   // Modal selector de ubicación en el mapa ('evento' | 'negocio' | 'editarNegocio')
   const [locationModal, setLocationModal] = useState({ open: false, target: null });
@@ -728,6 +731,49 @@ export default function PublisherPanel() {
             </div>
           </form>
 
+          {/* Escaneo bajo demanda de redes sociales con IA */}
+          {!negocioDetalle.pendiente && !negocioDetalle.pendienteSync && (
+            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-black text-sm text-emerald-950">
+                  Detección automática de eventos en tus redes sociales
+                </p>
+                <p className="text-xs text-stone-700 mt-0.5">
+                  Busca ofertas o eventos nuevos en tus perfiles públicos y te avisa por WhatsApp / Telegram para confirmarlos antes de publicar.
+                </p>
+                {resultadoEscaneo && (
+                  <p className="text-xs font-bold text-emerald-800 mt-1.5">
+                    {resultadoEscaneo.mensaje}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={
+                  escaneandoRedes ||
+                  !(editInstagram || editFacebook || editTwitter || editWeb)
+                }
+                onClick={async () => {
+                  setEscaneandoRedes(true);
+                  setResultadoEscaneo(null);
+                  try {
+                    const res = await escanearRedesNegocio(negocioDetalle.nombre);
+                    if (res) setResultadoEscaneo(res);
+                  } catch {
+                    // toast ya mostrado en AppContext
+                  } finally {
+                    setEscaneandoRedes(false);
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-black px-4 py-2.5 rounded-xl text-xs shadow shrink-0"
+              >
+                <span>
+                  {escaneandoRedes ? "Buscando con IA..." : "Buscar eventos en mis redes"}
+                </span>
+              </button>
+            </div>
+          )}
+
           {/* Estadísticas de inscripciones por categoría */}
           <BusinessStatsChart eventos={eventosDelNegocio} />
 
@@ -759,10 +805,20 @@ export default function PublisherPanel() {
                                 ? "bg-emerald-100 text-emerald-900"
                                 : act.estadoModeracion === "denegada"
                                   ? "bg-red-100 text-red-900"
-                                  : "bg-amber-200 text-amber-950"
+                                  : act.estadoModeracion === "descartada"
+                                    ? "bg-stone-200 text-stone-700"
+                                    : act.estadoModeracion === "pendiente_confirmacion"
+                                      ? "bg-indigo-100 text-indigo-900"
+                                      : "bg-amber-200 text-amber-950"
                           }`}
                         >
-                          {act.pendienteSync ? "⏳ En cola offline" : act.estadoModeracion}
+                          {act.pendienteSync
+                            ? "⏳ En cola offline"
+                            : act.estadoModeracion === "pendiente_confirmacion"
+                              ? "📱 Confirma por WhatsApp/Telegram"
+                              : act.estadoModeracion === "descartada"
+                                ? "Descartada"
+                                : act.estadoModeracion}
                         </span>
                       </div>
                       <p className="text-xs text-stone-600 flex flex-wrap items-center gap-2">

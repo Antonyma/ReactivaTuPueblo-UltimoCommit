@@ -1,7 +1,8 @@
 export class NegocioController {
-  constructor({ negocioService, valoracionService }) {
+  constructor({ negocioService, valoracionService, socialScraperService = null }) {
     this.negocioService = negocioService
     this.valoracionService = valoracionService
+    this.socialScraperService = socialScraperService
   }
 
   listar = async (req, res) => {
@@ -85,6 +86,28 @@ export class NegocioController {
     res.status(200).json({
       ok: true,
       message: 'Comercio denegado y eliminado',
+      data: result,
+    })
+  }
+
+  escanearRedes = async (req, res) => {
+    const result = await this.socialScraperService.escanearNegocio(req.params.id, {
+      user: req.user,
+      esSistema: false,
+      opciones: req.body || {},
+    })
+    res.status(200).json({
+      ok: true,
+      message: result.mensaje,
+      data: result,
+    })
+  }
+
+  escanearTodasLasRedes = async (_req, res) => {
+    const result = await this.socialScraperService.escanearTodosLosNegocios()
+    res.status(200).json({
+      ok: true,
+      message: `Escaneo completado: ${result.totalEventosCreados} evento(s) nuevo(s) en ${result.negociosEvaluados} negocio(s).`,
       data: result,
     })
   }

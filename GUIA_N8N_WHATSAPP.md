@@ -5,15 +5,16 @@ Backend en Render: `https://pueblovivo-backend.onrender.com`
 
 ---
 
-## 1. Estado actual de los 5 workflows
+## 1. Estado actual de los 6 workflows
 
 | Workflow | ID | Estado actual | Qué hace |
 |---|---|---|---|
 | **A - Website AI Event Chatbot** | `p98BQtHfzfUx9eOe` | ✅ **Publicado y operativo** | Chat web completo contra la API de Render (10 municipios oficiales, sesión JWT, inscripciones, valoraciones y publicación/edición de eventos). |
-| **B - WhatsApp AI Event Assistant** | `Q4WRfOjNs32Kl7kJ` | ⏸️ En borrador | Asistente IA de PuebloVivo por WhatsApp. Listo para publicar en cuanto funcione una cuenta de WhatsApp Cloud API. |
+| **B - WhatsApp AI Event Assistant** | `Q4WRfOjNs32Kl7kJ` | ⏸️ En borrador | Asistente IA de PuebloVivo por WhatsApp + confirmación **SÍ / NO** de eventos detectados en redes sociales (`list_pending_confirmations`, `confirm_scraped_event`, `reject_scraped_event`). Listo para publicar cuando haya cuenta de WhatsApp Cloud API activa. |
 | **C - Event Database Management** | `oIBFgbnXaHoElFab` | ⏸️ Sin usar (opcional) | Plantilla antigua redundante con tu propia app. **No hace falta publicarlo.** |
-| **D - Event Participants & Notifications** | `GO9Ks4Oe0a7UKoGA` | ⏸️ En borrador | Dos webhooks de WhatsApp: aviso a inscritos por cambios/cancelaciones y aviso a comercios desde tus scrapers o moderación. |
-| **E - Telegram AI Event Assistant** | `j4uOWp8kHj2a1e5u` | ⏸️ En borrador | Bot de Telegram arreglado y validado. Solo necesita credencial de `@BotFather` si algún día quieres activarlo. |
+| **D - Event Participants & Notifications** | `GO9Ks4Oe0a7UKoGA` | ⏸️ En borrador | Dos webhooks de notificación: aviso a inscritos por cambios/cancelaciones y aviso a comercios por WhatsApp/Telegram (moderación y solicitud de confirmación **SÍ / NO** para eventos detectados en RRSS). |
+| **E - Telegram AI Event Assistant** | `j4uOWp8kHj2a1e5u` | ⏸️ En borrador | Bot de Telegram con confirmación **SÍ / NO** de eventos scrapeados. Solo necesita credencial de `@BotFather` para activarlo. |
+| **F - Scheduled Business Social Scraper** | `GC7LIncla9n8Mi1j` | ⏸️ En borrador | Cron cada 6 horas (`Europe/Madrid`) que llama a `POST /api/negocios/escanear-redes` para detectar ofertas/eventos nuevos en perfiles públicos de los negocios. |
 
 ---
 
@@ -114,10 +115,66 @@ requests.post(
 
 ---
 
-## 6. Checklist rápido antes de la demo
+## 6. Pendiente para activar el Scraping de Redes Sociales + Confirmación (WhatsApp / Telegram)
+
+La lógica en `ai-agents`, `backend`, `frontend` y los workflows de n8n ya está implementada. Solo quedan estos pasos de configuración/credenciales:
+
+### A) Despliegue y variables de entorno (Render + Vercel)
+1. Haz `git add . && git commit -m "feat: scraping gratuito RRSS y confirmacion WhatsApp/Telegram" && git push` para desplegar los últimos cambios en **Render** y **Vercel**.
+2. En **Render (`pueblovivo-backend`) → Environment**, verifica que existan:
+   ```env
+   N8N_NOTIFY_BUSINESS_URL=https://hktn.app.n8n.cloud/webhook/pueblos-notify-business
+   AI_AGENTS_URL=https://pueblovivo-ai-agents.onrender.com
+   WHATSAPP_VERIFY_TOKEN=dev_whatsapp_token
+   ```
+   *(Si defines `AI_AGENTS_API_KEY` en ambos servicios de Render, úsala también en el Paso B de abajo; si no la defines, el cron acepta `WHATSAPP_VERIFY_TOKEN`.)*
+3. En **Render (`pueblovivo-ai-agents`) → Environment**, comprueba que haya **al menos una API key gratuita** configurada (el router rota automáticamente entre ellas si alguna llega a límite de cuota):
+   - `GEMINI_API_KEY` (Google AI Studio — `gemini-2.5-flash` / `gemini-2.5-flash-lite`)
+   - `NVIDIA_API_KEY` (NVIDIA NIM — `meta/llama-3.3-70b-instruct`)
+   - `OPENROUTER_API_KEY` (OpenRouter Free — `openrouter/free`)
+
+### B) Configurar credencial y activar Workflow F (Cron cada 6h)
+1. Abre **n8n → Credentials → Add Credential → Custom Auth (`httpTemplatedCustomAuth`)** y nómbrala `PuebloVivo Scraper API Key`.
+2. Pega este JSON sustituyendo el valor por tu `AI_AGENTS_API_KEY` (o `dev_whatsapp_token` si no pusiste `AI_AGENTS_API_KEY`):
+   ```json
+   {
+     "headers": {
+       "X-API-Key": "dev_whatsapp_token"
+     }
+   }
+   ```
+3. Abre **`F - Scheduled Business Social Scraper`** (`GC7LIncla9n8Mi1j`) → nodo **`Scan Business Socials API`** → selecciona la credencial `PuebloVivo Scraper API Key` → **Save** y **Publish / Activate**.
+
+### C) Credenciales de WhatsApp y/o Telegram en n8n
+- **WhatsApp**: sigue los **Pasos 2 o 3** de arriba para asignar una cuenta de Meta sin error `131031` en:
+  - **`B - WhatsApp AI Event Assistant`** (`Q4WRfOjNs32Kl7kJ`) y publicar.
+  - **`D - Event Participants & Notifications`** (`GO9Ks4Oe0a7UKoGA`) y publicar.
+- **Telegram (opcional, si quieres usarlo junto a WhatsApp)**:
+  1. Crea un bot en Telegram hablando con `@BotFather` (`/newbot`) y copia el **Bot Token**.
+  2. En **n8n → Credentials → Add Credential → Telegram API**, pega el token.
+  3. Asigna esa credencial en:
+     - **`E - Telegram AI Event Assistant`** (`j4uOWp8kHj2a1e5u`): nodos `Telegram Message Received`, `Send Telegram Reply`, `Send Fallback Message`, `Send Text-Only Notice` → **Save** y **Publish / Activate**.
+     - **`D - Event Participants & Notifications`** (`GO9Ks4Oe0a7UKoGA`): nodo `Send Business Telegram` → **Save** y **Publish / Activate**.
+- **Nota si cambias `WHATSAPP_VERIFY_TOKEN` en producción**: actualiza la cabecera `x-whatsapp-token` en los nodos `list_pending_confirmations`, `confirm_scraped_event` y `reject_scraped_event` de los workflows **B** y **E**.
+
+### D) Comprobación opcional en Supabase (solo si `evento.estado` es un ENUM)
+Si en tu tabla `public.evento` la columna `estado` es de tipo `text`, no necesitas hacer nada. Si te diera un error de Postgres tipo `invalid input value for enum ...`, ejecuta en el **SQL Editor de Supabase**:
+```sql
+ALTER TYPE estado_evento ADD VALUE IF NOT EXISTS 'pendiente_confirmacion';
+ALTER TYPE estado_evento ADD VALUE IF NOT EXISTS 'descartada';
+```
+
+---
+
+## 7. Checklist rápido antes de la demo
 
 - [ ] **Chat Web (Workflow A)**: preguntar *"¿Qué planes próximos hay?"*, *"¿A qué planes estoy apuntado?"* (logueado) y probar una inscripción con confirmación.
 - [ ] **Info de pueblos**: preguntar *"Cuéntame sobre Senés y cómo llegar"* (comprobar que ejecutaste el `GRANT SELECT` y el `DELETE` de los 4 pueblos fuera de la Mancomunidad en Supabase).
 - [ ] **WhatsApp Bot (Workflow B)**: enviar un mensaje desde tu móvil al número activo (tuyo o del compañero) y verificar respuesta en menos de 5 s.
 - [ ] **Notificaciones (Workflow D)**: lanzar una prueba al webhook `pueblos-notify-business` (desde el scraper o `curl`) y editar la hora de un evento con al menos 1 inscrito para comprobar que llega el WhatsApp.
+- [ ] **Scraping RRSS + Confirmación (Workflows B, D, E, F)**:
+  - Entrar como **Publicador** en un negocio con URLs públicas → pulsar **"Buscar eventos en mis redes"**.
+  - Comprobar que el evento nuevo aparece como *"Confirma por WhatsApp/Telegram"* (oculto al público) y que volver a pulsar el botón **no crea duplicados**.
+  - Responder **"SÍ"** en WhatsApp o Telegram → comprobar que pasa por moderación IA (`aprobada` o `pendiente` en `ModeratorPanel`).
+  - Probar a responder **"NO"** con otro evento → comprobar que pasa a `descartada` y no vuelve a sugerirse al re-escanear.
 

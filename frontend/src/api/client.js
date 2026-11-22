@@ -172,6 +172,11 @@ export const negociosApi = {
     apiFetch(`/negocios/${id}/denegar`, {
       method: 'PATCH',
     }),
+  escanearRedes: (id, payload = {}) =>
+    apiFetch(`/negocios/${id}/escanear-redes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   listarValoraciones: (id) => apiFetch(`/negocios/${id}/valoraciones`),
 }
 

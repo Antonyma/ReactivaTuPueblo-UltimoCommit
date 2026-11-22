@@ -23,6 +23,7 @@ import { EventoService } from '../services/EventoService.js'
 import { IaService } from '../services/IaService.js'
 import { ImagenService } from '../services/ImagenService.js'
 import { NegocioService } from '../services/NegocioService.js'
+import { SocialScraperService } from '../services/SocialScraperService.js'
 import { UsuarioService } from '../services/UsuarioService.js'
 import { ValoracionService } from '../services/ValoracionService.js'
 import { WhatsappService } from '../services/WhatsappService.js'
@@ -84,16 +85,26 @@ export function createContainer() {
   const valoracionService = new ValoracionService({ valoracionRepository, eventoRepository })
   const imagenService = new ImagenService({ imagenRepository, eventoRepository })
   const iaService = new IaService({ eventoRepository, usuarioRepository })
+  const socialScraperService = new SocialScraperService({
+    negocioRepository,
+    eventoRepository,
+  })
   const whatsappService = new WhatsappService({
     usuarioRepository,
     eventoRepository,
     iaService,
+    eventoService,
+    negocioRepository,
   })
 
   const controllers = {
     authController: new AuthController({ authService }),
     usuarioController: new UsuarioController({ usuarioService }),
-    negocioController: new NegocioController({ negocioService, valoracionService }),
+    negocioController: new NegocioController({
+      negocioService,
+      valoracionService,
+      socialScraperService,
+    }),
     eventoController: new EventoController({ eventoService }),
     valoracionController: new ValoracionController({ valoracionService }),
     imagenController: new ImagenController({ imagenService }),
@@ -116,6 +127,7 @@ export function createContainer() {
       valoracionService,
       imagenService,
       iaService,
+      socialScraperService,
       whatsappService,
     },
     controllers,

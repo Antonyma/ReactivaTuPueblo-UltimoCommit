@@ -916,6 +916,33 @@ export function AppProvider({ children }) {
     }
   };
 
+  const escanearRedesNegocio = async (nombreNegocio) => {
+    const info = cuentasNegocio[nombreNegocio];
+    if (!info?.id) return null;
+    if (!isOnlineRef.current) {
+      mostrarToast("Necesitas conexión a internet para escanear tus redes sociales.");
+      return null;
+    }
+    try {
+      const res = await negociosApi.escanearRedes(info.id);
+      const data = res?.data || {};
+      const nuevos = Array.isArray(data.eventosCreados) ? data.eventosCreados : [];
+      if (nuevos.length > 0) {
+        const mapeados = nuevos.map((ev) => mapEventoFromApi(ev));
+        setActividades((prev) => {
+          const ids = new Set(prev.map((a) => Number(a.id)));
+          const unicos = mapeados.filter((m) => !ids.has(Number(m.id)));
+          return [...unicos, ...prev];
+        });
+      }
+      mostrarToast(res?.message || data.mensaje || "Escaneo de redes completado.");
+      return data;
+    } catch (err) {
+      mostrarToast(`Error al escanear redes: ${err.message}`);
+      throw err;
+    }
+  };
+
   const aprobarActividad = async (id) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
@@ -1166,6 +1193,7 @@ export function AppProvider({ children }) {
       crearNegocio,
       actualizarNegocio,
       eliminarNegocio,
+      escanearRedesNegocio,
       aprobarNegocio,
       denegarNegocio,
       aprobarActividad,

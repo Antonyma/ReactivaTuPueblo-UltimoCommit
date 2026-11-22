@@ -28,5 +28,9 @@ export class EventoRepository extends BaseRepository {
   async confirmarPublicacionWhatsapp(_eventoId) {
     throw new Error('Método confirmarPublicacionWhatsapp() no implementado')
   }
+
+  async findByUrlPost(_urlPost) {
+    throw new Error('Método findByUrlPost() no implementado')
+  }
 }
 

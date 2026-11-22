@@ -453,6 +453,94 @@ export class EventoService {
     return actualizado
   }
 
+  /**
+   * Confirma un evento detectado en redes sociales tras la respuesta afirmativa del dueño
+   * por WhatsApp/Telegram y lo pasa por la moderación IA actual (`moderarEventoConIa`).
+   */
+  async confirmarEventoDetectado(eventoId) {
+    const evento = await this.obtenerEventoPorId(eventoId)
+    const estadoActual = String(evento.estado || '').toLowerCase()
+    if (estadoActual !== 'pendiente_confirmacion') {
+      return {
+        evento,
+        yaProcesado: true,
+        estadoFinal: estadoActual,
+        motivo: evento.motivo,
+      }
+    }
+
+    const negocio = evento.negocio?.id
+      ? (await this.negocioRepository.findById(evento.negocio.id)) || evento.negocio
+      : evento.negocio
+    const fiabilidad = Number(negocio?.fiabilidad ?? 0)
+    const esDeConfianza = fiabilidad >= 60
+
+    let estadoFinal = esDeConfianza ? 'aprobada' : 'pendiente'
+    let motivoFinal = esDeConfianza
+      ? 'Confirmada por el propietario · Pase directo por fiabilidad del negocio'
+      : 'Confirmada por el propietario · Pendiente de revisión por Moderador'
+
+    const resultadoIa = await moderarEventoConIa(
+      {
+        nombre: evento.nombre,
+        descripcion: evento.descripcion,
+        tipoEvento: evento.tipoEvento,
+        imagen: evento.imagen,
+      },
+      fiabilidad
+    )
+
+    if (resultadoIa) {
+      const decision = String(resultadoIa.decision || '').toLowerCase()
+      const estadoIa = String(resultadoIa.estado_moderacion || '').toUpperCase()
+      const requiereRevision =
+        Boolean(resultadoIa.requiere_revision_humana) ||
+        decision === 'pendiente' ||
+        estadoIa === 'PENDIENTE_MODERADOR'
+
+      if (requiereRevision) {
+        estadoFinal = 'pendiente'
+        motivoFinal = resultadoIa.motivo || 'Confirmada por propietario · Requiere revisión manual por Moderador'
+      } else if (typeof resultadoIa.aprobada === 'boolean') {
+        estadoFinal = resultadoIa.aprobada ? 'aprobada' : 'denegada'
+        motivoFinal =
+          resultadoIa.motivo ||
+          (resultadoIa.aprobada
+            ? 'Confirmada por propietario · Aprobada por Moderador IA'
+            : 'Rechazada por Moderador IA')
+      }
+    }
+
+    const actualizado = await this.eventoRepository.update(eventoId, {
+      estado: estadoFinal,
+      motivo: motivoFinal,
+    })
+
+    return {
+      evento: actualizado,
+      yaProcesado: false,
+      estadoFinal,
+      motivo: motivoFinal,
+    }
+  }
+
+  /**
+   * Descarta un evento detectado en redes sociales cuando el propietario responde NO.
+   * Se conserva la fila con su `url_post` para evitar volver a scrapearlo o notificarlo.
+   */
+  async rechazarEventoDetectado(eventoId) {
+    const evento = await this.obtenerEventoPorId(eventoId)
+    const actualizado = await this.eventoRepository.update(eventoId, {
+      estado: 'descartada',
+      motivo: 'Descartada por el propietario vía mensajería',
+    })
+    return {
+      evento: actualizado,
+      estadoFinal: 'descartada',
+      motivo: 'Descartada por el propietario vía mensajería',
+    }
+  }
+
   async obtenerInscritos(eventoId, propietarioId) {
     const evento = await this.obtenerEventoPorId(eventoId)
     if (evento.negocio?.propietario?.id !== Number(propietarioId)) {

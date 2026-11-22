@@ -54,6 +54,12 @@ export class MockEventoRepository extends EventoRepository {
     return this.store.eventos.find((e) => e.id === Number(id)) || null
   }
 
+  async findByUrlPost(urlPost) {
+    const clean = String(urlPost || '').trim()
+    if (!clean) return null
+    return this.store.eventos.find((e) => String(e.urlPost || '').trim() === clean) || null
+  }
+
   async create(data) {
     const nextId =
       this.store.eventos.length > 0

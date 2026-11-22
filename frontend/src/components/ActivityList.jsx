@@ -27,7 +27,13 @@ export default function ActivityList() {
   const listaBase = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
     return actividades.filter((a) => {
-      if (a.estadoModeracion === "denegada") return false;
+      if (
+        a.estadoModeracion === "denegada" ||
+        a.estadoModeracion === "descartada" ||
+        a.estadoModeracion === "pendiente_confirmacion"
+      ) {
+        return false;
+      }
       if (a.estadoModeracion === "pendiente" && !esPublicador) return false;
       if (puebloActivo !== "Todos" && a.pueblo !== puebloActivo) return false;
       if (categoriaActiva !== "Todas" && a.categoria !== categoriaActiva) return false;

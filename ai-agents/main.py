@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 # Importamos los agentes desde la misma carpeta agents/
 from agents.extractor import extraer_evento, get_imagen, municipio_canonico, a_fila_evento, Supabase, MUNICIPIOS
+from agents.business_social_scraper import scrapear_redes_negocio
 from agents.moderador import evaluar_evento, moderar_resena, moderar_imagen_evento, moderar_titulo_evento, moderar_actividad_autonoma, moderar_eventos_batch
 from agents.imagenes_actividades import nemotron_classifier
 from agents.recommend import recomendar_a_vecinos, recommend_actividades
@@ -107,6 +108,15 @@ class ReqEventChat(BaseModel):
     audio_mime: str = "audio/ogg"
     devolver_audio: bool = False
 
+
+class ReqScrapeBusinessSocials(BaseModel):
+    negocio: dict
+    urls_existentes: list[str] = []
+    huellas_existentes: list[str] = []
+    texto_manual: Optional[str] = None
+    red_manual: Optional[str] = None
+    url_post_manual: Optional[str] = None
+
 # --- ENDPOINTS DE LOS MICRO-AGENTES ---
 
 @app.post("/agents/extract", dependencies=[Depends(verify_api_key)])
@@ -188,3 +198,20 @@ async def endpoint_event_chat(req: ReqEventChat):
     return await responder_duda_evento(
         req.pregunta, ficha, aud, req.audio_mime, req.devolver_audio
     )
+
+
+@app.post("/agents/scrape-business-socials", dependencies=[Depends(verify_api_key)])
+def endpoint_scrape_business_socials(req: ReqScrapeBusinessSocials):
+    try:
+        return scrapear_redes_negocio(
+            negocio=req.negocio,
+            urls_existentes=req.urls_existentes,
+            huellas_existentes=req.huellas_existentes,
+            texto_manual=req.texto_manual,
+            red_manual=req.red_manual,
+            url_post_manual=req.url_post_manual,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error en scraping de negocio: {exc}") from exc

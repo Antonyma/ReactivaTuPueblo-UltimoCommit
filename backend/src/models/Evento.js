@@ -30,6 +30,7 @@ export class Evento {
     pueblo = '',
     estado = 'pendiente',
     motivo = '',
+    urlPost = '',
   }) {
     this.id = Number(id)
     this.nombre = String(nombre)
@@ -46,6 +47,7 @@ export class Evento {
     this.pueblo = String(pueblo)
     this.estado = String(estado || 'pendiente')
     this.motivo = String(motivo || '')
+    this.urlPost = String(urlPost || '')
   }
 }
 

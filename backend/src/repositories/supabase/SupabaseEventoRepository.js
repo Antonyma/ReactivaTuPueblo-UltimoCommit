@@ -80,6 +80,7 @@ export function mapEventoFromRow(row) {
     pueblo: String(row[cols.pueblo] ?? negocio?.pueblo ?? ''),
     estado: String(row[cols.estado] || 'aprobada').trim().toLowerCase(),
     motivo: String(row[cols.motivo] ?? ''),
+    urlPost: String(row[cols.urlPost] ?? ''),
   })
 }
 
@@ -192,6 +193,20 @@ export class SupabaseEventoRepository extends EventoRepository {
       .maybeSingle()
 
     const row = unwrapSupabaseResult(result, 'Error al buscar evento por id')
+    return mapEventoFromRow(row)
+  }
+
+  async findByUrlPost(urlPost) {
+    const clean = String(urlPost || '').trim()
+    if (!clean) return null
+
+    const result = await this.client
+      .from(EVENTO_SCHEMA.table)
+      .select(EVENTO_SELECT)
+      .eq(EVENTO_SCHEMA.columns.urlPost, clean)
+      .maybeSingle()
+
+    const row = unwrapSupabaseResult(result, 'Error al buscar evento por url_post')
     return mapEventoFromRow(row)
   }
 
