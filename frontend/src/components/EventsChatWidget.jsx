@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/useApp.js";
+import { getAuthToken } from "../api/client.js";
 import { IconClose, IconMessage } from "./Icons.jsx";
 import { esEventoFinalizado, getEventTimestamp } from "../utils/eventUtils.js";
 
@@ -63,12 +64,18 @@ function FormattedMessage({ text, isUser }) {
       {lines.map((rawLine, idx) => {
         const line = rawLine.trim();
         if (!line) return <div key={`sp_${idx}`} className="h-1" />;
+        const isSubBullet = /^\s{2,}[-•*]\s+/.test(rawLine);
         const isBullet = /^[-•*]\s+/.test(line);
         const content = isBullet ? line.replace(/^[-•*]\s+/, "") : line;
         if (isBullet) {
           return (
-            <div key={`li_${idx}`} className="flex items-start gap-1.5 pl-1">
-              <span className="text-blue-700 font-black mt-0.5 shrink-0">•</span>
+            <div
+              key={`li_${idx}`}
+              className={`flex items-start gap-1.5 ${isSubBullet ? "pl-4 text-xs text-stone-700" : "pl-1"}`}
+            >
+              <span className={`${isSubBullet ? "text-blue-400" : "text-blue-700"} font-black mt-0.5 shrink-0`}>
+                {isSubBullet ? "◦" : "•"}
+              </span>
               <span className="min-w-0">{renderInlineBold(content, `li_${idx}`)}</span>
             </div>
           );
@@ -218,7 +225,7 @@ const MENSAJE_BIENVENIDA = {
 };
 
 export default function EventsChatWidget() {
-  const { usuario, isOnline, actividades } = useApp();
+  const { usuario, isOnline, actividades, recargarDatos } = useApp();
   const [abierto, setAbierto] = useState(false);
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -244,6 +251,10 @@ export default function EventsChatWidget() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [abierto]);
 
+  if (usuario?.tipo === "MODERADOR") {
+    return null;
+  }
+
   const reiniciarChat = () => {
     setSessionId(crearSessionId());
     setMensajes([MENSAJE_BIENVENIDA]);
@@ -264,6 +275,7 @@ export default function EventsChatWidget() {
         {
           id: nextMsgId("b"),
           autor: "bot",
+          esFallback: true,
           texto: `Sin conexión a internet.\n${respuestaLocalActividades(texto, actividades)}`,
         },
       ]);
@@ -276,6 +288,7 @@ export default function EventsChatWidget() {
         {
           id: nextMsgId("b"),
           autor: "bot",
+          esFallback: true,
           texto: respuestaLocalActividades(texto, actividades),
         },
       ]);
@@ -284,6 +297,7 @@ export default function EventsChatWidget() {
 
     setEnviando(true);
     try {
+      const authToken = getAuthToken() || "";
       const res = await fetch(N8N_CHAT_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,6 +309,8 @@ export default function EventsChatWidget() {
           sessionId: usuario?.id ? `user_${usuario.id}` : sessionId,
           usuarioId: usuario?.id ?? null,
           usuarioNombre: usuario?.nombre || "Visitante",
+          usuarioRol: usuario?.tipo || "VISITANTE",
+          authToken,
         }),
       });
 
@@ -308,6 +324,14 @@ export default function EventsChatWidget() {
         ...prev,
         { id: nextMsgId("b"), autor: "bot", texto: respuesta },
       ]);
+
+      if (
+        /\b(inscrit[oa]|apuntad[oa]|desapuntad[oa]|valoraci[oó]n.*guardad|cread[oa]|publicad[oa]|actualizad[oa]|eliminad[oa]|borrad[oa]|finalizad[oa]|terminad[oa]|solicitud.*enviad)\b/i.test(
+          respuesta
+        )
+      ) {
+        recargarDatos?.();
+      }
     } catch (err) {
       console.warn("[EventsChatWidget] Fallback local por error en webhook:", err?.message || err);
       setMensajes((prev) => [

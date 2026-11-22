@@ -810,7 +810,7 @@ export default function PublisherPanel() {
                             className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold px-3 py-2 rounded-xl text-xs"
                           >
                             <IconClock className="w-4 h-4" />
-                            <span>Editar hora</span>
+                            <span>Editar / Foto</span>
                           </button>
                           <button
                             type="button"

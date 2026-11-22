@@ -597,12 +597,17 @@ export function AppProvider({ children }) {
     }
   };
 
-  const guardarNuevaHora = async (id, inicio, fin) => {
+  const guardarNuevaHora = async (id, inicio, fin, imagen) => {
     const act = actividades.find((a) => a.id === id);
     if (!act) return;
 
+    const payload = { fechaInicio: inicio, fechaFin: fin };
+    if (typeof imagen === "string" && imagen.trim()) {
+      payload.imagen = imagen.trim();
+    }
+
     try {
-      await eventosApi.actualizar(id, { fechaInicio: inicio, fechaFin: fin });
+      await eventosApi.actualizar(id, payload);
       const fechaBonita = formatearFechaBonita(inicio);
       const fechaInicioMs = new Date(inicio).getTime();
       const fechaFinMs = new Date(fin).getTime();
@@ -616,12 +621,17 @@ export function AppProvider({ children }) {
                 fechaInicioMs: Number.isNaN(fechaInicioMs) ? a.fechaInicioMs : fechaInicioMs,
                 fechaFinMs: Number.isNaN(fechaFinMs) ? a.fechaFinMs : fechaFinMs,
                 fecha: fechaBonita,
+                ...(payload.imagen ? { imagen: payload.imagen } : {}),
               }
             : a
         )
       );
       setModalCambiarHora({ open: false, actividad: null });
-      mostrarToast(`Hora actualizada a "${fechaBonita}".`);
+      mostrarToast(
+        payload.imagen
+          ? `Evento actualizado (horario y foto guardados).`
+          : `Hora actualizada a "${fechaBonita}".`
+      );
     } catch (err) {
       mostrarToast(err.message);
     }
@@ -1091,8 +1101,14 @@ export function AppProvider({ children }) {
     }
   };
 
+  const recargarDatos = useCallback(
+    () => cargarDatosIniciales(usuarioRef.current),
+    [cargarDatosIniciales]
+  );
+
   const contextValue = useMemo(
     () => ({
+      recargarDatos,
       rutaActual,
       navegarA,
       actividades,
