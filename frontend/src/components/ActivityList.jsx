@@ -134,7 +134,7 @@ export default function ActivityList() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+      <div className="bg-[#FFFDF9] p-3 rounded-2xl border border-[#DFD5C5] shadow-sm space-y-3">
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <label htmlFor="buscador-actividades" className="sr-only">
@@ -146,7 +146,7 @@ export default function ActivityList() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre, pueblo, comercio..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5C9B4] bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3D5A3C]"
             />
           </div>
 
@@ -158,7 +158,7 @@ export default function ActivityList() {
               id="filtro-categoria"
               value={categoriaActiva}
               onChange={(e) => setCategoriaActiva(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="px-3 py-2.5 rounded-xl border border-[#D5C9B4] bg-white text-xs sm:text-sm font-bold text-[#16324F] focus:outline-none focus:ring-2 focus:ring-[#3D5A3C]"
             >
               {CATEGORIAS_OPCIONES.map((cat) => (
                 <option key={cat} value={cat}>
@@ -173,8 +173,8 @@ export default function ActivityList() {
               onClick={() => setSoloGratis((prev) => !prev)}
               className={`px-3 py-2.5 rounded-xl text-xs sm:text-sm font-black border transition shrink-0 ${
                 soloGratis
-                  ? "bg-emerald-700 text-white border-emerald-700"
-                  : "bg-slate-50 hover:bg-emerald-50 text-emerald-900 border-emerald-300"
+                  ? "bg-[#3D5A3C] text-white border-[#3D5A3C]"
+                  : "bg-[#F5EFE4] hover:bg-[#EAE1CE] text-[#2F5233] border-[#C9D3C0]"
               }`}
             >
               Solo gratis
@@ -200,14 +200,14 @@ export default function ActivityList() {
                 onClick={() => setFiltroEstado(f.id)}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition ${
                   activo
-                    ? "bg-blue-700 text-white shadow-sm"
-                    : "bg-slate-100 hover:bg-blue-50 text-blue-950"
+                    ? "bg-[#3D5A3C] text-white shadow-sm"
+                    : "bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F]"
                 }`}
               >
                 <span>{f.label}</span>
                 <span
                   className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
-                    activo ? "bg-white/20 text-white" : "bg-white text-blue-900"
+                    activo ? "bg-white/20 text-white" : "bg-white text-[#16324F]"
                   }`}
                 >
                   {conteos[f.id]}
@@ -240,7 +240,7 @@ export default function ActivityList() {
                 <button
                   type="button"
                   onClick={limpiarFiltros}
-                  className="bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-2 rounded-xl text-sm"
+                  className="bg-[#D96B27] hover:bg-[#C2591A] text-white font-black px-4 py-2 rounded-xl text-sm"
                 >
                   Limpiar filtros
                 </button>
@@ -249,7 +249,7 @@ export default function ActivityList() {
                 <button
                   type="button"
                   onClick={() => setPuebloActivo("Todos")}
-                  className="bg-blue-100 hover:bg-blue-200 text-blue-950 font-black px-4 py-2 rounded-xl text-sm"
+                  className="bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F] font-black px-4 py-2 rounded-xl text-sm"
                 >
                   Ver toda la comarca
                 </button>

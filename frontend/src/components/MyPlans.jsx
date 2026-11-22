@@ -36,12 +36,12 @@ export default function MyPlans() {
     <div id="tab-contenido-misplanes" className="caja-panel bg-white p-4 sm:p-5 rounded-3xl shadow-sm space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-black text-lg inline-flex items-center gap-2">
-          <IconCalendar className="w-5 h-5 text-blue-700 shrink-0" />
+          <IconCalendar className="w-5 h-5 text-[#3D5A3C] shrink-0" />
           <span>Mis Planes Apuntados</span>
         </h2>
         <span
           id="badge-total-inscritos"
-          className="bg-blue-700 text-white font-black text-sm px-3 py-0.5 rounded-full shrink-0"
+          className="bg-[#3D5A3C] text-white font-black text-sm px-3 py-0.5 rounded-full shrink-0"
         >
           {planesActivos.length}
         </span>
@@ -49,7 +49,7 @@ export default function MyPlans() {
 
       <ul id="lista-inscripciones" className="space-y-2.5 text-sm">
         {planesActivos.length === 0 ? (
-          <li className="p-3 rounded-2xl bg-blue-50 text-stone-600 text-center">
+          <li className="p-3 rounded-2xl bg-[#F5EFE4] text-stone-600 text-center">
             Todavía no te has apuntado a ningún plan próximo.
           </li>
         ) : (
@@ -58,7 +58,7 @@ export default function MyPlans() {
             return (
               <li
                 key={act.id}
-                className="p-3 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between gap-2"
+                className="p-3 rounded-2xl bg-[#FAF6EE] border border-[#E5DCCB] flex items-center justify-between gap-2"
               >
                 <div className="min-w-0">
                   <p className="font-black truncate">{act.nombre}</p>
@@ -84,7 +84,7 @@ export default function MyPlans() {
         )}
       </ul>
 
-      <div className="pt-3 border-t border-blue-200 space-y-2">
+      <div className="pt-3 border-t border-[#E5DCCB] space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-black text-base">Actividades ya hechas</h3>
           <span className="bg-emerald-700 text-white font-black text-xs px-2.5 py-0.5 rounded-full">

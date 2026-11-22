@@ -28,8 +28,8 @@ export default function AdminLogin() {
       id="vista-login-administrador"
       className="max-w-md mx-auto py-8 sm:py-12 px-2"
     >
-      <div className="caja-panel bg-white text-stone-900 rounded-3xl shadow-xl border-2 border-blue-950 overflow-hidden">
-        <div className="bg-blue-950 text-white p-6 space-y-2">
+      <div className="caja-panel bg-white text-stone-900 rounded-3xl shadow-xl border-2 border-[#7F1D1D] overflow-hidden">
+        <div className="bg-[#7F1D1D] text-white p-6 space-y-2">
           <span className="bg-amber-400 text-stone-950 text-xs font-black uppercase px-3 py-1 rounded-full inline-block">
             Acceso Exclusivo · Administradores
           </span>
@@ -37,7 +37,7 @@ export default function AdminLogin() {
             <IconShield className="w-6 h-6 text-amber-400 shrink-0" />
             <span>Panel de Administración</span>
           </h1>
-          <p className="text-sm text-blue-100">
+          <p className="text-sm text-rose-100">
             Solo se permite el acceso con usuario y contraseña de administrador.
           </p>
         </div>
@@ -95,7 +95,7 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={enviando}
-              className="w-full bg-blue-950 hover:bg-blue-900 disabled:opacity-60 text-white font-black py-3 rounded-2xl shadow"
+              className="w-full bg-[#7F1D1D] hover:bg-[#991B1B] disabled:opacity-60 text-white font-black py-3 rounded-2xl shadow"
             >
               {enviando ? "Verificando..." : "Entrar como Administrador"}
             </button>

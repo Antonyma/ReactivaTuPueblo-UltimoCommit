@@ -39,15 +39,12 @@ export default function Navbar() {
     <header className="text-white sticky top-0 z-40 shadow-md">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
-            <IconMountain className="w-6 h-6 text-white" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#3D5A3C] border border-white/20 flex items-center justify-center shrink-0">
+            <IconMountain className="w-6 h-6 text-amber-300" />
           </div>
           <div className="min-w-0">
             <span className="font-black text-lg sm:text-xl block leading-none truncate">
               PuebloVivo
-            </span>
-            <span className="text-xs text-blue-200 block mt-1 truncate">
-              Filabres - Alhamilla
             </span>
           </div>
         </div>
@@ -167,14 +164,14 @@ export default function Navbar() {
 
       {/* Menú desplegable móvil */}
       {menuAbierto && (
-        <div className="md:hidden border-t border-white/20 bg-blue-950 px-4 py-4 space-y-3">
+        <div className="md:hidden border-t border-white/20 bg-[#16324F] px-4 py-4 space-y-3">
           <div className="bg-black/25 border border-white/20 rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center gap-2">
             <IconUser className="w-4 h-4 text-amber-300 shrink-0" />
             <span className="truncate">Sesión: {rolTexto}</span>
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-blue-200 uppercase tracking-wide">
+            <p className="text-xs font-bold text-amber-200 uppercase tracking-wide">
               Tamaño de letra
             </p>
             <div className="grid grid-cols-2 gap-2">

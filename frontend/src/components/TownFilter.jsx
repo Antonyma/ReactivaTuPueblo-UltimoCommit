@@ -47,7 +47,7 @@ export default function TownFilter() {
           type="button"
           onClick={() => setMostrarTodos((prev) => !prev)}
           aria-expanded={mostrarTodos}
-          className="text-xs font-extrabold text-blue-700 hover:text-blue-900 underline underline-offset-2"
+          className="text-xs font-extrabold text-[#B45309] hover:text-[#92400E] underline underline-offset-2"
         >
           {mostrarTodos ? "Ver menos pueblos" : `Ver los ${pueblosExtra.length + 4} pueblos`}
         </button>
@@ -63,8 +63,8 @@ export default function TownFilter() {
               onClick={() => setPuebloActivo(p.id)}
               className={`btn-pueblo px-4 py-2.5 rounded-2xl text-sm font-bold transition ${
                 isActive
-                  ? "bg-blue-950 text-white shadow-sm"
-                  : "bg-blue-100 hover:bg-blue-200 text-blue-950"
+                  ? "bg-[#3D5A3C] text-white shadow-sm"
+                  : "bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F]"
               }`}
             >
               {p.nombre}

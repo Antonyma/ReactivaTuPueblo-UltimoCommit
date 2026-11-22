@@ -91,7 +91,7 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
             }}
             className="w-full h-44 sm:h-48 object-cover bg-slate-100"
           />
-          <span className="absolute top-3 left-3 bg-blue-950/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+          <span className="absolute top-3 left-3 bg-[#2F5233]/95 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
             {act.categoria}
           </span>
           {badgeEstado}
@@ -192,7 +192,7 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
               <button
                 type="button"
                 onClick={() => setModalInscritos({ open: true, actividad: act })}
-                className="inline-flex items-center justify-center gap-1.5 bg-blue-950 hover:bg-blue-900 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
+                className="inline-flex items-center justify-center gap-1.5 bg-[#16324F] hover:bg-[#1E4268] text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
               >
                 <IconUsers className="w-4 h-4 shrink-0" />
                 <span>Apuntados ({act.asistentes})</span>
@@ -200,7 +200,7 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
               <button
                 type="button"
                 onClick={handleEliminar}
-                className="inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
+                className="inline-flex items-center justify-center gap-1.5 bg-[#881337] hover:bg-[#9F1239] text-white font-bold py-2.5 px-3 rounded-2xl text-xs"
               >
                 <IconTrash className="w-4 h-4 shrink-0" />
                 <span>Borrar</span>
@@ -240,7 +240,7 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
                 type="button"
                 data-action="apuntar"
                 onClick={() => apuntarse(act.id)}
-                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-black py-3 px-4 rounded-2xl shadow-sm text-sm sm:text-base transition"
+                className="w-full bg-[#D96B27] hover:bg-[#C2591A] text-white font-black py-3 px-4 rounded-2xl shadow-sm text-sm sm:text-base transition"
               >
                 Apuntarme ({libres} {libres === 1 ? "plaza" : "plazas"})
               </button>
@@ -250,9 +250,9 @@ const ActivityCard = React.memo(function ActivityCard({ act }) {
               <button
                 type="button"
                 onClick={() => setModalDudas({ open: true, actividad: act })}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold py-2.5 px-3 rounded-xl text-sm transition"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#F2F6EF] text-[#2F5233] border border-[#9BB094] font-bold py-2.5 px-3 rounded-xl text-sm transition"
               >
-                <IconMessage className="w-4 h-4 shrink-0 text-emerald-700" />
+                <IconMessage className="w-4 h-4 shrink-0 text-[#3D5A3C]" />
                 <span>Dudas WhatsApp</span>
               </button>
               {yaApuntado && estaTerminado && (

@@ -35,7 +35,7 @@ export default function MobileNav() {
   return (
     <nav
       id="nav-inferior-movil"
-      className={`md:hidden fixed bottom-0 inset-x-0 z-40 text-white border-t border-blue-800 grid ${
+      className={`md:hidden fixed bottom-0 inset-x-0 z-40 text-white border-t border-[#264A70] grid ${
         mostrarChat ? "grid-cols-5" : "grid-cols-4"
       } shadow-2xl`}
     >

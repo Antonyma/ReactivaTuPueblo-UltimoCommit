@@ -371,14 +371,14 @@ export default function EventsChatWidget() {
         <div
           role="dialog"
           aria-label="Asistente de eventos"
-          className="w-full h-full sm:w-96 sm:h-auto sm:max-h-[75vh] bg-white sm:rounded-3xl shadow-2xl sm:border-2 sm:border-blue-700 flex flex-col overflow-hidden"
+          className="w-full h-full sm:w-96 sm:h-auto sm:max-h-[75vh] bg-[#FFFDF9] sm:rounded-3xl shadow-2xl sm:border-2 sm:border-[#3D5A3C] flex flex-col overflow-hidden"
         >
-          <div className="bg-blue-950 text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+          <div className="bg-[#16324F] text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
             <div className="inline-flex items-center gap-2 min-w-0">
               <IconMessage className="w-5 h-5 text-amber-400 shrink-0" />
               <div className="min-w-0">
                 <p className="font-black text-sm leading-tight truncate">Guía de Pueblos</p>
-                <p className="text-[11px] text-blue-200 truncate">Asistente IA de actividades</p>
+                <p className="text-[11px] text-amber-200 truncate">Asistente IA de actividades</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -412,8 +412,8 @@ export default function EventsChatWidget() {
                 <div
                   className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 leading-snug ${
                     m.autor === "user"
-                      ? "bg-blue-700 text-white font-semibold"
-                      : "bg-white text-stone-900 border border-slate-200 shadow-sm"
+                      ? "bg-[#3D5A3C] text-white font-semibold"
+                      : "bg-white text-stone-900 border border-[#DFD5C5] shadow-sm"
                   }`}
                 >
                   <FormattedMessage text={m.texto} isUser={m.autor === "user"} />
@@ -470,7 +470,7 @@ export default function EventsChatWidget() {
             <button
               type="submit"
               disabled={enviando || !input.trim()}
-              className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-black px-4 py-2 rounded-xl text-sm shrink-0"
+              className="bg-[#D96B27] hover:bg-[#C2591A] disabled:opacity-50 text-white font-black px-4 py-2 rounded-xl text-sm shrink-0"
             >
               Enviar
             </button>
@@ -485,7 +485,7 @@ export default function EventsChatWidget() {
         aria-label={abierto ? "Cerrar asistente de eventos" : "Abrir asistente de eventos"}
         className={`${
           abierto ? "hidden sm:inline-flex" : "hidden md:inline-flex"
-        } items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-black px-4 py-3.5 rounded-full shadow-lg border-2 border-white transition`}
+        } items-center gap-2 bg-[#D96B27] hover:bg-[#C2591A] text-white font-black px-4 py-3.5 rounded-full shadow-lg border-2 border-[#FFFDF9] transition`}
       >
         <IconMessage className="w-5 h-5 shrink-0" />
         <span className="text-sm">{abierto ? "Cerrar" : "Preguntar"}</span>

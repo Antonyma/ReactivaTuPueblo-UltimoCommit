@@ -157,13 +157,13 @@ export default function MapView() {
     <div id="tab-contenido-mapa" className="caja-panel bg-white p-4 rounded-3xl shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-black text-lg inline-flex items-center gap-2">
-          <IconMap className="w-5 h-5 text-blue-700 shrink-0" />
+          <IconMap className="w-5 h-5 text-[#3D5A3C] shrink-0" />
           <span>Mapa de los Pueblos</span>
         </h2>
         <button
           type="button"
           onClick={centrarTodos}
-          className="inline-flex items-center gap-1.5 bg-blue-950 text-amber-300 text-xs font-bold px-3 py-2 rounded-xl hover:bg-blue-900 transition shrink-0"
+          className="inline-flex items-center gap-1.5 bg-[#16324F] text-amber-300 text-xs font-bold px-3 py-2 rounded-xl hover:bg-[#1E4268] transition shrink-0"
         >
           <IconTarget className="w-4 h-4" />
           <span>Ver todos</span>
