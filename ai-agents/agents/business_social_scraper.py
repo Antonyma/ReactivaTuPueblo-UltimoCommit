@@ -96,6 +96,13 @@ def normalizar_url(url: str) -> str:
         parsed = urlparse(raw)
         if parsed.scheme == "social":
             return raw.rstrip("/")
+        netloc = parsed.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        # Normalizar http -> https para las fuentes web/rrss (evita duplicados por esquema)
+        scheme = parsed.scheme.lower()
+        if scheme == "http" and netloc and "localhost" not in netloc and "127.0.0.1" not in netloc:
+            scheme = "https"
         query_filtrada = [
             (k, v)
             for k, v in parse_qsl(parsed.query, keep_blank_values=False)
@@ -103,8 +110,8 @@ def normalizar_url(url: str) -> str:
         ]
         path = re.sub(r"/+$", "", parsed.path)
         return urlunparse((
-            parsed.scheme.lower(),
-            parsed.netloc.lower(),
+            scheme,
+            netloc,
             path,
             "",
             urlencode(query_filtrada),
@@ -141,6 +148,44 @@ def extraer_handle_rrss(url: str, red: str) -> str:
         return primero.lstrip("@")
     except Exception:
         return ""
+
+
+# Segmentos de ruta que indican que la URL es un post/publicación concreta (no el perfil)
+SEGMENTOS_POST = {
+    "p", "reel", "reels", "posts", "photos", "videos", "status", "watch",
+    "events", "share", "permalink", "story", "stories",
+}
+
+
+def es_url_post_real(url_candidata: str, url_perfil: str) -> bool:
+    """Indica si url_candidata es un post/publicación concreta (no el perfil ni una URL genérica).
+
+    Sirve para evitar que la IA meta la URL genérica del perfil/red social como `urlPost`
+    del evento, lo que provocaba que los escaneos posteriores marcaran todo como duplicado
+    y no se encontraran eventos nuevos.
+    """
+    nc = normalizar_url(url_candidata)
+    np_ = normalizar_url(url_perfil)
+    if not nc:
+        return False
+    if nc.startswith("social://"):
+        return False
+    if nc == np_:
+        return False
+    pc = urlparse(nc)
+    pp = urlparse(np_)
+    # Host distinto => enlace externo (noticia, evento, web) => es un post/enlace real
+    if pc.netloc and pp.netloc and pc.netloc != pp.netloc:
+        return True
+    segs_c = [s for s in pc.path.split("/") if s]
+    segs_p = [s for s in pp.path.split("/") if s]
+    # Si algún segmento es un indicador claro de publicación => post real
+    if any(s.lower() in SEGMENTOS_POST for s in segs_c):
+        return True
+    # Más segmentos que el perfil => publicación concreta
+    if len(segs_c) > len(segs_p) and len(segs_c) >= 2:
+        return True
+    return False
 
 
 def _descargar_html(url: str, timeout: float = 12.0) -> str:
@@ -457,7 +502,7 @@ def scrapear_redes_negocio(
         "Devuelve EXCLUSIVAMENTE un JSON con la forma:\n"
         '{"eventos": [{"nombre": "...", "descripcion": "...", "tipoEvento": 4, '
         '"fechaInicio": "YYYY-MM-DDTHH:MM:SS+01:00", "fechaFin": "YYYY-MM-DDTHH:MM:SS+01:00", '
-        '"dePago": false, "aforo": 40, "imagen": "", "urlPost": "...", "redSocial": "Instagram"}]}\n'
+        '"dePago": false, "aforo": 40, "imagen": "", "urlPost": "URL concreta del post/publicacion (no la del perfil) o vacio", "redSocial": "Instagram"}]}\n'
         "Categorías válidas para tipoEvento: 1=Turismo, 2=Fiesta Patronal, 3=Gastronomía, 4=Comercio, 5=Deportes, 6=Cultura.\n"
         "Si no hay ningún evento u oferta concreta, devuelve {\"eventos\": []}."
     )
@@ -503,8 +548,10 @@ def scrapear_redes_negocio(
         url_candidata = normalizar_url(ev.urlPost or url_post_manual or "")
         url_perfil = normalizar_url(fuente_info["urlPerfil"])
 
-        # Si el LLM devolvió la URL genérica del perfil (o vacía), creamos clave sintética única por oferta
-        if not url_candidata or url_candidata == url_perfil:
+        # Si el LLM devolvió la URL genérica del perfil/red (o vacía, o un enlace no concreto),
+        # creamos una clave sintética única por oferta para no meter la URL de la red social
+        # como urlPost (lo que provocaba falsos duplicados y que no se encontraran eventos nuevos).
+        if not es_url_post_real(url_candidata, url_perfil):
             url_post_final = generar_url_sintetica(negocio_id or 0, red_final, ev.nombre, fecha_ini_iso)
         else:
             url_post_final = url_candidata
