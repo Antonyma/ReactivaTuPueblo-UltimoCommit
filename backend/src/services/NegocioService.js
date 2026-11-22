@@ -105,7 +105,6 @@ export class NegocioService {
     const camposLimpios = filtrarCamposNegocio(data)
     validarUrlsSeguras(camposLimpios)
 
-    let fiabilidadInicial = 0
     const resIa = await moderarNegocioConIa(camposLimpios)
     if (resIa) {
       const tieneFalta =
@@ -116,14 +115,12 @@ export class NegocioService {
           resIa.motivo || 'El comercio no supera el filtro de moderación.'
         )
       }
-      if (resIa.aprobada === true && resIa.coherente_con_categoria === true) {
-        fiabilidadInicial = 40
-      }
     }
 
+    // Siempre queda pendiente (fiabilidad: 0) hasta que un administrador humano lo apruebe
     return this.negocioRepository.create({
       ...camposLimpios,
-      fiabilidad: fiabilidadInicial,
+      fiabilidad: 0,
       propietarioId: Number(propietarioId),
       propietario: { id: Number(propietarioId) },
     })
