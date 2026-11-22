@@ -103,6 +103,41 @@ export class NegocioController {
     })
   }
 
+  escanearRedesStream = async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
+    res.flushHeaders?.()
+
+    const sendEvent = (payload) => {
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify(payload)}\n\n`)
+      }
+    }
+
+    try {
+      const result = await this.socialScraperService.escanearNegocio(req.params.id, {
+        user: req.user,
+        esSistema: false,
+        opciones: req.body || {},
+        onProgress: ({ progress, message }) => {
+          sendEvent({ type: 'progress', progress, message })
+        },
+      })
+      sendEvent({ type: 'done', message: result.mensaje, data: result })
+    } catch (err) {
+      sendEvent({
+        type: 'error',
+        message: err?.message || 'Error al escanear las redes sociales',
+      })
+    } finally {
+      if (!res.writableEnded) {
+        res.end()
+      }
+    }
+  }
+
   escanearTodasLasRedes = async (_req, res) => {
     const result = await this.socialScraperService.escanearTodosLosNegocios()
     res.status(200).json({

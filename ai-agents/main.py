@@ -1,6 +1,9 @@
 import binascii
+import json
 import os
 import base64
+import queue
+import threading
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
@@ -11,6 +14,7 @@ load_dotenv(BASE_DIR / "agents" / ".env")
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 # Importamos los agentes desde la misma carpeta agents/
@@ -215,3 +219,43 @@ def endpoint_scrape_business_socials(req: ReqScrapeBusinessSocials):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error en scraping de negocio: {exc}") from exc
+
+
+@app.post("/agents/scrape-business-socials/stream", dependencies=[Depends(verify_api_key)])
+def endpoint_scrape_business_socials_stream(req: ReqScrapeBusinessSocials):
+    eventos_q: queue.Queue = queue.Queue()
+
+    def _on_progress(progress: int, message: str) -> None:
+        eventos_q.put({"type": "progress", "progress": progress, "message": message})
+
+    def _worker() -> None:
+        try:
+            result = scrapear_redes_negocio(
+                negocio=req.negocio,
+                urls_existentes=req.urls_existentes,
+                huellas_existentes=req.huellas_existentes,
+                texto_manual=req.texto_manual,
+                red_manual=req.red_manual,
+                url_post_manual=req.url_post_manual,
+                on_progress=_on_progress,
+            )
+            eventos_q.put({"type": "result", "data": result})
+        except Exception as exc:
+            eventos_q.put({"type": "error", "message": str(exc)})
+        finally:
+            eventos_q.put(None)
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+    def _event_generator():
+        while True:
+            item = eventos_q.get()
+            if item is None:
+                break
+            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

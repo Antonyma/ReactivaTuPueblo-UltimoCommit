@@ -115,6 +115,7 @@ export default function PublisherPanel() {
   const [editCoords, setEditCoords] = useState(null);
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [escaneandoRedes, setEscaneandoRedes] = useState(false);
+  const [progresoEscaneo, setProgresoEscaneo] = useState(null);
   const [resultadoEscaneo, setResultadoEscaneo] = useState(null);
 
   // Modal selector de ubicación en el mapa ('evento' | 'negocio' | 'editarNegocio')
@@ -748,44 +749,65 @@ export default function PublisherPanel() {
 
           {/* Escaneo bajo demanda de redes sociales con IA */}
           {!negocioDetalle.pendiente && !negocioDetalle.pendienteSync && (
-            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-black text-sm text-emerald-950">
-                  Detección automática de eventos en tus redes sociales
-                </p>
-                <p className="text-xs text-stone-700 mt-0.5">
-                  Busca ofertas o eventos nuevos en tus perfiles públicos y te avisa por WhatsApp / Telegram para confirmarlos antes de publicar.
-                </p>
-                {resultadoEscaneo && (
-                  <p className="text-xs font-bold text-emerald-800 mt-1.5">
-                    {resultadoEscaneo.mensaje}
+            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-200 rounded-2xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-black text-sm text-emerald-950">
+                    Detección automática de eventos en tus redes sociales
                   </p>
-                )}
-              </div>
-              <button
-                type="button"
-                disabled={
-                  escaneandoRedes ||
-                  !(editInstagram || editFacebook || editTwitter || editWeb)
-                }
-                onClick={async () => {
-                  setEscaneandoRedes(true);
-                  setResultadoEscaneo(null);
-                  try {
-                    const res = await escanearRedesNegocio(negocioDetalle.nombre);
-                    if (res) setResultadoEscaneo(res);
-                  } catch {
-                    // toast ya mostrado en AppContext
-                  } finally {
-                    setEscaneandoRedes(false);
+                  <p className="text-xs text-stone-700 mt-0.5">
+                    Busca ofertas o eventos nuevos en tus perfiles públicos y te avisa por WhatsApp / Telegram para confirmarlos antes de publicar.
+                  </p>
+                  {!escaneandoRedes && resultadoEscaneo && (
+                    <p className="text-xs font-bold text-emerald-800 mt-1.5">
+                      {resultadoEscaneo.mensaje}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    escaneandoRedes ||
+                    !(editInstagram || editFacebook || editTwitter || editWeb)
                   }
-                }}
-                className="inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-black px-4 py-2.5 rounded-xl text-xs shadow shrink-0"
-              >
-                <span>
-                  {escaneandoRedes ? "Buscando con IA..." : "Buscar eventos en mis redes"}
-                </span>
-              </button>
+                  onClick={async () => {
+                    setEscaneandoRedes(true);
+                    setResultadoEscaneo(null);
+                    setProgresoEscaneo({ progress: 5, message: "Iniciando escaneo..." });
+                    try {
+                      const res = await escanearRedesNegocio(negocioDetalle.nombre, {
+                        onProgress: (step) => setProgresoEscaneo(step),
+                      });
+                      if (res) setResultadoEscaneo(res);
+                    } catch {
+                      // toast ya mostrado en AppContext
+                    } finally {
+                      setEscaneandoRedes(false);
+                      setProgresoEscaneo(null);
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-black px-4 py-2.5 rounded-xl text-xs shadow shrink-0"
+                >
+                  <span>
+                    {escaneandoRedes ? "Buscando con IA..." : "Buscar eventos en mis redes"}
+                  </span>
+                </button>
+              </div>
+
+              {escaneandoRedes && progresoEscaneo && (
+                <div className="space-y-1.5 pt-1" role="status" aria-live="polite">
+                  <div className="flex items-center justify-between gap-2 text-xs font-bold text-emerald-900">
+                    <span className="truncate">{progresoEscaneo.message || "Procesando..."}</span>
+                    <span className="shrink-0">{progresoEscaneo.progress}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-emerald-200/80 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-600 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${Math.max(4, progresoEscaneo.progress)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

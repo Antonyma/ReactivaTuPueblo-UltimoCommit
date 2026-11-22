@@ -909,7 +909,7 @@ export function AppProvider({ children }) {
     }
   };
 
-  const escanearRedesNegocio = async (nombreNegocio) => {
+  const escanearRedesNegocio = async (nombreNegocio, { onProgress } = {}) => {
     const info = cuentasNegocio[nombreNegocio];
     if (!info?.id) return null;
     if (!isOnlineRef.current) {
@@ -917,7 +917,9 @@ export function AppProvider({ children }) {
       return null;
     }
     try {
-      const res = await negociosApi.escanearRedes(info.id);
+      const res = onProgress
+        ? await negociosApi.escanearRedesStream(info.id, {}, onProgress)
+        : await negociosApi.escanearRedes(info.id);
       const data = res?.data || {};
       const nuevos = Array.isArray(data.eventosCreados) ? data.eventosCreados : [];
       if (nuevos.length > 0) {

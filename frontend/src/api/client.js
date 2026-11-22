@@ -177,6 +177,70 @@ export const negociosApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  escanearRedesStream: async (id, payload = {}, onProgress = null) => {
+    if (isEffectivelyOffline()) {
+      throw new TypeError('Sin conexión a internet. Esta acción requiere conexión.')
+    }
+    const token = getAuthToken()
+    const response = await fetch(`${API_URL}/negocios/${id}/escanear-redes/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      const errPayload = await response.json().catch(() => null)
+      const message =
+        errPayload?.error?.message ||
+        (typeof errPayload?.error === 'string' ? errPayload.error : null) ||
+        errPayload?.message ||
+        `HTTP error ${response.status}`
+      throw new Error(message)
+    }
+
+    if (!response.body) {
+      return negociosApi.escanearRedes(id, payload)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let finalPayload = null
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const chunks = buffer.split('\n\n')
+      buffer = chunks.pop() || ''
+
+      for (const chunk of chunks) {
+        const dataLine = chunk.split('\n').find((line) => line.startsWith('data:'))
+        if (!dataLine) continue
+        let evt = null
+        try {
+          evt = JSON.parse(dataLine.slice(5).trim())
+        } catch {
+          continue
+        }
+        if (evt?.type === 'progress' && typeof onProgress === 'function') {
+          onProgress({
+            progress: Math.min(100, Math.max(0, Number(evt.progress) || 0)),
+            message: String(evt.message || ''),
+          })
+        } else if (evt?.type === 'done') {
+          finalPayload = { ok: true, message: evt.message, data: evt.data }
+        } else if (evt?.type === 'error') {
+          throw new Error(evt.message || 'Error al escanear redes sociales')
+        }
+      }
+    }
+
+    return finalPayload || { ok: true, data: {} }
+  },
   listarValoraciones: (id) => apiFetch(`/negocios/${id}/valoraciones`),
 }
 

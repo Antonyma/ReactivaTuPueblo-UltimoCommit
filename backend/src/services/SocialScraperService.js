@@ -58,7 +58,7 @@ export class SocialScraperService {
     this.notifier = notifier
   }
 
-  async #invocarAiScraper(payload) {
+  async #invocarAiScraper(payload, onProgress = null) {
     if (this.scraperFetcher) {
       return this.scraperFetcher(payload)
     }
@@ -66,6 +66,59 @@ export class SocialScraperService {
     const headers = { 'Content-Type': 'application/json' }
     if (env.aiAgentsApiKey) {
       headers['X-API-Key'] = env.aiAgentsApiKey
+    }
+
+    if (typeof onProgress === 'function') {
+      const res = await fetch(`${env.aiAgentsUrl}/agents/scrape-business-socials/stream`, {
+        method: 'POST',
+        headers,
+        signal: AbortSignal.timeout(90000),
+        body: JSON.stringify(payload),
+      })
+
+      if (res.ok && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let finalResult = null
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const parts = buffer.split('\n\n')
+          buffer = parts.pop() || ''
+
+          for (const part of parts) {
+            const dataLine = part
+              .split('\n')
+              .find((line) => line.startsWith('data:'))
+            if (!dataLine) continue
+            let evt = null
+            try {
+              evt = JSON.parse(dataLine.slice(5).trim())
+            } catch {
+              continue
+            }
+            if (evt?.type === 'progress') {
+              onProgress(Number(evt.progress) || 0, String(evt.message || ''))
+            } else if (evt?.type === 'result') {
+              finalResult = evt.data
+            } else if (evt?.type === 'error') {
+              throw AppError.badRequest(evt.message || 'Error en el servicio de scraping IA')
+            }
+          }
+        }
+
+        if (finalResult) {
+          return finalResult
+        }
+      } else if (res.status !== 404) {
+        const detail = await res.text().catch(() => '')
+        throw AppError.badRequest(
+          `El servicio de scraping IA respondió HTTP ${res.status}${detail ? `: ${detail}` : ''}`
+        )
+      }
     }
 
     const res = await fetch(`${env.aiAgentsUrl}/agents/scrape-business-socials`, {
@@ -113,7 +166,21 @@ export class SocialScraperService {
    * Escanea las redes sociales y web de un negocio concreto, crea eventos nuevos en
    * estado `pendiente_confirmacion` (sin duplicados) y notifica al propietario.
    */
-  async escanearNegocio(negocioId, { user = null, esSistema = false, opciones = {} } = {}) {
+  async escanearNegocio(
+    negocioId,
+    { user = null, esSistema = false, opciones = {}, onProgress = null } = {}
+  ) {
+    const emit = (progress, message) => {
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress({ progress, message })
+        } catch {
+          // ignore listener errors
+        }
+      }
+    }
+
+    emit(5, 'Comprobando negocio y redes configuradas...')
     const negocio = await this.negocioRepository.findById(negocioId)
     if (!negocio) {
       throw AppError.notFound('Negocio no encontrado')
@@ -133,6 +200,7 @@ export class SocialScraperService {
 
     const tieneTextoManual = Boolean(opciones?.textoManual && String(opciones.textoManual).trim())
     if (!tieneRedesConfiguradas(negocio) && !tieneTextoManual) {
+      emit(100, 'Sin URLs configuradas.')
       return {
         negocioId: negocio.id,
         negocioNombre: negocio.nombre,
@@ -145,6 +213,7 @@ export class SocialScraperService {
     }
 
     // Recoger TODOS los eventos previos del negocio (incluyendo pendiente_confirmacion, descartada, denegada)
+    emit(10, 'Consultando eventos previos para evitar duplicados...')
     const eventosPrevios = await this.eventoRepository.findAll({ negocioId: negocio.id })
     const urlsExistentes = new Set()
     const huellasExistentes = new Set()
@@ -154,28 +223,37 @@ export class SocialScraperService {
       huellasExistentes.add(construirHuella(negocio.id, ev.nombre, ev.fechaInicio))
     }
 
-    const resultadoIa = await this.#invocarAiScraper({
-      negocio: {
-        id: negocio.id,
-        nombre: negocio.nombre,
-        pueblo: negocio.pueblo,
-        coordenadas: negocio.coordenadas,
-        instagramUrl: negocio.instagramUrl,
-        facebookUrl: negocio.facebookUrl,
-        twitterUrl: negocio.twitterUrl,
-        webUrl: negocio.webUrl,
+    const resultadoIa = await this.#invocarAiScraper(
+      {
+        negocio: {
+          id: negocio.id,
+          nombre: negocio.nombre,
+          pueblo: negocio.pueblo,
+          coordenadas: negocio.coordenadas,
+          instagramUrl: negocio.instagramUrl,
+          facebookUrl: negocio.facebookUrl,
+          twitterUrl: negocio.twitterUrl,
+          webUrl: negocio.webUrl,
+        },
+        urls_existentes: Array.from(urlsExistentes),
+        huellas_existentes: Array.from(huellasExistentes),
+        texto_manual: opciones?.textoManual || null,
+        red_manual: opciones?.redManual || null,
+        url_post_manual: opciones?.urlPostManual || null,
       },
-      urls_existentes: Array.from(urlsExistentes),
-      huellas_existentes: Array.from(huellasExistentes),
-      texto_manual: opciones?.textoManual || null,
-      red_manual: opciones?.redManual || null,
-      url_post_manual: opciones?.urlPostManual || null,
-    })
+      onProgress ? (pct, msg) => emit(Math.min(82, Math.max(12, pct)), msg) : null
+    )
 
     const candidatos = Array.isArray(resultadoIa?.eventosNuevos) ? resultadoIa.eventosNuevos : []
     const eventosCreados = []
     let duplicadosOmitidos = Number(resultadoIa?.duplicadosOmitidos || 0)
     let notificacionesEnviadas = 0
+
+    if (candidatos.length > 0) {
+      emit(86, `Guardando ${candidatos.length} evento(s) nuevo(s) y avisando por WhatsApp/Telegram...`)
+    } else {
+      emit(92, 'Finalizando comprobación...')
+    }
 
     for (const cand of candidatos) {
       const urlPost = String(cand.urlPost || '').trim()
@@ -240,6 +318,7 @@ export class SocialScraperService {
       if (enviado) notificacionesEnviadas += 1
     }
 
+    emit(100, 'Escaneo completado.')
     return {
       negocioId: negocio.id,
       negocioNombre: negocio.nombre,

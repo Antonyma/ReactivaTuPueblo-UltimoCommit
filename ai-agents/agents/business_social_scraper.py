@@ -14,7 +14,7 @@ import os
 import re
 import unicodedata
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
@@ -392,8 +392,16 @@ def scrapear_redes_negocio(
     texto_manual: Optional[str] = None,
     red_manual: Optional[str] = None,
     url_post_manual: Optional[str] = None,
+    on_progress: Optional[Callable[[int, str], None]] = None,
 ) -> dict[str, Any]:
     """Escanea todas las RRSS y web de un negocio y devuelve solo eventos nuevos y validados."""
+    def _emit(pct: int, msg: str) -> None:
+        if on_progress:
+            try:
+                on_progress(pct, msg)
+            except Exception:
+                pass
+
     negocio_id = negocio.get("id")
     nombre = str(negocio.get("nombre") or "").strip()
     pueblo = str(negocio.get("pueblo") or "").strip()
@@ -407,9 +415,11 @@ def scrapear_redes_negocio(
         ("Twitter/X", negocio.get("twitterUrl") or ""),
         ("Web", negocio.get("webUrl") or ""),
     ]
+    fuentes_activas = [(red, str(url).strip()) for red, url in fuentes_config if str(url).strip()]
 
     fuentes_recogidas: list[dict[str, Any]] = []
     if texto_manual and texto_manual.strip():
+        _emit(25, "Procesando contenido proporcionado...")
         fuentes_recogidas.append({
             "redSocial": red_manual or "Instagram",
             "urlPerfil": normalizar_url(url_post_manual or negocio.get("instagramUrl") or ""),
@@ -417,14 +427,16 @@ def scrapear_redes_negocio(
             "imagenDefecto": "",
         })
     else:
-        for red, url in fuentes_config:
-            if not str(url).strip():
-                continue
+        total_fuentes = max(1, len(fuentes_activas))
+        for idx, (red, url) in enumerate(fuentes_activas):
+            pct = 15 + int((idx / total_fuentes) * 40)
+            _emit(pct, f"Leyendo contenido público de {red}...")
             rec = recolectar_contenido_fuente(url, red, nombre, pueblo)
             if rec["texto"]:
                 fuentes_recogidas.append(rec)
 
     if not fuentes_recogidas:
+        _emit(100, "No se encontró contenido público accesible.")
         return {
             "negocioId": negocio_id,
             "negocioNombre": nombre,
@@ -460,7 +472,9 @@ def scrapear_redes_negocio(
         f"CONTENIDO PÚBLICO RECOLECTADO:\n{cuerpo_fuentes}"
     )
 
+    _emit(60, f"Analizando {len(fuentes_recogidas)} fuente(s) con IA...")
     raw_json = _invocar_llm_gratuito(system_prompt, user_prompt)
+    _emit(78, "Validando eventos detectados y descartando duplicados...")
     raw_items = raw_json.get("eventos") if isinstance(raw_json, dict) else []
     if not isinstance(raw_items, list):
         raw_items = []

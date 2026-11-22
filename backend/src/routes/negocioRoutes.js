@@ -39,6 +39,13 @@ export function createNegocioRoutes(negocioController, { requireAuth, optionalAu
     validateIntParam('id'),
     negocioController.escanearRedes
   )
+  router.post(
+    '/:id/escanear-redes/stream',
+    requireAuth,
+    requireRole(USUARIOS.PUBLICADOR, USUARIOS.MODERADOR),
+    validateIntParam('id'),
+    negocioController.escanearRedesStream
+  )
 
   // Rutas de publicador (CRUD completo y redes sociales)
   router.post(
