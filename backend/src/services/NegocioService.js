@@ -2,18 +2,30 @@ import { AppError } from '../middlewares/errorHandler.js'
 
 const CAMPOS_EDITABLES_NEGOCIO = [
   'nombre',
-  'descripcion',
   'pueblo',
   'coordenadas',
-  'instagram',
-  'facebook',
-  'twitter',
-  'web',
-  'redesSociales',
+  'instagramUrl',
+  'facebookUrl',
+  'twitterUrl',
+  'webUrl',
 ]
+
+const ALIAS_URLS_NEGOCIO = {
+  instagram: 'instagramUrl',
+  facebook: 'facebookUrl',
+  twitter: 'twitterUrl',
+  web: 'webUrl',
+}
+
+const CAMPOS_URL_NEGOCIO = ['instagramUrl', 'facebookUrl', 'twitterUrl', 'webUrl']
 
 function filtrarCamposNegocio(data = {}) {
   const limpio = {}
+  for (const [alias, canonico] of Object.entries(ALIAS_URLS_NEGOCIO)) {
+    if (data[canonico] === undefined && data[alias] !== undefined) {
+      limpio[canonico] = data[alias]
+    }
+  }
   for (const campo of CAMPOS_EDITABLES_NEGOCIO) {
     if (data[campo] !== undefined) {
       limpio[campo] = data[campo]
@@ -23,7 +35,7 @@ function filtrarCamposNegocio(data = {}) {
 }
 
 function validarUrlsSeguras(obj = {}) {
-  for (const campo of ['instagram', 'facebook', 'twitter', 'web']) {
+  for (const campo of CAMPOS_URL_NEGOCIO) {
     const val = obj[campo]
     if (!val) continue
     const s = String(val).trim()
