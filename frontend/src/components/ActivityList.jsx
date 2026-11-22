@@ -134,7 +134,7 @@ export default function ActivityList() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#FFFDF9] p-3 rounded-2xl border border-[#DFD5C5] shadow-sm space-y-3">
+      <div className="bg-white p-3.5 rounded border border-[#D6D3CD] space-y-3">
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <label htmlFor="buscador-actividades" className="sr-only">
@@ -146,7 +146,7 @@ export default function ActivityList() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre, pueblo, comercio..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5C9B4] bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#3D5A3C]"
+              className="w-full px-3.5 py-2 rounded border border-[#C9C4BA] bg-white text-sm font-medium focus:outline-none focus:border-[#16324F]"
             />
           </div>
 
@@ -158,7 +158,7 @@ export default function ActivityList() {
               id="filtro-categoria"
               value={categoriaActiva}
               onChange={(e) => setCategoriaActiva(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-[#D5C9B4] bg-white text-xs sm:text-sm font-bold text-[#16324F] focus:outline-none focus:ring-2 focus:ring-[#3D5A3C]"
+              className="px-3 py-2 rounded border border-[#C9C4BA] bg-white text-xs sm:text-sm font-bold text-[#16324F] focus:outline-none focus:border-[#16324F]"
             >
               {CATEGORIAS_OPCIONES.map((cat) => (
                 <option key={cat} value={cat}>
@@ -171,10 +171,10 @@ export default function ActivityList() {
               type="button"
               aria-pressed={soloGratis}
               onClick={() => setSoloGratis((prev) => !prev)}
-              className={`px-3 py-2.5 rounded-xl text-xs sm:text-sm font-black border transition shrink-0 ${
+              className={`px-3 py-2 rounded text-xs sm:text-sm font-bold border transition shrink-0 ${
                 soloGratis
                   ? "bg-[#3D5A3C] text-white border-[#3D5A3C]"
-                  : "bg-[#F5EFE4] hover:bg-[#EAE1CE] text-[#2F5233] border-[#C9D3C0]"
+                  : "bg-[#F4F3EF] hover:bg-[#E8E5DD] text-[#2F5233] border-[#C9C4BA]"
               }`}
             >
               Solo gratis
@@ -185,7 +185,7 @@ export default function ActivityList() {
         <div
           role="tablist"
           aria-label="Filtrar actividades por estado"
-          className="flex flex-wrap items-center gap-2"
+          className="flex flex-wrap items-center gap-4 border-t border-[#E5E2DC] pt-2.5"
         >
           {FILTROS_ESTADO.map((f) => {
             const activo = filtroEstado === f.id;
@@ -198,16 +198,16 @@ export default function ActivityList() {
                 aria-selected={activo}
                 aria-controls="panel-actividades"
                 onClick={() => setFiltroEstado(f.id)}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black transition ${
+                className={`inline-flex items-center gap-1.5 pb-1.5 text-xs sm:text-sm font-bold border-b-2 transition ${
                   activo
-                    ? "bg-[#3D5A3C] text-white shadow-sm"
-                    : "bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F]"
+                    ? "border-[#3D5A3C] text-[#16324F]"
+                    : "border-transparent text-[#5E564D] hover:text-[#16324F]"
                 }`}
               >
                 <span>{f.label}</span>
                 <span
-                  className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
-                    activo ? "bg-white/20 text-white" : "bg-white text-[#16324F]"
+                  className={`text-[11px] font-bold px-1.5 py-0.5 rounded-sm ${
+                    activo ? "bg-[#3D5A3C] text-white" : "bg-[#EAE8E1] text-[#16324F]"
                   }`}
                 >
                   {conteos[f.id]}
@@ -224,7 +224,7 @@ export default function ActivityList() {
         aria-labelledby={`tab-estado-${filtroEstado}`}
       >
         {lista.length === 0 ? (
-          <div className="bg-white p-8 rounded-3xl text-center border border-slate-200 shadow-sm space-y-3">
+          <div className="bg-white p-8 rounded text-center border border-[#D6D3CD] space-y-3">
             <p className="text-lg font-bold">
               {hayFiltrosExtra
                 ? "No hay actividades que coincidan con tus filtros."
@@ -240,7 +240,7 @@ export default function ActivityList() {
                 <button
                   type="button"
                   onClick={limpiarFiltros}
-                  className="bg-[#D96B27] hover:bg-[#C2591A] text-white font-black px-4 py-2 rounded-xl text-sm"
+                  className="bg-[#C85A17] hover:bg-[#AD4B10] text-white font-bold px-4 py-2 rounded text-sm"
                 >
                   Limpiar filtros
                 </button>
@@ -249,7 +249,7 @@ export default function ActivityList() {
                 <button
                   type="button"
                   onClick={() => setPuebloActivo("Todos")}
-                  className="bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F] font-black px-4 py-2 rounded-xl text-sm"
+                  className="bg-[#F4F3EF] hover:bg-[#E8E5DD] text-[#16324F] border border-[#D6D3CD] font-bold px-4 py-2 rounded text-sm"
                 >
                   Ver toda la comarca
                 </button>

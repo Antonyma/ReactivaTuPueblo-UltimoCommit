@@ -1,62 +1,77 @@
-/* PALETA RURAL E INSTITUCIONAL (Verdes, Tierra, Granate, Azul Marino y Naranja/Ocre) */
+/* IDENTIDAD EDITORIAL RURAL E INSTITUCIONAL */
 html,
 body {
   overflow-x: hidden;
 }
 
 body {
-  background-color: #F6F1E7;
+  background-color: #F4F4F1;
   color: #16324F;
-  font-size: 18px;
-  line-height: 1.6;
+  font-family: "Source Sans 3", system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
   margin: 0;
 }
 
 @media (min-width: 640px) {
   body {
-    font-size: 20px;
-    line-height: 1.65;
+    font-size: 18px;
+    line-height: 1.6;
   }
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Bitter", Georgia, serif;
+  letter-spacing: -0.015em;
 }
 
 header,
 #nav-inferior-movil {
   background-color: #16324F !important;
   color: #FFFFFF !important;
+  border-bottom: 3px solid #3D5A3C;
+}
+
+#nav-inferior-movil {
+  border-bottom: 0;
+  border-top: 2px solid #3D5A3C;
 }
 
 .tarjeta-plan,
 .caja-panel {
-  background-color: #FFFDF9 !important;
-  border: 1.5px solid #DFD5C5 !important;
-  box-shadow: 0 2px 10px rgba(72, 54, 34, 0.06) !important;
+  background-color: #FFFFFF !important;
+  border: 1px solid #D6D3CD !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
 }
 
 .tarjeta-plan:hover {
-  border-color: #5C7A4B !important;
-  box-shadow: 0 8px 20px rgba(61, 90, 60, 0.12) !important;
+  border-color: #16324F !important;
+  box-shadow: 0 4px 14px rgba(22, 50, 79, 0.08) !important;
 }
 
 button[data-action="apuntar"] {
-  background-color: #D96B27 !important;
+  background-color: #C85A17 !important;
   color: #FFFFFF !important;
 }
 
 button[data-action="apuntar"]:hover {
-  background-color: #C2591A !important;
+  background-color: #AD4B10 !important;
 }
 
 .text-orange-700 {
-  color: #B45309 !important;
+  color: #9A410E !important;
 }
 
 .text-stone-500 {
-  color: #6E5A47 !important;
+  color: #5E564D !important;
 }
 
 .text-stone-600,
 .text-stone-700 {
-  color: #2D3F50 !important;
+  color: #2C3E50 !important;
 }
 
 /* MODO LETRA GRANDE ACTIVADO */
@@ -93,9 +108,10 @@ input {
 #mapa-comarca {
   height: 260px;
   width: 100%;
-  border-radius: 1.25rem;
+  border-radius: 4px;
+  border: 1px solid #D6D3CD;
   z-index: 1;
-  background-color: #E7E5E4;
+  background-color: #EAE9E4;
 }
 
 @media (min-width: 640px) {

@@ -39,20 +39,22 @@ export default function TownFilter() {
     <section
       id="seccion-filtros"
       aria-label="Filtro por municipio"
-      className="caja-panel bg-white p-4 rounded-3xl shadow-sm space-y-3"
+      className="caja-panel bg-white p-3.5 sm:p-4 rounded space-y-3"
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm font-black">1. Elige tu pueblo:</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap border-b border-[#E5E2DC] pb-2">
+        <p className="text-xs font-extrabold uppercase tracking-wider text-[#5E564D]">
+          Municipios
+        </p>
         <button
           type="button"
           onClick={() => setMostrarTodos((prev) => !prev)}
           aria-expanded={mostrarTodos}
-          className="text-xs font-extrabold text-[#B45309] hover:text-[#92400E] underline underline-offset-2"
+          className="text-xs font-bold text-[#9A410E] hover:text-[#7C2D12] underline underline-offset-2"
         >
           {mostrarTodos ? "Ver menos pueblos" : `Ver los ${pueblosExtra.length + 4} pueblos`}
         </button>
       </div>
-      <div className="flex flex-wrap gap-2" id="grupo-pueblos" role="group" aria-label="Municipios">
+      <div className="flex flex-wrap gap-1.5" id="grupo-pueblos" role="group" aria-label="Municipios">
         {listaVisible.map((p) => {
           const isActive = puebloActivo === p.id;
           return (
@@ -61,10 +63,10 @@ export default function TownFilter() {
               type="button"
               aria-pressed={isActive}
               onClick={() => setPuebloActivo(p.id)}
-              className={`btn-pueblo px-4 py-2.5 rounded-2xl text-sm font-bold transition ${
+              className={`btn-pueblo px-3.5 py-2 rounded text-sm font-bold border transition ${
                 isActive
-                  ? "bg-[#3D5A3C] text-white shadow-sm"
-                  : "bg-[#EFE7D8] hover:bg-[#E4D8C1] text-[#16324F]"
+                  ? "bg-[#3D5A3C] text-white border-[#3D5A3C]"
+                  : "bg-[#F4F3EF] hover:bg-[#E8E5DD] text-[#16324F] border-[#D6D3CD]"
               }`}
             >
               {p.nombre}

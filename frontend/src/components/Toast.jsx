@@ -10,7 +10,7 @@ export default function Toast() {
   return (
     <div
       id="toast-alerta"
-      className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md bg-[#16324F] text-white p-4 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center gap-3"
+      className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md bg-[#16324F] text-white p-3.5 rounded shadow-xl border-l-4 border-amber-400 flex items-center gap-3"
       role="status"
       aria-live="polite"
     >

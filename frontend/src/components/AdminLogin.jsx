@@ -28,12 +28,12 @@ export default function AdminLogin() {
       id="vista-login-administrador"
       className="max-w-md mx-auto py-8 sm:py-12 px-2"
     >
-      <div className="caja-panel bg-white text-stone-900 rounded-3xl shadow-xl border-2 border-[#7F1D1D] overflow-hidden">
-        <div className="bg-[#7F1D1D] text-white p-6 space-y-2">
-          <span className="bg-amber-400 text-stone-950 text-xs font-black uppercase px-3 py-1 rounded-full inline-block">
+      <div className="caja-panel bg-white text-stone-900 rounded shadow-md border border-[#7F1D1D] overflow-hidden">
+        <div className="bg-[#7F1D1D] text-white p-5 space-y-1.5 border-b-2 border-amber-400">
+          <span className="bg-amber-400 text-stone-950 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-sm inline-block">
             Acceso Exclusivo · Administradores
           </span>
-          <h1 className="text-2xl font-black flex items-center gap-2 pt-1">
+          <h1 className="text-2xl font-bold flex items-center gap-2 pt-1">
             <IconShield className="w-6 h-6 text-amber-400 shrink-0" />
             <span>Panel de Administración</span>
           </h1>
@@ -95,7 +95,7 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={enviando}
-              className="w-full bg-[#7F1D1D] hover:bg-[#991B1B] disabled:opacity-60 text-white font-black py-3 rounded-2xl shadow"
+              className="w-full bg-[#7F1D1D] hover:bg-[#991B1B] disabled:opacity-60 text-white font-bold py-2.5 rounded"
             >
               {enviando ? "Verificando..." : "Entrar como Administrador"}
             </button>
@@ -104,7 +104,7 @@ export default function AdminLogin() {
           <button
             type="button"
             onClick={() => navegarA("/")}
-            className="w-full inline-flex items-center justify-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-2.5 rounded-2xl text-sm"
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#F4F3EF] hover:bg-[#E8E5DD] text-stone-800 border border-[#D6D3CD] font-bold py-2 rounded text-sm"
           >
             <IconArrowLeft className="w-4 h-4" />
             <span>Volver a la web pública</span>

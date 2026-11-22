@@ -8,7 +8,7 @@ export default function BaseModal({
   subtitle = null,
   icon = null,
   maxWidthClass = "max-w-lg",
-  containerClassName = "bg-white rounded-3xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto",
+  containerClassName = "bg-white rounded border border-[#D6D3CD] w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto",
   closeLabel = "Cerrar ventana",
   children,
 }) {

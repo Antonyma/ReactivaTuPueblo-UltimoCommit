@@ -36,23 +36,23 @@ export default function Navbar() {
   };
 
   return (
-    <header className="text-white sticky top-0 z-40 shadow-md">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+    <header className="text-white sticky top-0 z-40">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#3D5A3C] border border-white/20 flex items-center justify-center shrink-0">
-            <IconMountain className="w-6 h-6 text-amber-300" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded bg-[#3D5A3C] border border-white/25 flex items-center justify-center shrink-0">
+            <IconMountain className="w-5 h-5 text-amber-300" />
           </div>
           <div className="min-w-0">
-            <span className="font-black text-lg sm:text-xl block leading-none truncate">
+            <span className="font-serif font-extrabold text-xl sm:text-2xl block leading-none tracking-tight truncate">
               PuebloVivo
             </span>
           </div>
         </div>
 
         {/* Controles escritorio */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2.5">
           <div
-            className="flex items-center gap-1.5 bg-black/30 p-1.5 rounded-2xl border border-white/25"
+            className="flex items-center gap-1 bg-black/25 p-1 rounded border border-white/20"
             role="group"
             aria-label="Tamaño de letra"
           >
@@ -60,33 +60,33 @@ export default function Navbar() {
               type="button"
               aria-pressed={!letraGrande}
               onClick={() => setLetraGrande(false)}
-              className={`btn-letra inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${
+              className={`btn-letra inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs ${
                 !letraGrande
                   ? "bg-amber-400 text-stone-950 font-black"
-                  : "text-white hover:bg-white/15 font-bold"
+                  : "text-white hover:bg-white/15 font-semibold"
               }`}
             >
               <IconTextSize className="w-4 h-4" />
-              <span>Letra Normal</span>
+              <span>Normal</span>
             </button>
             <button
               type="button"
               aria-pressed={letraGrande}
               onClick={() => setLetraGrande(true)}
-              className={`btn-letra inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${
+              className={`btn-letra inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs ${
                 letraGrande
                   ? "bg-amber-400 text-stone-950 font-black"
-                  : "text-white hover:bg-white/15 font-bold"
+                  : "text-white hover:bg-white/15 font-semibold"
               }`}
             >
-              <IconTextSize className="w-5 h-5" />
-              <span>Letra Grande</span>
+              <IconTextSize className="w-4 h-4" />
+              <span>Grande</span>
             </button>
           </div>
 
           <span
             id="badge-rol-actual"
-            className="bg-black/30 border border-white/25 px-3 py-2 rounded-xl text-xs font-bold max-w-[180px] truncate"
+            className="bg-white/10 border border-white/20 px-2.5 py-1.5 rounded text-xs font-semibold max-w-[180px] truncate"
           >
             {rolTexto}
           </span>
@@ -96,7 +96,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navegarA("/")}
-                className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-4 py-2.5 rounded-xl text-sm shrink-0"
+                className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-3.5 py-2 rounded text-sm shrink-0"
               >
                 <IconArrowLeft className="w-4 h-4" />
                 <span>Web pública</span>
@@ -105,7 +105,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={cerrarSesion}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                  className="inline-flex items-center gap-2 bg-[#7F1D1D] hover:bg-[#991B1B] text-white font-bold px-3.5 py-2 rounded text-sm shrink-0"
                 >
                   <span>Cerrar sesión</span>
                 </button>
@@ -117,7 +117,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => navegarA("/admin")}
-                  className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                  className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-3.5 py-2 rounded text-sm shrink-0"
                 >
                   <span>Panel Admin</span>
                 </button>
@@ -126,7 +126,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={cerrarSesion}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                  className="inline-flex items-center gap-2 bg-[#7F1D1D] hover:bg-[#991B1B] text-white font-bold px-3.5 py-2 rounded text-sm shrink-0"
                 >
                   <IconArrowLeft className="w-4 h-4" />
                   <span>Cerrar sesión</span>
@@ -135,7 +135,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={abrirCuenta}
-                  className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-4 py-2.5 rounded-xl text-sm shadow shrink-0"
+                  className="inline-flex items-center gap-2 bg-[#C85A17] hover:bg-[#AD4B10] text-white font-bold px-4 py-2 rounded text-sm shrink-0"
                 >
                   <IconUser className="w-4 h-4" />
                   <span>Entrar / Perfil</span>
@@ -151,7 +151,7 @@ export default function Navbar() {
           onClick={() => setMenuAbierto((prev) => !prev)}
           aria-expanded={menuAbierto}
           aria-label={menuAbierto ? "Cerrar menú" : "Abrir menú"}
-          className="md:hidden inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-3.5 py-2.5 rounded-xl text-sm shadow shrink-0"
+          className="md:hidden inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black px-3 py-2 rounded text-sm shrink-0"
         >
           {menuAbierto ? (
             <IconClose className="w-5 h-5" />
