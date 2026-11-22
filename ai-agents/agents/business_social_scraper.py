@@ -15,7 +15,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from zoneinfo import ZoneInfo
 
 import requests
@@ -72,7 +72,7 @@ class EventoDetectado(BaseModel):
     fechaInicio: str = Field(..., description="ISO 8601 YYYY-MM-DDTHH:MM:SS+01:00 o YYYY-MM-DD")
     fechaFin: Optional[str] = Field(default=None)
     dePago: bool = Field(default=False)
-    aforo: int = Field(default=40, ge=1, le=5000)
+    aforo: int = Field(default=40, ge=0, le=5000)
     imagen: str = Field(default="")
     urlPost: str = Field(default="")
     redSocial: str = Field(default="Web")
@@ -208,6 +208,34 @@ def _descargar_html(url: str, timeout: float = 12.0) -> str:
     return ""
 
 
+def _es_muro_de_login(texto: str) -> bool:
+    """Detecta pantallas de login / captcha / contenido no disponible.
+
+    Instagram y Facebook devuelven una página de login cuando no hay sesión. Antes
+    se enviaba ese texto a la IA como si fuera contenido del negocio, por lo que
+    nunca se encontraban eventos.
+    """
+    t = str(texto or "")[:5000].lower()
+    marcadores = (
+        "accounts/login",
+        "login/?next",
+        "log into facebook",
+        "logged in on your phone",
+        "scan the qr code",
+        "see everyday moments from your close friends",
+        "inicia sesion",
+        "iniciar sesion",
+        "contenido no disponible",
+        "this content isn't available",
+        "this page isn't available",
+        "performing security verification",
+        "just a moment...",
+        "please complete the following challenge",
+        "complete the following challenge",
+    )
+    return any(m in t for m in marcadores)
+
+
 def _leer_con_jina(url: str, max_chars: int = 7000) -> str:
     try:
         jina_url = f"https://r.jina.ai/{url}"
@@ -215,11 +243,16 @@ def _leer_con_jina(url: str, max_chars: int = 7000) -> str:
             jina_url,
             headers={"User-Agent": HEADERS["User-Agent"], "Accept": "text/plain"},
             allow_redirects=True,
-            timeout=15.0,
+            timeout=20.0,
         )
         if r.status_code == 200 and r.text:
             texto = r.text.strip()
-            if len(texto) > 120 and "log in" not in texto[:250].lower():
+            if _es_muro_de_login(texto):
+                return ""
+            # Jina añade una cabecera (Title/URL Source/Markdown Content). Medimos
+            # el contenido real para no aceptar páginas vacías.
+            cuerpo = texto.split("Markdown Content:", 1)[-1].strip()
+            if len(cuerpo) > 120:
                 return texto[:max_chars]
     except Exception as exc:
         log.debug("Jina Reader falló para %s: %s", url, exc)
@@ -282,8 +315,15 @@ def _limpiar_html(html: str, base_url: str, max_chars: int = 7500) -> tuple[str,
     return "\n\n".join(partes).strip()[:max_chars], subenlaces, og_image
 
 
+_AVISO_DDGS_MOSTRADO = False
+
+
 def _buscar_ddg(queries: list[str], max_results: int = 5) -> list[dict[str, str]]:
+    global _AVISO_DDGS_MOSTRADO
     if DDGS is None:
+        if not _AVISO_DDGS_MOSTRADO:
+            log.warning("ddgs no está instalado; se usará el fallback vía Jina Reader.")
+            _AVISO_DDGS_MOSTRADO = True
         return []
     resultados: list[dict[str, str]] = []
     vistos: set[str] = set()
@@ -308,19 +348,106 @@ def _buscar_ddg(queries: list[str], max_results: int = 5) -> list[dict[str, str]
     return resultados
 
 
-def _buscar_posts_red(queries: list[str], limite: int = MAX_POSTS_POR_RED) -> list[dict[str, str]]:
-    """Devuelve como máximo `limite` publicaciones únicas (sin repetir URL ni texto)."""
+def _resolver_enlace_ddg(url: str) -> str:
+    """Resuelve los enlaces de redirección de DuckDuckGo (uddg=...)."""
+    raw = str(url or "").strip()
+    if "uddg=" in raw:
+        try:
+            qs = parse_qs(urlparse(raw).query)
+            destino = (qs.get("uddg") or [""])[0]
+            if destino:
+                return normalizar_url(unquote(destino))
+        except Exception:
+            pass
+    return normalizar_url(raw)
+
+
+def _buscar_ddg_via_jina(
+    queries: list[str], max_results: int = 5
+) -> list[dict[str, str]]:
+    """Fallback de búsqueda usando Jina Reader sobre la versión HTML de DuckDuckGo.
+
+    En servidores (Render, etc.) la librería `ddgs` a veces recibe bloqueos. Jina
+    lee la página desde otra IP y devuelve los resultados en Markdown.
+    """
+    resultados: list[dict[str, str]] = []
+    vistos: set[str] = set()
+    for q in queries:
+        target = "https://html.duckduckgo.com/html/?q=" + quote_plus(q)
+        try:
+            r = requests.get(
+                f"https://r.jina.ai/{target}",
+                headers={"User-Agent": HEADERS["User-Agent"], "Accept": "text/plain"},
+                timeout=25.0,
+            )
+            if r.status_code != 200 or not r.text or _es_muro_de_login(r.text):
+                continue
+            # Jina devuelve Markdown. Buscamos enlaces en varios formatos:
+            # - ## [Título](URL)  (headers)
+            # - * [Título](URL)   (lista)
+            # - [Título](URL)     (en línea)
+            for linea in r.text.splitlines():
+                # Patrón flexible para enlaces markdown
+                m = re.search(r"\[([^\]]+)\]\((https?://[^)]+)\)", linea)
+                if not m:
+                    continue
+                titulo = m.group(1).strip()
+                url_raw = m.group(2)
+                # Saltar enlaces de navegación de DDG (All, Images, Videos, News, etc.)
+                if titulo.lower() in ("all", "images", "videos", "news", "maps", "shopping", "search assist", "ask duck.ai"):
+                    continue
+                url_real = _resolver_enlace_ddg(url_raw)
+                if not url_real or url_real in vistos:
+                    continue
+                # Solo aceptamos URLs del dominio objetivo (instagram.com, facebook.com, etc.)
+                # No enlaces de duckduckgo.com u otros buscadores
+                parsed = urlparse(url_real)
+                if "duckduckgo.com" in parsed.netloc:
+                    continue
+                # Extraer resumen del resto de la línea
+                resto = linea[m.end():]
+                resto = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", resto)
+                resto = re.sub(r"\[[^\]]*\]\([^)]*\)", " ", resto)
+                resumen = re.sub(r"\s+", " ", resto).strip()
+                vistos.add(url_real)
+                resultados.append({
+                    "url": url_real,
+                    "titulo": titulo,
+                    "resumen": resumen,
+                })
+                if len(resultados) >= max_results:
+                    return resultados
+        except Exception as exc:
+            log.debug("Fallback Jina/DDG falló para '%s': %s", q, exc)
+    return resultados
+
+
+def _buscar_posts_red(
+    queries: list[str],
+    url_perfil: str = "",
+    limite: int = MAX_POSTS_POR_RED,
+) -> list[dict[str, str]]:
+    """Devuelve como máximo `limite` publicaciones únicas (sin repetir URL ni texto).
+
+    Se descartan la URL del perfil y enlaces genéricos: solo cuentan publicaciones
+    concretas. Si DuckDuckGo no responde, se intenta el fallback vía Jina.
+    """
     if not queries or limite <= 0:
         return []
     posts: list[dict[str, str]] = []
     urls_vistas: set[str] = set()
     textos_vistos: set[str] = set()
     # Pedimos de más por si DDG devuelve repetidos entre consultas.
-    for r in _buscar_ddg(queries, max_results=max(limite * 3, limite)):
+    candidatos = _buscar_ddg(queries, max_results=max(limite * 3, limite))
+    if not candidatos:
+        candidatos = _buscar_ddg_via_jina(queries, max_results=max(limite * 3, limite))
+    for r in candidatos:
         url_post = normalizar_url(r.get("url", ""))
-        texto_post = normalizar_texto(f"{r.get('titulo', '')} {r.get('resumen', '')}")
         if not url_post or url_post in urls_vistas:
             continue
+        if url_perfil and not es_url_post_real(url_post, url_perfil):
+            continue
+        texto_post = normalizar_texto(f"{r.get('titulo', '')} {r.get('resumen', '')}")
         if texto_post and texto_post in textos_vistos:
             continue
         urls_vistas.add(url_post)
@@ -330,6 +457,215 @@ def _buscar_posts_red(queries: list[str], limite: int = MAX_POSTS_POR_RED) -> li
         if len(posts) >= limite:
             break
     return posts
+
+
+def _instagram_posts_publicos(
+    url_perfil: str, limite: int = MAX_POSTS_POR_RED
+) -> list[dict[str, str]]:
+    """Últimas publicaciones de Instagram usando el endpoint público del perfil.
+
+    No requiere login. Si Instagram limita la IP (HTTP 429), devuelve [] y se
+    probará la búsqueda indexada como respaldo.
+    """
+    usuario = extraer_handle_rrss(url_perfil, "Instagram")
+    if not usuario:
+        return []
+    try:
+        r = requests.get(
+            "https://www.instagram.com/api/v1/users/web_profile_info/",
+            params={"username": usuario},
+            headers={
+                **HEADERS,
+                "x-ig-app-id": "936619743392459",
+                "x-requested-with": "XMLHttpRequest",
+                "Accept": "*/*",
+                "Referer": f"https://www.instagram.com/{usuario}/",
+            },
+            timeout=15.0,
+        )
+        if r.status_code != 200 or not r.text:
+            log.debug("Instagram API devolvió HTTP %s para @%s", r.status_code, usuario)
+            return []
+        data = r.json()
+        user = (data.get("data") or {}).get("user") or {}
+        edges = ((user.get("edge_owner_to_timeline_media") or {}).get("edges")) or []
+        posts: list[dict[str, str]] = []
+        for edge in edges:
+            nodo = edge.get("node") or {}
+            shortcode = str(nodo.get("shortcode") or "").strip()
+            if not shortcode:
+                continue
+            caption = ""
+            caps = ((nodo.get("edge_media_to_caption") or {}).get("edges")) or []
+            if caps:
+                caption = str(((caps[0] or {}).get("node") or {}).get("text") or "").strip()
+            ts = nodo.get("taken_at_timestamp")
+            fecha = ""
+            if ts:
+                try:
+                    fecha = datetime.fromtimestamp(int(ts), tz=ZONA_MADRID).strftime("%Y-%m-%d")
+                except (ValueError, OSError):
+                    fecha = ""
+            primera = _primera_linea_significativa(caption)
+            posts.append({
+                "url": f"https://www.instagram.com/p/{shortcode}/",
+                "titulo": (primera or f"Publicación de Instagram {fecha}")[:140],
+                "resumen": caption[:1500],
+                "fecha": fecha,
+                "imagen": str(nodo.get("display_url") or ""),
+            })
+            if len(posts) >= limite:
+                break
+        return posts
+    except Exception as exc:
+        log.debug("Instagram API no disponible para @%s: %s", usuario, exc)
+        return []
+
+
+def _instagram_posts_via_jina(url_perfil: str, limite: int = MAX_POSTS_POR_RED) -> list[dict[str, str]]:
+    """Fallback: usa Jina Reader para leer los posts indexados de Instagram.
+
+    Cuando la API pública falla (rate limit), Jina puede leer la versión HTML
+    de los resultados de búsqueda o páginas de posts concretos.
+    """
+    usuario = extraer_handle_rrss(url_perfil, "Instagram")
+    if not usuario:
+        return []
+    posts: list[dict[str, str]] = []
+    urls_vistas: set[str] = set()
+    # Buscamos en DuckDuckGo vía Jina para obtener URLs de posts concretos
+    queries = [
+        f'site:instagram.com/p/ "{usuario}"',
+        f'site:instagram.com/reel/ "{usuario}"',
+    ]
+    candidatos = _buscar_ddg_via_jina(queries, max_results=limite * 2)
+    for r in candidatos:
+        url_post = normalizar_url(r.get("url", ""))
+        if not url_post or url_post in urls_vistas:
+            continue
+        if not es_url_post_real(url_post, url_perfil):
+            continue
+        urls_vistas.add(url_post)
+        # Leemos el post individual con Jina para obtener el contenido completo
+        jina = _leer_con_jina(url_post, max_chars=5000)
+        if not jina or _es_muro_de_login(jina):
+            # Si Jina falla, usamos lo que trajo el buscador
+            posts.append({
+                "url": url_post,
+                "titulo": _primera_linea_significativa(r.get("titulo", "")) or f"Post Instagram {usuario}",
+                "resumen": r.get("resumen", ""),
+                "fecha": "",
+                "imagen": "",
+            })
+        else:
+            # Extraer primera línea significativa del contenido Jina
+            cuerpo = jina.split("Markdown Content:", 1)[-1].strip()
+            primera = _primera_linea_significativa(cuerpo)
+            posts.append({
+                "url": url_post,
+                "titulo": (primera or r.get("titulo") or f"Post Instagram {usuario}")[:140],
+                "resumen": cuerpo[:1500],
+                "fecha": "",
+                "imagen": "",
+            })
+        if len(posts) >= limite:
+            break
+    return posts
+
+
+def _es_linea_solo_tags(l: str) -> bool:
+    """True si la línea solo contiene hashtags, menciones, emojis y espacios."""
+    tokens = l.strip().split()
+    if not tokens:
+        return True
+    for t in tokens:
+        # Si el token empieza por # o @, es tag/mención
+        if t.startswith("#") or t.startswith("@"):
+            continue
+        # Si es solo emojis (rango Unicode amplio)
+        if re.match(r"^[\U0001F300-\U0001FAFF]+$", t):
+            continue
+        # Si tiene letras/números reales, NO es línea de solo tags
+        if re.search(r"[A-Za-z0-9]", t):
+            return False
+    return True
+
+
+def _primera_linea_significativa(texto: str) -> str:
+    """Devuelve la primera línea que no sea solo hashtags/emojis ni vacía."""
+    for l in (texto or "").splitlines():
+        l = l.strip()
+        if not l:
+            continue
+        if _es_linea_solo_tags(l):
+            continue
+        return l
+    return ""
+
+
+def _posts_plugin_facebook(
+    url_perfil: str, limite: int = MAX_POSTS_POR_RED
+) -> list[dict[str, str]]:
+    """Últimas publicaciones de una página de Facebook con el plugin público.
+
+    El plugin oficial de página devuelve un JSON con `timelinePosts` (mensaje,
+    fecha y foto) sin necesidad de login ni API key. Es mucho más fiable que
+    intentar descargar facebook.com, que responde con un muro de login.
+    """
+    try:
+        r = requests.get(
+            "https://www.facebook.com/plugins/page.php",
+            params={
+                "href": url_perfil,
+                "tabs": "timeline",
+                "width": 500,
+                "height": 1200,
+                "small_header": "true",
+                "adapt_container_width": "true",
+                "hide_cover": "false",
+                "show_facepile": "false",
+            },
+            headers=HEADERS,
+            timeout=15.0,
+        )
+        if r.status_code != 200 or "timelinePosts" not in r.text:
+            log.debug("Plugin de Facebook sin timelinePosts (HTTP %s)", r.status_code)
+            return []
+        m = re.search(r'"timelinePosts"\s*:\s*', r.text)
+        if not m:
+            return []
+        arr, _ = json.JSONDecoder().raw_decode(r.text[m.end():])
+        if not isinstance(arr, list):
+            return []
+        posts: list[dict[str, str]] = []
+        for item in arr:
+            if not isinstance(item, dict):
+                continue
+            mensaje = str(item.get("message") or "").strip()
+            if not mensaje:
+                continue
+            ts = item.get("createdTime")
+            fecha = ""
+            if ts:
+                try:
+                    fecha = datetime.fromtimestamp(int(ts), tz=ZONA_MADRID).strftime("%Y-%m-%d")
+                except (ValueError, OSError):
+                    fecha = ""
+            primera = _primera_linea_significativa(mensaje)
+            digest = hashlib.sha256(f"{ts}|{mensaje[:120]}".encode("utf-8")).hexdigest()[:12]
+            posts.append({
+                # URL sintética única por publicación: el plugin no expone el permalink.
+                "url": f"social://facebook/{digest}",
+                "titulo": (primera or f"Publicación de Facebook {fecha}")[:140],
+                "resumen": mensaje[:1500],
+                "fecha": fecha,
+                "imagen": str(item.get("photoURL") or ""),
+            })
+        posts.sort(key=lambda p: p.get("fecha") or "", reverse=True)
+        return posts[:max(1, limite)]
+    except Exception as exc:
+        log.debug("Plugin de Facebook no disponible: %s", exc)
+        return []
 
 
 def recolectar_contenido_fuente(
@@ -364,14 +700,29 @@ def recolectar_contenido_fuente(
             "Twitter/X": "x.com",
         }.get(red_social, "")
 
-        queries: list[str] = []
-        if dominio and handle:
-            queries.append(f'site:{dominio} "{handle}" (oferta OR evento OR promocion OR taller OR concierto OR menu OR actividad)')
-            queries.append(f'site:{dominio}/{handle}')
-        elif dominio and nombre_negocio:
-            queries.append(f'site:{dominio} "{nombre_negocio}" "{pueblo}"')
+        # 1) Fuentes directas y fiables (sin login):
+        #    - Facebook: plugin público de página (JSON con los últimos posts).
+        #    - Instagram: endpoint público del perfil (si no limita la IP).
+        if red_social == "Facebook":
+            posts = _posts_plugin_facebook(url_norm, MAX_POSTS_POR_RED)
+        elif red_social == "Instagram":
+            posts = _instagram_posts_publicos(url_norm, MAX_POSTS_POR_RED)
+            # Si la API falla (rate limit 429), NO usamos búsqueda indexada porque
+            # devuelve basura (páginas de redirect de DDG). Mejor omitir Instagram
+            # y confiar en Facebook/Web que sí funcionan.
 
-        posts = _buscar_posts_red(queries, limite=MAX_POSTS_POR_RED)
+        # 2) Búsqueda indexada como respaldo (DuckDuckGo o Jina si DDG está bloqueado).
+        #    Solo para Facebook (plugin ya cubierto) y Web.
+        if not posts and red_social != "Instagram":
+            queries: list[str] = []
+            if dominio and handle:
+                queries.append(f'site:{dominio} "{handle}" (oferta OR evento OR promocion OR taller OR concierto OR menu OR actividad)')
+                queries.append(f'site:{dominio}/{handle}')
+            if dominio and nombre_negocio:
+                queries.append(f'site:{dominio} "{nombre_negocio}" "{pueblo}"')
+            posts = _buscar_posts_red(
+                queries, url_perfil=url_norm, limite=MAX_POSTS_POR_RED
+            )
 
         # Metadatos del perfil (también aportan la imagen por defecto)
         html = _descargar_html(url_norm, timeout=10.0)
@@ -379,17 +730,25 @@ def recolectar_contenido_fuente(
         if html:
             txt_meta, _, og_image = _limpiar_html(html, url_norm, max_chars=3000)
 
+        # Si el perfil no tiene og:image, usar la foto de la primera publicación.
+        if not og_image:
+            for p in posts:
+                if p.get("imagen"):
+                    og_image = str(p["imagen"])
+                    break
+
+        if txt_meta and len(txt_meta) > 80 and not _es_muro_de_login(txt_meta):
+            bloques.append(f"=== PERFIL {red_social.upper()} ({url_norm}) ===\n{txt_meta}")
+
         if posts:
             for r in posts:
                 bloques.append(
-                    f"[POST INDEXADO {red_social}] URL: {r['url']}\n"
+                    f"[POST {red_social}] URL: {r['url']}\n"
+                    f"Publicado: {r.get('fecha') or 'desconocido'}\n"
                     f"Título: {r['titulo']}\nResumen: {r['resumen']}"
                 )
         else:
-            # Sin posts indexados: metadatos del perfil + Jina Reader como respaldo.
-            if txt_meta and len(txt_meta) > 80:
-                bloques.append(f"=== PERFIL {red_social.upper()} ({url_norm}) ===\n{txt_meta}")
-
+            # Sin publicaciones: Jina Reader como último respaldo (filtra muros de login).
             jina = _leer_con_jina(url_norm, max_chars=5500)
             if jina:
                 bloques.append(f"=== CONTENIDO PÚBLICO {red_social.upper()} ({url_norm}) ===\n{jina}")
@@ -629,6 +988,8 @@ def scrapear_redes_negocio(
         urls_vistos.add(url_post_final)
         huellas_vistas.add(huella)
 
+        # Aforo mínimo 1 (el LLM a veces devuelve 0)
+        aforo_final = ev.aforo if ev.aforo and ev.aforo >= 1 else 40
         eventos_nuevos.append({
             "nombre": ev.nombre.strip(),
             "descripcion": (ev.descripcion or f"Oferta/actividad detectada en {red_final} de {nombre}.").strip(),
@@ -636,7 +997,7 @@ def scrapear_redes_negocio(
             "fechaInicio": fecha_ini_iso,
             "fechaFin": fecha_fin_iso,
             "dePago": ev.dePago,
-            "aforo": ev.aforo,
+            "aforo": aforo_final,
             "imagen": ev.imagen.strip() or fuente_info.get("imagenDefecto", ""),
             "urlPost": url_post_final,
             "redSocial": red_final,
