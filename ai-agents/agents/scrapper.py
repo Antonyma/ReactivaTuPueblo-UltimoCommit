@@ -1063,13 +1063,15 @@ def extraer_de_textos(
 # 9. ADAPTADOR DE SALIDA PARA PUBLIC.EVENTO (POSTGRESQL / SUPABASE)
 # ==============================================================================
 # Adaptador de salida para public.evento (PostgreSQL / Supabase).
+# Alineado con comarca.js y EventoService.js:
+# 1=Turismo, 2=Fiesta Patronal, 3=Gastronomía, 4=Comercio, 5=Deportes, 6=Cultura
 MAPA_TIPO_EVENTO: dict[str, int] = {
-    "festivo_local": 1,
+    "festivo_local": 2,
     "fiesta_patronal": 2,
-    "evento_cultural": 3,
-    "evento_deportivo": 4,
-    "concierto_verbena": 5,
-    "mercado_feria": 6,
+    "evento_cultural": 6,
+    "evento_deportivo": 5,
+    "concierto_verbena": 2,
+    "mercado_feria": 4,
     "otro": 1,
 }
 
@@ -1099,7 +1101,15 @@ def _normalizar_timestamp_es(fecha_str: Optional[str], hora_str: Optional[str], 
     return dt.isoformat()
 
 
-def adaptar_a_esquema_bd(registros: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def adaptar_a_esquema_bd(
+    registros: list[dict[str, Any]],
+    negocio_id: int | None = None,
+) -> list[dict[str, Any]]:
+    if negocio_id is None:
+        raw_neg = os.getenv("SCRAPPER_NEGOCIO_ID", "").strip()
+        if raw_neg.isdigit():
+            negocio_id = int(raw_neg)
+
     filas_bd: list[dict[str, Any]] = []
     urls_usadas: set[str] = set()
 
@@ -1108,7 +1118,7 @@ def adaptar_a_esquema_bd(registros: list[dict[str, Any]]) -> list[dict[str, Any]
 
         ubicacion = (reg.get("ubicacion") or "").strip()
         desc = (reg.get("descripcion") or "").strip()
-        descripcion_final = f"Ubicación: {ubicacion}. {desc}".strip() if ubicacion else (desc or None)
+        descripcion_final = f"Ubicación: {ubicacion}. {desc}".strip() if ubicacion else desc
 
         fecha_ini = _normalizar_timestamp_es(reg.get("fecha_inicio"), reg.get("hora_inicio"), es_fin=False)
         fecha_fin = _normalizar_timestamp_es(reg.get("fecha_fin") or reg.get("fecha_inicio"), None, es_fin=True)
@@ -1123,26 +1133,59 @@ def adaptar_a_esquema_bd(registros: list[dict[str, Any]]) -> list[dict[str, Any]
         if url_unica:
             urls_usadas.add(url_unica)
 
+        origen = reg.get("origen", "web")
         filas_bd.append(
             {
                 "nombre": reg["titulo"].strip(),
-                "negocio": None,
+                "negocio": negocio_id,
                 "descripcion": descripcion_final,
                 "coordenadas": coords_default,
                 "dePago": False,
                 "asistentes": 0,
                 "aforo": 0,
                 "tipoEvento": MAPA_TIPO_EVENTO.get(reg.get("tipo", "otro"), 1),
-                "imagen": None,
+                "imagen": "",
                 "fechaInicio": fecha_ini,
                 "fechaFin": fecha_fin,
                 "url_post": url_unica,
                 "pueblo": reg.get("municipio_nombre"),
                 "estado": "pendiente",
-                "motivo": None,
+                "motivo": f"Extraído automáticamente por scraper ({origen}) · Pendiente de revisión",
             }
         )
     return filas_bd
+
+
+def subir_a_supabase(filas_bd: list[dict[str, Any]]) -> int:
+    """Inserta las filas en public.evento vía REST ignorando duplicados por url_post."""
+    if not filas_bd:
+        return 0
+    supa_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    supa_key = (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+        or os.getenv("SUPABASE_KEY", "").strip()
+    )
+    if not supa_url or not supa_key:
+        raise RuntimeError(
+            "Faltan SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (o SUPABASE_KEY) en el archivo .env"
+        )
+
+    headers = {
+        "apikey": supa_key,
+        "Authorization": f"Bearer {supa_key}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=ignore-duplicates,return=representation",
+    }
+    resp = httpx.post(
+        f"{supa_url}/rest/v1/evento?on_conflict=url_post",
+        headers=headers,
+        json=filas_bd,
+        timeout=30.0,
+    )
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Error Supabase HTTP {resp.status_code}: {resp.text[:300]}")
+    insertados = resp.json() if resp.text.strip() else []
+    return len(insertados) if isinstance(insertados, list) else 0
 
 # ==============================================================================
 # 10. PIPELINE
@@ -1256,7 +1299,11 @@ def procesar_municipio(
 
 
 def ejecutar_pipeline(
-    municipios: list[str] | None = None, usar_apify: bool = True, usar_scrapegraph: bool = SCRAPEGRAPH_ACTIVO
+    municipios: list[str] | None = None,
+    usar_apify: bool = True,
+    usar_scrapegraph: bool = SCRAPEGRAPH_ACTIVO,
+    subir_bd: bool = False,
+    negocio_id: int | None = None,
 ) -> Path:
     seleccion = {k: v for k, v in MUNICIPIOS.items() if not municipios or k in municipios}
     router_texto = ProductionLLMRouter()
@@ -1287,11 +1334,17 @@ def ejecutar_pipeline(
     (DIR_SALIDA / f"eventos_crudos_{ANIO_ACTUAL}.json").write_text(
         json.dumps(acumulado, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    filas_bd = adaptar_a_esquema_bd(acumulado, negocio_id=negocio_id)
     ruta_salida = Path(f"eventos_festivos_{ANIO_ACTUAL}.json")
     ruta_salida.write_text(
-        json.dumps(adaptar_a_esquema_bd(acumulado), ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(filas_bd, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(f"\nGuardado correctamente en {ruta_salida.resolve()} ({len(acumulado)} eventos)")
+    print(f"\nGuardado correctamente en {ruta_salida.resolve()} ({len(filas_bd)} eventos)")
+
+    if subir_bd and filas_bd:
+        insertados = subir_a_supabase(filas_bd)
+        print(f"[Supabase] Insertados {insertados} evento(s) nuevos en public.evento (duplicados omitidos).")
+
     return ruta_salida
 
 
@@ -1300,6 +1353,8 @@ def main() -> None:
     parser.add_argument("--municipios", help="Lista separada por comas: " + ",".join(MUNICIPIOS))
     parser.add_argument("--sin-apify", action="store_true", help="No usar Apify para Facebook")
     parser.add_argument("--sin-scrapegraph", action="store_true", help="No usar ScrapeGraphAI en la web del ayto")
+    parser.add_argument("--subir-supabase", action="store_true", help="Insertar los eventos extraídos en public.evento")
+    parser.add_argument("--negocio-id", type=int, default=None, help="ID de negocio a asociar en public.evento")
     args = parser.parse_args()
 
     municipios = [m.strip() for m in args.municipios.split(",")] if args.municipios else None
@@ -1307,6 +1362,8 @@ def main() -> None:
         municipios=municipios,
         usar_apify=not args.sin_apify,
         usar_scrapegraph=SCRAPEGRAPH_ACTIVO and not args.sin_scrapegraph,
+        subir_bd=args.subir_supabase,
+        negocio_id=args.negocio_id,
     )
 
 

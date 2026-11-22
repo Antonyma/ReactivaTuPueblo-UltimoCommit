@@ -37,3 +37,7 @@ services:
         value: dev_whatsapp_token
       - key: AI_AGENTS_URL
         sync: false
+      - key: N8N_NOTIFY_EVENT_CHANGE_URL
+        sync: false
+      - key: N8N_NOTIFY_BUSINESS_URL
+        sync: false
