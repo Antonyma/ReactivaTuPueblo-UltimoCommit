@@ -12,11 +12,46 @@ function normalizarTexto(texto) {
     .trim()
 }
 
+function normalizarUrlSocial(url) {
+  const s = String(url || '').trim()
+  if (!s) return ''
+  let out = s
+  if (out.startsWith('social://')) {
+    return out.replace(/\/+$/, '')
+  }
+  try {
+    // Normalización ligera alineada con business_social_scraper.normalizar_url
+    if (!/^https?:\/\//i.test(out)) {
+      out = `https://${out}`
+    }
+    const u = new URL(out)
+    let host = u.hostname.toLowerCase()
+    if (host.startsWith('www.')) host = host.slice(4)
+    const path = u.pathname.replace(/\/+$/, '')
+    const params = new URLSearchParams(u.search)
+    for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'igshid', 'igsh', 'ref', 's', 't', 'si']) {
+      params.delete(k)
+    }
+    const qs = params.toString()
+    const scheme = u.protocol.replace(':', '').toLowerCase() === 'http' && host && host !== 'localhost' && host !== '127.0.0.1' ? 'https' : u.protocol.replace(':', '').toLowerCase()
+    return `${scheme}://${host}${path}${qs ? `?${qs}` : ''}`
+  } catch {
+    return s.replace(/\/+$/, '').toLowerCase()
+  }
+}
+
 function construirHuella(negocioId, nombre, fechaInicio) {
-  const fecha = fechaInicio instanceof Date ? fechaInicio : new Date(fechaInicio)
-  const fechaDia = Number.isNaN(fecha.getTime())
-    ? String(fechaInicio || '').slice(0, 10)
-    : fecha.toISOString().slice(0, 10)
+  let fechaDia = ''
+  if (fechaInicio instanceof Date) {
+    // Usar fecha en Europe/Madrid para no desfasar un día por la conversión a UTC
+    try {
+      fechaDia = fechaInicio.toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' })
+    } catch {
+      fechaDia = fechaInicio.toISOString().slice(0, 10)
+    }
+  } else {
+    fechaDia = String(fechaInicio || '').slice(0, 10)
+  }
   return `${negocioId}|${normalizarTexto(nombre)}|${fechaDia}`
 }
 
@@ -219,7 +254,7 @@ export class SocialScraperService {
     const huellasExistentes = new Set()
 
     for (const ev of eventosPrevios) {
-      if (ev.urlPost) urlsExistentes.add(String(ev.urlPost).trim())
+      if (ev.urlPost) urlsExistentes.add(normalizarUrlSocial(ev.urlPost))
       huellasExistentes.add(construirHuella(negocio.id, ev.nombre, ev.fechaInicio))
     }
 
@@ -256,7 +291,7 @@ export class SocialScraperService {
     }
 
     for (const cand of candidatos) {
-      const urlPost = String(cand.urlPost || '').trim()
+      const urlPost = normalizarUrlSocial(cand.urlPost)
       const huella = construirHuella(negocio.id, cand.nombre, cand.fechaInicio)
 
       // Doble verificación en base de datos antes de insertar
